@@ -45,6 +45,46 @@
     </header>
 
     <div class="content">
+
+      <section id="electionPanel" class="election-panel hidden">
+        <div class="election-hero">
+          <div class="election-hero-copy">
+            <span class="eyebrow light">НАЦИОНАЛЬНЫЙ ИЗБИРАТЕЛЬНЫЙ ШТАБ</span>
+            <div class="election-kicker"><span id="electionRound">ПЕРВЫЕ ВЫБОРЫ</span><span id="electionDate">—</span></div>
+            <h2 id="electionTitle">Избирательная кампания</h2>
+            <p id="electionDescription">Вам предстоит получить поддержку избирателей и победить на национальных выборах.</p>
+            <div class="election-candidate"><div id="electionPortrait" class="election-portrait"></div><div><small>ВАШ КАНДИДАТ</small><b id="electionCandidate">—</b><span id="electionParty">—</span></div></div>
+          </div>
+          <div class="election-ballot" aria-hidden="true"><span>✓</span><b>ИЗБИРАТЕЛЬНЫЙ<br>БЮЛЛЕТЕНЬ</b><small>OFFICIAL VOTE</small></div>
+        </div>
+        <div class="election-grid">
+          <div class="election-panel-card election-polls">
+            <div class="election-card-head"><div><span class="eyebrow">ПРЕДВЫБОРНЫЕ ОПРОСЫ</span><h3>Поддержка кандидатов</h3></div><span class="panel-tag">ПРОГНОЗ</span></div>
+            <div class="poll-row"><div><span>Ваша партия</span><b id="candidateSupport">—</b></div><div class="poll-track"><i id="candidateSupportBar"></i></div></div>
+            <div class="poll-row opposition"><div><span>Главный оппонент</span><b id="oppositionSupport">—</b></div><div class="poll-track"><i id="oppositionSupportBar"></i></div></div>
+            <div class="election-meta-row"><span>Действия кампании</span><b id="campaignActionsRemaining">—</b></div>
+            <div class="election-meta-row"><span>Контроль ЦИК</span><b id="commissionControl">0 / 70</b></div>
+            <div id="electionConsequences" class="election-consequences">Победа даст мандат на управление страной. Поражение завершит кампанию.</div>
+          </div>
+          <div class="election-panel-card">
+            <div class="election-card-head"><div><span class="eyebrow">РАБОТА ШТАБА</span><h3>Предвыборные решения</h3></div><span class="panel-tag">4 ДЕЙСТВИЯ</span></div>
+            <div id="electionActions" class="election-actions">
+              <button type="button" data-election-action="rally"><b>Провести митинги</b><small>Региональные встречи и работа с избирателями · +4 п.п.</small></button>
+              <button type="button" data-election-action="debate"><b>Публичные дебаты</b><small>Убедить колеблющихся избирателей · +4 п.п.</small></button>
+              <button type="button" data-election-action="manifesto"><b>Опубликовать программу</b><small>Подробный план реформ · +3 п.п.</small></button>
+              <button type="button" data-election-action="coalition"><b>Создать коалицию</b><small>Договориться с союзными партиями · +5 п.п.</small></button>
+            </div>
+            <div class="election-corruption">
+              <div><b>Административный ресурс</b><small>Попытка подчинить Центральную избирательную комиссию. Это повысит коррупцию и снизит доверие.</small></div>
+              <button type="button" id="captureCommission" class="secondary-button">Подчинить ЦИК</button>
+            </div>
+            <button type="button" id="electionVote" class="election-vote" disabled>Перейти к голосованию <span>→</span></button>
+            <button type="button" id="establishDictatorship" class="dictatorship-button hidden">Установить диктатуру</button>
+          </div>
+        </div>
+        <div id="electionResult" class="election-result hidden"></div>
+      </section>
+      <div id="governmentView">
       <section class="country-banner" id="overview">
         <div class="banner-copy">
           <div class="eyebrow light" id="region">ЗАГРУЗКА ГОСУДАРСТВА</div>
@@ -132,6 +172,7 @@
         <div id="decreeHistory" class="decree-list"><div class="loading-row">Пока нет опубликованных указов.</div></div>
       </section>
       <footer class="app-footer">PRESIDENTIAL SIMULATOR <span>·</span> Состояние кампании автоматически сохраняется в Neon</footer>
+      </div>
     </div>
   </main>
 </div>
@@ -152,8 +193,10 @@
       </section>
       <section class="setup-profile-section">
         <div class="setup-section-title"><span>02 / ПРЕЗИДЕНТ</span><b>Ваш профиль</b></div>
-        <label for="campaignTitle">Название кампании <small>необязательно</small></label>
+        <label for="campaignTitle">Название сохранения <small>необязательно</small></label>
         <input id="campaignTitle" maxlength="90" placeholder="Например, Новый курс">
+        <label for="partyName">Политическая партия</label>
+        <input id="partyName" maxlength="80" placeholder="Например, Партия национального развития">
         <label for="presidentName">Имя и фамилия президента</label>
         <input id="presidentName" required minlength="3" maxlength="100" placeholder="Введите имя президента">
         <div class="setup-inline-fields">
@@ -189,6 +232,22 @@
     <label for="ministerName">Имя и фамилия</label><input id="ministerName" name="name" required minlength="3" maxlength="100" placeholder="Например, Анна Новак">
     <label for="ministerPortfolio">Портфель</label><select id="ministerPortfolio" name="portfolio" required><option value="Финансы">Министерство финансов</option><option value="Иностранные дела">Министерство иностранных дел</option><option value="Оборона">Министерство обороны</option><option value="Экономика">Министерство экономики</option><option value="Здравоохранение">Министерство здравоохранения</option><option value="Образование">Министерство образования</option><option value="Внутренние дела">Министерство внутренних дел</option></select>
     <label for="ministerAge">Возраст</label><input id="ministerAge" name="age" type="number" min="25" max="90" value="45" required>
+    <div class="minister-custom-grid">
+      <div><label for="ministerCompetence">Компетентность (20–100)</label><input id="ministerCompetence" type="number" min="20" max="100" value="70" required></div>
+      <div><label for="ministerLoyalty">Лояльность (20–100)</label><input id="ministerLoyalty" type="number" min="20" max="100" value="65" required></div>
+    </div>
+    <label for="ministerArchetype">Политический тип и особенности</label>
+    <select id="ministerArchetype">
+      <option value="technocrat">Технократ — рост экономики, контроль инфляции</option>
+      <option value="reformer">Реформатор — госуслуги и поддержка</option>
+      <option value="diplomat">Дипломат — стабильность и общественная поддержка</option>
+      <option value="hardliner">Силовик — стабильность, но больше контроля и давления</option>
+      <option value="populist">Популист — одобрение сейчас, риск для бюджета</option>
+      <option value="oligarch">Связи с бизнесом — рост ВВП, но коррупционные риски</option>
+      <option value="incompetent">Некомпетентный — слабые результаты и коррупция</option>
+    </select>
+    <label for="ministerPortrait">Портрет</label>
+    <select id="ministerPortrait"><option value="p01">Портрет 1</option><option value="p02">Портрет 2</option><option value="p03">Портрет 3</option><option value="p04">Портрет 4</option><option value="p05">Портрет 5</option><option value="p06">Портрет 6</option><option value="p07">Портрет 7</option><option value="p08">Портрет 8</option><option value="p09">Портрет 9</option><option value="p10">Портрет 10</option><option value="p11">Портрет 11</option><option value="p12">Портрет 12</option><option value="p13">Портрет 13</option><option value="p14">Портрет 14</option><option value="p15">Портрет 15</option><option value="p16">Портрет 16</option></select>
     <div class="dialog-actions"><button type="button" class="secondary-button" id="cancelMinister">Отмена</button><button type="submit" class="primary-button">Назначить</button></div>
   </form>
 </dialog>
