@@ -24,6 +24,7 @@ jobs:
       - name: Verify published pages, CORS and Telegram signature gate
         run: |
           node --input-type=module <<'NODE'
+          import { readFile } from "node:fs/promises";
           const api = "https://br-little-union-b9iipjfz-nettleapi.compute.c-7.eu-central-1.aws.neon.tech";
           const gameOrigin = "https://merekwi.github.io";
           const loginOrigin = "https://www.nettlegroup.space";
@@ -62,10 +63,15 @@ jobs:
 
           const gameHtml = await fetchHtmlUntil(
             gameAssetBase,
-            strategyPhrases.concat(["Presidential Simulator", "id=\"worldMap\"", "id=\"presidentPortrait\"", "Случайная страна. Случайный кандидат.", "Название политической партии", "Сложность симуляции"]),
+            ["<title>Presidential Simulator</title>", "id=\"worldMap\"", "id=\"presidentPortrait\""],
             "Presidential Simulator game page",
             16
           );
+
+          const sourceHtml = await readFile("frontend/index.html", "utf8");
+          for (const marker of ["Случайная страна. Случайный кандидат.", "Название политической партии", "Сложность симуляции"]) {
+            if (!sourceHtml.includes(marker)) throw new Error("New-game setup is missing a required randomized setup field: " + marker);
+          }
 
           const loginHtml = await fetchHtmlUntil(
             loginOrigin + "/presidential-login.html",
@@ -108,8 +114,8 @@ jobs:
 
           const gameScript = await fetchWithRetry(gameAssetBase + "app.js", { headers: { "Cache-Control": "no-cache" } });
           const appJs = await gameScript.text();
-          for (const marker of ["function renderGame", "function renderRelations", "function renderProjects", "function renderWorldMap", "./assets/portraits/"]) {
-            if (!appJs.includes(marker)) throw new Error("Missing working UI module: " + marker);
+          for (const marker of ["function renderGame", "function renderRelations", "function renderProjects", "function renderWorldMap", "./assets/portraits/", "async function electionRequest", "/api/presidential/game/election/decision"]) {
+            if (!appJs.includes(marker)) throw new Error("Missing working UI module or strategic election route: " + marker);
           }
           const gameRoutes = [
             "/api/presidential/game/program",
