@@ -1,0 +1,83 @@
+name: Presidential Simulator integration smoke test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/presidential-stack-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Verify published pages, CORS and Telegram signature gate
+        run: |
+          node --input-type=module <<'NODE'
+          const api = "https://br-little-union-b9iipjfz-nettleapi.compute.c-7.eu-central-1.aws.neon.tech";
+          const gameOrigin = "https://merekwi.github.io";
+          const loginOrigin = "https://www.nettlegroup.space";
+          const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+          async function fetchWithRetry(url, init, attempts = 8) {
+            let last;
+            for (let i = 0; i < attempts; i++) {
+              try {
+                const response = await fetch(url, init);
+                if (response.ok || response.status === 401) return response;
+                last = new Error("HTTP " + response.status + " from " + url);
+              } catch (error) {
+                last = error;
+              }
+              if (i + 1 < attempts) await pause(2500);
+            }
+            throw last;
+          }
+
+          const gamePage = await fetchWithRetry("https://merekwi.github.io/presedento-sim/");
+          const gameHtml = await gamePage.text();
+          if (!gameHtml.includes("Presidential Simulator")) throw new Error("Game page title was not found.");
+
+          const loginPage = await fetchWithRetry(loginOrigin + "/presidential-login.html");
+          const loginHtml = await loginPage.text();
+          if (!loginHtml.includes("Verify_NettleBOT")) throw new Error("Shared Telegram login page is not published.");
+
+          const preflight = await fetch(api + "/api/presidential/me", {
+            method: "OPTIONS",
+            headers: {
+              Origin: gameOrigin,
+              "Access-Control-Request-Method": "GET",
+              "Access-Control-Request-Headers": "authorization,content-type",
+            },
+          });
+          if (preflight.status !== 204) throw new Error("Game CORS preflight returned HTTP " + preflight.status);
+          if (preflight.headers.get("access-control-allow-origin") !== gameOrigin) throw new Error("Wrong game CORS origin.");
+          if (!(preflight.headers.get("access-control-allow-headers") || "").toLowerCase().includes("authorization")) throw new Error("Authorization header is not allowed by CORS.");
+
+          const me = await fetch(api + "/api/presidential/me", { headers: { Origin: gameOrigin } });
+          if (me.status !== 401) throw new Error("Unauthenticated /me should return 401, received " + me.status);
+          if (me.headers.get("access-control-allow-origin") !== gameOrigin) throw new Error("Authenticated API route does not return game CORS headers.");
+
+          const invalidTelegram = await fetch(api + "/api/presidential/auth/telegram", {
+            method: "POST",
+            headers: { Origin: loginOrigin, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              id: "0",
+              auth_date: Math.floor(Date.now() / 1000),
+              hash: "0".repeat(64),
+              state: Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url"),
+            }),
+          });
+          if (invalidTelegram.status !== 401) throw new Error("Invalid Telegram signature must be rejected with 401, received " + invalidTelegram.status);
+
+          console.log("Passed: game page, shared Telegram bridge, CORS, session guard, invalid Telegram signature rejection.");
+          NODE
