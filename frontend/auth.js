@@ -72,6 +72,7 @@
       if (response.status === 401 && options.noAuth !== true) {
         token = "";
         sessionStorage.removeItem(TOKEN_KEY);
+        showGate("Сессия истекла. Войдите через Telegram повторно.");
       }
       throw new Error(data.error || ("HTTP " + response.status));
     }
