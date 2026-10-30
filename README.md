@@ -1,17 +1,64 @@
 # Presidential Simulator
 
-Браузерный симулятор президента случайной страны. Статический интерфейс размещается на GitHub Pages, API — на Cloudflare Workers, состояние игры — в Neon PostgreSQL, генерация официальных документов — через OpenRouter.
+Браузерная политико-экономическая стратегия: игрок получает случайную страну и президента, формирует кабинет, принимает указы, развивает экономику и отношения с другими государствами.
 
-## Файлы
-- `frontend/` — интерфейс сайта
-- `worker/` — серверный API-шаблон
-- `database/` — описание схемы Neon
+## Архитектура
 
-## Развёртывание
-1. GitHub → Settings → Pages → Deploy from a branch → `main` → `/frontend`.
-2. Разверните `worker/` в Cloudflare Workers.
-3. Добавьте Worker secrets: `DATABASE_URL`, `OPENROUTER_API_KEY`.
-4. Задайте переменные `OPENROUTER_MODEL` (доступный сейчас бесплатный slug) и `ALLOWED_ORIGIN` (адрес GitHub Pages).
-5. В `frontend/config.js` укажите адрес Worker.
+- `frontend/` — статический интерфейс GitHub Pages.
+- **Neon PostgreSQL `presidential-simulator`** — игровые пользователи, кампании, показатели, указы, министры, дипломатия, армия и события.
+- **Neon Function Nettle Group `nettleapi`** — серверный API. Использует уже подключённый Telegram-бот `@Verify_NettleBOT`; отдельный бот не создаётся.
+- `https://www.nettlegroup.space/presidential-login.html` — промежуточная страница входа через Telegram Login Widget на домене, уже связанном с ботом.
+- **OpenRouter** — необязательный провайдер ИИ для юридического текста указов. Игровые последствия рассчитываются на сервере детерминированными правилами.
 
-**Важно:** до добавления авторизации не открывайте API для публичного сохранения игровых данных. Не помещайте секреты в frontend или GitHub.
+Cloudflare и Vercel не используются. Игровой Neon-проект находится в регионе, где Neon Functions недоступны; поэтому API работает в уже существующей Neon Function проекта Nettle Group и подключается к игровой БД по отдельной ограниченной роли `presidentapi`.
+
+## Вход через Telegram
+
+1. На сайте нажать «Войти через Telegram».
+2. Сайт откроет `www.nettlegroup.space/presidential-login.html`.
+3. Авторизоваться через существующий `@Verify_NettleBOT`.
+4. Сервер Nettle проверит HMAC-подпись Telegram, создаст одноразовый код на 3 минуты и вернёт игрока в игру.
+5. Игра обменяет код на случайный серверный токен. В БД сохраняется только SHA-256 хэш токена; срок игровой сессии — 7 дней.
+
+Не добавляйте bot token, database URL или OpenRouter key в `frontend/` и не коммитьте секреты в GitHub.
+
+## Публикация сайта
+
+В репозитории GitHub откройте **Settings → Pages** и укажите:
+- Source: Deploy from a branch
+- Branch: `main`
+- Folder: `/frontend`
+
+Адрес проекта ожидается: `https://merekwi.github.io/presedento-sim/`. При изменении адреса нужно согласованно обновить `PRESIDENTIAL_GAME_ORIGIN` в env Nettle Function и `frontend/config.js`.
+
+## Развёртывание API
+
+API добавлен в существующую Neon Function проекта Nettle Group `nettlegroup`, branch `main`, slug `nettleapi`. Последнее развёртывание: deployment #14 (Node.js 24, completed).
+
+В env функции добавлены:
+- `PRESIDENTIAL_DATABASE_URL` — connection string ограниченной роли `presidentapi` игровой базы.
+- `PRESIDENTIAL_GAME_ORIGIN=https://merekwi.github.io`.
+
+Существующие `TELEGRAM_BOT_TOKEN`, `SITE_ORIGIN`, `SESSION_SECRET` и `INITIAL_ADMIN_TELEGRAM_ID` сохранены. API URL:
+`https://br-little-union-b9iipjfz-nettleapi.compute.c-7.eu-central-1.aws.neon.tech`.
+
+## ИИ для указов
+
+Без OpenRouter API key сервер создаёт официальный проект указа по встроенному шаблону, но все последствия применяет игровой движок. Для генерации текста через ИИ добавьте в env функции `nettleapi` секреты:
+- `OPENROUTER_API_KEY`
+- `OPENROUTER_MODEL` — модельный slug из вашего аккаунта OpenRouter.
+
+После этого повторно разверните функцию, не удаляя уже имеющиеся переменные.
+
+## Уже реализовано
+
+- Telegram-вход с одноразовым кодом, привязанным к случайному state.
+- Игровые сессии и отдельные аккаунты в Neon.
+- Генерация случайной страны и президента.
+- Создание кампании, кабинета министров, дипломатических контактов, военных подразделений и стартовой новости.
+- Получение активного сохранения.
+- Черновик президентского указа.
+- Публикация указа с серверным расчётом последствий для бюджета, долга, ВВП, инфляции, безработицы, одобрения, стабильности, госуслуг, армии и налоговой нагрузки.
+- История событий и опубликованных указов.
+
+Дальнейшие блоки разработки: полноценное управление министрами, дипломатические действия и договоры, бюджеты по статьям, закупки, военные конфликты, парламент, выборы, дополнительные события и расширенная модель экономических взаимосвязей.
