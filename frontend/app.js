@@ -528,7 +528,7 @@
     if(!confirm("Остановить программу? Уже потраченные средства не возвращаются."))return;
     try{await withBusy(button,()=>api()("/api/presidential/game/program",{method:"POST",body:JSON.stringify({action:"cancel",projectId:button.dataset.programCancel})}),"Программа остановлена.");}catch(_){}
   });
-  $("electionActions").addEventListener("click",event=>{
+  $("electionIssue").addEventListener("click",event=>{
     const button=event.target.closest("[data-election-choice]");
     if(!button||busy)return;
     const issueId=button.dataset.issueId,choiceId=button.dataset.electionChoice;
