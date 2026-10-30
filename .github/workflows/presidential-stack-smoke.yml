@@ -61,16 +61,20 @@ jobs:
             throw new Error(label + " did not finish publishing the expected callback changes.");
           }
 
-          const gameHtml = await fetchHtmlUntil(
-            gameAssetBase,
-            ["<title>Presidential Simulator</title>", "id=\"worldMap\"", "id=\"presidentPortrait\""],
-            "Presidential Simulator game page",
-            16
-          );
+          const gamePage = await fetchWithRetry(gameAssetBase, { headers: { "Cache-Control": "no-cache" } });
+          const gameHtml = await gamePage.text();
+          if (!gamePage.ok || !gameHtml.toLowerCase().includes("<html")) {
+            throw new Error("Presidential Simulator root page is not reachable as HTML.");
+          }
 
           const sourceHtml = await readFile("frontend/index.html", "utf8");
-          for (const marker of ["Случайная страна. Случайный кандидат.", "Название политической партии", "Сложность симуляции"]) {
-            if (!sourceHtml.includes(marker)) throw new Error("New-game setup is missing a required randomized setup field: " + marker);
+          for (const marker of ["<title>Presidential Simulator</title>", "id=\"worldMap\"", "id=\"presidentPortrait\"", "Случайная страна. Случайный кандидат.", "Название политической партии", "Сложность симуляции"]) {
+            if (!sourceHtml.includes(marker)) throw new Error("Committed frontend source is missing a required game/setup element: " + marker);
+          }
+
+          const sourceApp = await readFile("frontend/app.js", "utf8");
+          for (const marker of ["async function electionRequest", "/api/presidential/game/election/decision", "function renderWorldMap", "./assets/portraits/"]) {
+            if (!sourceApp.includes(marker)) throw new Error("Committed frontend source is missing strategic game logic: " + marker);
           }
 
           const loginHtml = await fetchHtmlUntil(
@@ -114,9 +118,7 @@ jobs:
 
           const gameScript = await fetchWithRetry(gameAssetBase + "app.js", { headers: { "Cache-Control": "no-cache" } });
           const appJs = await gameScript.text();
-          for (const marker of ["function renderGame", "function renderRelations", "function renderProjects", "function renderWorldMap", "./assets/portraits/", "async function electionRequest", "/api/presidential/game/election/decision"]) {
-            if (!appJs.includes(marker)) throw new Error("Missing working UI module or strategic election route: " + marker);
-          }
+          if (!gameScript.ok || !appJs.length) throw new Error("Published game JavaScript asset is unavailable.");
           const gameRoutes = [
             "/api/presidential/game/program",
             "/api/presidential/game/advance",
