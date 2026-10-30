@@ -4,7 +4,7 @@
   const api = () => window.PRESIDENTIAL_AUTH && window.PRESIDENTIAL_AUTH.api;
   let currentPayload = null, currentGame = null, draftId = null, busy = false;
   let setupCountries = [], selectedCountryId = null, selectedPortrait = "p01";
-  let worldMapPromise = null, toastTimer = null;
+  let worldMapPromise = null, toastTimer = null, needsSetupAfterBusy = false;
 
   function toast(message) {
     const root=$("toast"); if(!root)return;
@@ -119,7 +119,8 @@
       ocean.setAttribute("class","map-ocean");ocean.setAttribute("width",width);ocean.setAttribute("height",height);svg.append(ocean);
       features.forEach(feature=>{
         const props=feature.properties||{};
-        const code=String(props.ISO_A2_EH||props.ISO_A2||"").toUpperCase();
+        const enhanced=String(props.ISO_A2_EH||"").toUpperCase();
+      const code=(enhanced&&enhanced!=="-99"?enhanced:String(props.ISO_A2||"")).toUpperCase();
         const shape=document.createElementNS("http://www.w3.org/2000/svg","path");
         shape.setAttribute("d",path(feature)||"");
         shape.setAttribute("class","map-country"+(code===String(iso2||"").toUpperCase()?" active":""));
@@ -139,7 +140,7 @@
   function renderIdentity(game){
     const name=game.name_local||game.name_en||game.save_name||"Государство";
     const flag=game.flag_emoji||"🏳️";
-    const region=[game.region,game.government_type].filter(Boolean).join(" · ").toUpperCase();
+    const region=[game.region,game.government_type].filter(Boolean).join(" · ").toUpperCase() + ((game.state||{}).dictatorship ? " · АВТОРИТАРНЫЙ РЕЖИМ" : "");
     setText("country",name);setText("region",region||"ГОСУДАРСТВО");
     const flagRoot=$("flag");if(flagRoot)flagRoot.replaceChildren(flagNode(game.iso2,flag));
     const sideFlag=$("sidebarFlag");if(sideFlag)sideFlag.replaceChildren(flagNode(game.iso2,flag));
@@ -326,7 +327,7 @@
     setText("saveStatus","Синхронизация…");
     try{
       const result=await api()("/api/presidential/game/current");
-      if(!result.game){currentGame=null;await openSetup();return;}
+      if(!result.game){currentGame=null;if(busy)needsSetupAfterBusy=true;else await openSetup();return;}
       renderGame(result);
     }catch(error){setText("saveStatus","Ошибка сохранения");toast("Не удалось загрузить кампанию: "+error.message);}
   }
@@ -346,7 +347,8 @@
     finally{
       busy=false;
       if(button){button.disabled=false;button.textContent=previous;}
-      if(currentGame)renderGame(currentPayload); else openSetup();
+      if(currentGame)renderGame(currentPayload);
+      else if(needsSetupAfterBusy){needsSetupAfterBusy=false;openSetup();}
     }
   }
 
