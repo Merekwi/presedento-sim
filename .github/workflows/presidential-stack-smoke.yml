@@ -116,7 +116,7 @@ jobs:
             "/api/presidential/game/advance",
             "/api/presidential/game/minister",
             "/api/presidential/game/diplomacy",
-            "/api/presidential/game/election/campaign",
+            "/api/presidential/game/election/decision",
             "/api/presidential/game/election/commission",
             "/api/presidential/game/election/dictatorship",
             "/api/presidential/game/election/vote",
@@ -138,9 +138,7 @@ jobs:
             ["/api/presidential/game/advance", {}],
             ["/api/presidential/game/minister", { action: "appoint", name: "Smoke Test", portfolio: "Образование", age: 45, competence: 70, loyalty: 70, archetype: "technocrat", portraitId: "p01" }],
             ["/api/presidential/game/diplomacy", { action: "consultations", relationId: "00000000-0000-0000-0000-000000000000" }],
-            ["/api/presidential/game/election/campaign", { action: "rally" }],
-            ["/api/presidential/game/election/commission", {}],
-            ["/api/presidential/game/election/dictatorship", {}],
+            ["/api/presidential/game/election/decision", { issueId: "budget", choiceId: "spending_review" }],
             ["/api/presidential/game/election/vote", {}],
             ["/api/presidential/game/decree/draft", { order: "Модернизировать государственную систему здравоохранения." }],
             ["/api/presidential/game/decree/publish", { decreeId: "00000000-0000-0000-0000-000000000000" }]
@@ -154,5 +152,5 @@ jobs:
             if (response.status !== 401) throw new Error(route + " must require authentication (401), received " + response.status);
           }
 
-          console.log("Passed: campaign UI, map and portraits assets, programme/election/diplomacy/decree routes, Telegram bridge, Neon health, CORS and signature rejection.");
+          console.log("Passed: strategic election UI, randomized campaign setup, map and portraits assets, programmes, diplomacy, decrees, Telegram bridge, Neon health, CORS and signature rejection.");
           NODE
