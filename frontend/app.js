@@ -346,7 +346,7 @@
     finally{
       busy=false;
       if(button){button.disabled=false;button.textContent=previous;}
-      if(currentGame)renderGame(currentPayload);
+      if(currentGame)renderGame(currentPayload); else openSetup();
     }
   }
 
@@ -538,6 +538,7 @@
     try{await navigator.clipboard.writeText($("docTitle").textContent+"\n\n"+$("docBody").textContent);toast("Текст указа скопирован.");}
     catch(_){toast("Копирование недоступно в этом браузере.");}
   });
+  $("printDecree").addEventListener("click",()=>window.print());
 
   window.addEventListener("presidential-auth-ready",refreshGame);
   if(window.PRESIDENTIAL_AUTH&&window.PRESIDENTIAL_AUTH.user)refreshGame();
