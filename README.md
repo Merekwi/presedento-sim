@@ -33,7 +33,7 @@ Cloudflare и Vercel не используются. Игровой Neon-прое
 
 ## Развёртывание API
 
-API добавлен в существующую Neon Function проекта Nettle Group `nettlegroup`, branch `main`, slug `nettleapi`. Последнее развёртывание: deployment #15 (Node.js 24, completed).
+API добавлен в существующую Neon Function проекта Nettle Group `nettlegroup`, branch `main`, slug `nettleapi`. Последнее развёртывание: deployment #16 (Node.js 24, completed).
 
 В env функции добавлены:
 - `PRESIDENTIAL_DATABASE_URL` — connection string ограниченной роли `presidentapi` игровой базы.
@@ -49,6 +49,10 @@ API добавлен в существующую Neon Function проекта Ne
 - `OPENROUTER_MODEL` — модельный slug из вашего аккаунта OpenRouter.
 
 После этого повторно разверните функцию, не удаляя уже имеющиеся переменные.
+
+
+
+**Проверка интеграции:** GitHub Actions успешно проверяет доступность сайта и страницы Telegram-входа, CORS, отсутствие доступа к `/me` без сессии, отклонение поддельной подписи Telegram и реальное соединение API с игровой Neon-базой (20 стран). Вход с действующим аккаунтом Telegram нужно завершить реальным нажатием пользователем на кнопку Telegram.
 
 ## Уже реализовано
 
