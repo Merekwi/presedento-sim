@@ -49,12 +49,7 @@ jobs:
           let gameHtml = await gamePage.text();
           if (!gameHtml.includes("Presidential Simulator")) throw new Error("Game page title was not found.");
           if (!strategyPhrases.every(phrase => gameHtml.includes(phrase))) {
-            gameAssetBase = "https://merekwi.github.io/presedento-sim/frontend/";
-            const nestedPage = await fetchWithRetry(gameAssetBase + "?fresh=" + Date.now(), { headers: { "Cache-Control": "no-cache" } });
-            gameHtml = await nestedPage.text();
-          }
-          if (!strategyPhrases.every(phrase => gameHtml.includes(phrase))) {
-            throw new Error("Published Pages does not serve the new game UI at root or /frontend/.");
+            throw new Error("GitHub Pages root does not serve the frontend/ artifact as the game root.");
           }
 
           async function fetchHtmlUntil(url, expected, label, attempts = 12) {
@@ -72,15 +67,9 @@ jobs:
 
           const loginHtml = await fetchHtmlUntil(
             loginOrigin + "/presidential-login.html",
-            ["Verify_NettleBOT", "https://merekwi.github.io/presedento-sim/frontend/"],
+            ["Verify_NettleBOT", "https://merekwi.github.io/presedento-sim/"],
             "Telegram login page"
           );
-          const rootHtml = await fetchHtmlUntil(
-            "https://merekwi.github.io/presedento-sim/",
-            ["target.hash = location.hash"],
-            "GitHub Pages root redirect"
-          );
-
           const preflight = await fetch(api + "/api/presidential/me", {
             method: "OPTIONS",
             headers: {
