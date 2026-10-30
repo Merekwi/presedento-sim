@@ -489,7 +489,7 @@
     if(!$("setupDialog").open)$("setupDialog").showModal();
   }
 
-  function electionRequest(route,payload,button,message){
+  async function electionRequest(route,payload,button,message){
     try{await withBusy(button,()=>api()(route,{method:"POST",body:JSON.stringify(payload||{})}),message);}catch(_){}
   }
 
