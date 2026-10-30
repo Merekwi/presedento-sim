@@ -331,3 +331,9 @@ button:disabled{opacity:.48;cursor:not-allowed}
  .decree-preview-actions{display:none!important}
  .decree-modal{position:static!important;max-height:none!important;overflow:visible!important}
 }
+
+.decree-row{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.decree-history-copy{min-width:0;flex:1}
+.decree-open-button{flex:0 0 auto;border:1px solid #d8e2e5;border-radius:7px;padding:7px 10px;background:#f8fafb;color:#4b6779;font-size:8px;font-weight:800;white-space:nowrap;transition:.15s}
+.decree-open-button:hover{border-color:#a78d5b;color:#8a7044;background:#fbf8ef}
+.decree-open-button:focus-visible{outline:2px solid #7ba89a;outline-offset:2px}
