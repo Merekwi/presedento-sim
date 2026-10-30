@@ -2,7 +2,7 @@ name: Presidential Simulator integration smoke test
 
 on:
   workflow_run:
-    workflows: ["Deploy Presidential Simulator frontend"]
+    workflows: ["pages build and deployment"]
     types: [completed]
     branches: [main]
 
@@ -46,7 +46,7 @@ jobs:
           }
 
           const strategyPhrases = ["Международная карта", "Государственные программы", "Совет министров", "Вооружённые силы", "Карта мира с международными границами", "УКАЗ ПРЕЗИДЕНТА"];
-          const gameAssetBase = "https://merekwi.github.io/presedento-sim/";
+          const gameAssetBase = "https://merekwi.github.io/presedento-sim/frontend/";
 
           async function fetchHtmlUntil(url, expected, label, attempts = 20) {
             let html = "";
@@ -61,7 +61,7 @@ jobs:
             throw new Error(label + " did not finish publishing the expected callback changes.");
           }
 
-          const gamePage = await fetchWithRetry(gameAssetBase, { headers: { "Cache-Control": "no-cache" } });
+          const gamePage = await fetchWithRetry("https://merekwi.github.io/presedento-sim/", { headers: { "Cache-Control": "no-cache" } });
           const gameHtml = await gamePage.text();
           if (!gamePage.ok || !gameHtml.toLowerCase().includes("<html")) {
             throw new Error("Presidential Simulator root page is not reachable as HTML.");
