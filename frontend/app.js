@@ -8,15 +8,6 @@
   let busy = false;
   let toastTimer = null;
 
-  const ACTIONS = {
-    public_health: "Инвестиции в здравоохранение",
-    education: "Реформа образования",
-    infrastructure: "Национальная инфраструктурная программа",
-    tax_relief: "Снижение налоговой нагрузки",
-    anti_corruption: "Антикоррупционная кампания",
-    defense: "Программа модернизации армии"
-  };
-
   function toast(message) {
     const root = $("toast");
     root.textContent = message;
@@ -66,16 +57,11 @@
   let worldTopologyPromise = null;
 
   function sprite(file, symbol, className) {
-    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    svg.setAttribute("viewBox", file === "flags.svg" ? "0 0 60 40" : "0 0 96 112");
-    svg.setAttribute("aria-hidden", "true");
-    if (className) svg.setAttribute("class", className);
-    const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
-    const href = "./assets/" + file + "#" + symbol;
-    use.setAttribute("href", href);
-    use.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", href);
-    svg.append(use);
-    return svg;
+    const image=document.createElement("img");
+    image.className=className||"";image.alt="";image.decoding="async";image.loading="lazy";
+    image.src=file==="flags.svg"?"./assets/flags/"+String(symbol).replace("flag-","")+".svg":"./assets/portraits/"+symbol+".svg";
+    image.onerror=()=>{image.style.display="none";};
+    return image;
   }
   function putFlag(id, iso2, fallback) {
     const root = $(id);
@@ -193,7 +179,9 @@
   }
   async function renderWorldMap(iso2) {
     const root = $("worldMap");
-    if (!root || !window.topojson || !window.d3) return;
+    if (!root) return;
+    if (!window.topojson || !window.d3) { root.replaceChildren(node("div","map-loading","Картографические библиотеки не загрузились. Обновите страницу.")); return; }
+    root.replaceChildren(node("div","map-loading","Загружаем реальные государственные границы…"));
     try {
       const topology = await loadWorldTopology();
       const features = window.topojson.feature(topology, topology.objects.countries).features;
@@ -265,287 +253,7 @@
     const points = Math.max(0, Number(s.actionPoints ?? 2));
     setText("actionPoints", points + " / 2");
     setText("actionPointsLarge", points);
-    document.querySelectorAll(".action-card").forEach(button => {
-      button.disabled = points <= 0 || busy;
-      button.classList.toggle("exhausted", points <= 0);
-    });
-  }
-  function renderIdentity(game) {
-    const name = game.name_local || game.name_en || game.save_name || "Государство";
-    const flag = game.flag_emoji || "🏳️";
-    const region = [game.region, game.government_type].filter(Boolean).join(" · ").toUpperCase();
-    setText("country", name);
-    putFlag("flag", game.iso2, flag);
-    putFlag("sidebarFlag", game.iso2, flag);
-    setText("region", region || "ГОСУДАРСТВО");
-    setText("bio", game.president_name + ", " + game.president_age + " лет · " + (game.president_bio || "Президент"));
-    const portraitRoot = $("presidentPortrait");
-    if (portraitRoot) portraitRoot.replaceChildren(portraitNode((game.state && game.state.presidentPortrait) || portraitIdFromName(game.president_name)));
-    setText("date", dateLabel(game.game_date));
-    setText("term", "Месяц " + String(game.turn_number || 1).padStart(3, "0"));
-    setText("topbarTurn", "Ход " + String(game.turn_number || 1).padStart(3, "0"));
-    setText("sidebarTurn", "Месяц " + String(game.turn_number || 1).padStart(3, "0"));
-    setText("sidebarDate", dateLabel(game.game_date));
-    setText("sidebarCountry", name);
-    setText("sidebarRegion", region || "Президентская республика");
-    setText("mapCountryLabel", name.toLocaleUpperCase("ru-RU").slice(0, 24));
-    renderWorldMap(game.iso2);
-    setText("saveStatus", "Сохранено в Neon");
-  }
-  function renderMinisters(items) {
-    const root = $("ministers");
-    root.replaceChildren();
-    if (!items || !items.length) {
-      root.append(node("div", "loading-row", "Состав правительства не сформирован."));
-      return;
-    }
-    items.forEach(minister => {
-      const row = node("div", "minister-row");
-      const initials = String(minister.full_name || "?").split(/\s+/).map(part => part[0] || "").slice(0, 2).join("").toUpperCase();
-      const avatar = node("div", "minister-avatar");
-      const traits = minister.traits && typeof minister.traits === "object" ? minister.traits : {};
-      avatar.append(portraitNode(traits.portraitId || portraitIdFromName(minister.full_name), "portrait-svg"));
-      const info = node("div", "minister-info");
-      const details = node("div", "minister-effects");
-      const effectNames = {gdpGrowth:"рост ВВП",inflation:"инфляция",unemployment:"безработица",approval:"одобрение",stability:"стабильность",corruption:"коррупция",publicServices:"госуслуги",education:"образование",healthcare:"медицина",infrastructure:"инфраструктура",militaryPower:"армия",budgetBalance:"бюджет"};
-      Object.entries(traits.effects || {}).slice(0,3).forEach(([key,value]) => {
-        if (!effectNames[key]) return;
-        const amount = Number(value);
-        const chip = node("span",amount>=0?"effect-positive":"effect-negative",(amount>0?"+":"")+amount.toFixed(2)+" "+effectNames[key]);
-        details.append(chip);
-      });
-      info.append(node("b", "", minister.full_name), node("small", "", minister.portfolio + " · " + (traits.archetypeLabel || "Специалист") + " · " + minister.age + " лет"));
-      info.append(node("small", "minister-reliability", "Компетентность " + minister.competence + " · Лояльность " + minister.loyalty));
-      if (details.childNodes.length) info.append(details);
-      const score = node("div", "minister-score", "★ " + minister.competence);
-      const dismiss = node("button", "dismiss-button", "×");
-      dismiss.type = "button";
-      dismiss.title = "Отправить министра в отставку";
-      dismiss.dataset.dismissMinister = minister.id;
-      dismiss.dataset.ministerName = minister.full_name;
-      row.append(avatar, info, score, dismiss);
-      root.append(row);
-    });
-    const select = $("ministerPortfolio");
-    if (select) {
-      const occupied = new Set(items.map(item => item.portfolio));
-      Array.from(select.options).forEach(option => {
-        option.disabled = occupied.has(option.value);
-      });
-      const free = Array.from(select.options).find(option => !option.disabled);
-      if (free) select.value = free.value;
-    }
-  }
-  function renderEvents(items) {
-    const root = $("newsList");
-    root.replaceChildren();
-    if (!items || !items.length) {
-      root.append(node("div", "loading-row", "События появятся после начала кампании."));
-      return;
-    }
-    items.forEach(event => {
-      const row = node("article", "event-row");
-      const head = node("div", "event-row-head");
-      head.append(node("span", "event-type", String(event.event_type || "СОБЫТИЕ").replaceAll("_", " ").toUpperCase()));
-      const time = node("time", "", dateLabel(event.game_date));
-      head.append(time);
-      row.append(head, node("b", "", event.headline), node("p", "", event.article));
-      root.append(row);
-    });
-  }
-  function relationLabel(score) {
-    const n = Number(score || 0);
-    return n >= 50 ? "Союзные отношения" : n >= 20 ? "Партнёрские отношения" : n <= -45 ? "Кризис отношений" : n <= -15 ? "Напряжённые отношения" : "Нейтральные отношения";
-  }
-  function renderRelations(items) {
-    const root = $("relationsList");
-    root.replaceChildren();
-    setText("relationCount", String((items || []).length));
-    if (!items || !items.length) {
-      root.append(node("div", "loading-row", "Дипломатические контакты пока не установлены."));
-      return;
-    }
-    items.forEach(relation => {
-      const row = node("div", "relation-row");
-      const flag = node("div", "relation-flag", "🌐");
-      const info = node("div", "relation-info");
-      info.append(node("b", "", relation.other_country_name), node("small", "", relationLabel(relation.relation_score)));
-      const score = node("div", "relation-score", (Number(relation.relation_score) > 0 ? "+" : "") + relation.relation_score);
-      score.style.color = Number(relation.relation_score) >= 0 ? "#328b77" : "#ba6561";
-      const actions = node("div", "relation-actions");
-      [["summit", "Саммит"], ["trade", "Торговля"], ["sanctions", "Санкции"]].forEach(pair => {
-        const button = node("button", "", pair[1]);
-        button.type = "button";
-        button.dataset.relationAction = pair[0];
-        button.dataset.relationId = relation.id;
-        button.dataset.country = relation.other_country_name;
-        actions.append(button);
-      });
-      row.append(flag, info, score, actions);
-      root.append(row);
-    });
-  }
-  function renderUnits(items) {
-    const root = $("militaryUnits");
-    root.replaceChildren();
-    if (!items || !items.length) {
-      root.append(node("div", "loading-row", "Военные подразделения не созданы."));
-      return;
-    }
-    items.forEach(unit => {
-      const row = node("div", "unit-row");
-      const icon = node("div", "unit-icon", "⬡");
-      const info = node("div", "unit-info");
-      info.append(node("b", "", unit.unit_type), node("small", "", number(unit.quantity, 0) + " единиц · снабжение " + unit.supply + "/100"));
-      const stat = node("div", "unit-stat");
-      stat.append(node("b", "", "Готовность " + unit.readiness + "%"));
-      const track = node("div", "unit-track");
-      const fill = node("i");
-      fill.style.width = clamp(unit.readiness) + "%";
-      track.append(fill);
-      stat.append(track);
-      row.append(icon, info, stat);
-      root.append(row);
-    });
-  }
-  function renderDecrees(items) {
-    const root = $("decreeHistory");
-    root.replaceChildren();
-    const published = (items || []).filter(item => item.status === "published");
-    if (!published.length) {
-      root.append(node("div", "loading-row", "Опубликованных указов пока нет. Подготовьте первую инициативу."));
-      return;
-    }
-    published.forEach(item => {
-      const row = node("article", "decree-row");
-      row.append(node("b", "", "Указ №" + item.decree_number + " · " + item.title), node("p", "", item.summary || String(item.body || "").slice(0, 200)), node("small", "", "ОПУБЛИКОВАНО"));
-      root.append(row);
-    });
-  }
-
-  function renderElection(game) {
-    const active=["election_campaign","election"].includes(String((game.state||{}).phase||""));
-    $("electionPanel").classList.toggle("hidden",!active);
-    $("governmentView").classList.toggle("hidden",active);
-    if (!active) return;
-    const election=(game.state||{}).election||{};
-    const remaining=Math.max(0,Number(election.actionsRemaining||0));
-    const support=Number(election.candidateSupport||0);
-    const opposition=Math.max(0,Math.min(100,100-support));
-    const control=Number(election.commissionControl||0);
-    setText("electionTitle",election.type||"Национальная избирательная кампания");
-    setText("electionRound",election.firstElection?"ПЕРВЫЕ ВЫБОРЫ":"ПЕРЕИЗБРАНИЕ · ТУР "+(election.round||2));
-    setText("electionDate",dateLabel(election.scheduledDate||game.game_date));
-    setText("electionDescription",election.kind==="parliamentary"?"Вам предстоит привести свою партию к победе и получить мандат на формирование правительства.":"Чтобы получить президентский мандат, необходимо набрать большинство голосов на национальных выборах.");
-    setText("electionCandidate",game.president_name);
-    setText("electionParty",election.partyName||"Ваша политическая партия");
-    const portrait=$("electionPortrait");
-    if(portrait) portrait.replaceChildren(portraitNode((game.state||{}).presidentPortrait||"p01"));
-    setText("candidateSupport",support.toFixed(1)+"%");
-    setText("oppositionSupport",opposition.toFixed(1)+"%");
-    $("candidateSupportBar").style.width=Math.min(100,support)+"%";
-    $("oppositionSupportBar").style.width=opposition+"%";
-    setText("campaignActionsRemaining",remaining+" / 4");
-    setText("commissionControl",control+" / 70");
-    setText("electionConsequences",control>=70?"ЦИК находится под вашим контролем. Можно попытаться отменить конкурентные выборы и установить диктатуру.":"Для честной победы используйте четыре предвыборных действия. Подчинение ЦИК открывает путь к авторитарному захвату власти, но ухудшает положение страны.");
-    document.querySelectorAll("[data-election-action]").forEach(button=>button.disabled=remaining<=0||busy);
-    $("electionVote").disabled=remaining>0||busy;
-    $("captureCommission").disabled=control>=70||busy;
-    $("establishDictatorship").classList.toggle("hidden",control<70);
-    $("establishDictatorship").disabled=busy;
-  }
-  async function electionRequest(route,payload,button,message) {
-    try {
-      await withBusy(button,()=>api()(route,{method:"POST",body:JSON.stringify(payload||{})}),message);
-    } catch (_) {}
-  }
-
-  function renderGame(payload) {
-    if (!payload || !payload.game) {
-      currentGame = null;
-      return;
-    }
-    currentPayload = payload;
-    currentGame = payload.game;
-    renderIdentity(currentGame);
-    renderMetrics(currentGame);
-    renderElection(currentGame);
-    renderMinisters(payload.ministers);
-    renderEvents(payload.events);
-    renderRelations(payload.relations);
-    renderUnits(payload.units);
-    renderDecrees(payload.decrees);
-    setText("saveStatus", "Сохранение синхронизировано");
-    $("advanceTurn").disabled = busy;
-    $("newGame").disabled = busy;
-  }
-  async function refreshGame() {
-    if (!api() || !window.PRESIDENTIAL_AUTH.user) return;
-    setText("saveStatus", "Синхронизация…");
-    try {
-      let result = await api()("/api/presidential/game/current");
-      if (!result.game) {
-        currentGame = null;
-        await openSetup();
-        return;
-      }
-      renderGame(result);
-    } catch (error) {
-      setText("saveStatus", "Ошибка сохранения");
-      toast("Не удалось загрузить кампанию: " + error.message);
-    }
-  }
-  async function withBusy(button, work, successMessage) {
-    if (busy) return;
-    busy = true;
-    const previous = button ? button.textContent : "";
-    const keepCardContents = !!(button && button.classList.contains("action-card"));
-    if (button) {
-      button.disabled = true;
-      button.dataset.previousText = previous;
-      if (!keepCardContents) button.textContent = "Обработка…";
-    }
-    document.querySelectorAll(".action-card").forEach(item => item.disabled = true);
-    setText("saveStatus", "Сохранение изменений…");
-    try {
-      const result = await work();
-      await refreshGame();
-      if (successMessage) toast(typeof successMessage === "function" ? successMessage(result) : successMessage);
-      return result;
-    } catch (error) {
-      toast("Действие не выполнено: " + error.message);
-      throw error;
-    } finally {
-      busy = false;
-      if (button) {
-        button.disabled = false;
-        if (!keepCardContents) button.textContent = previous;
-      }
-      if (currentGame) renderMetrics(currentGame);
-      if (currentGame) {
-        $("advanceTurn").disabled = false;
-        $("newGame").disabled = false;
-      }
-    }
-  }
-
-  document.querySelectorAll(".action-card").forEach(button => {
-    button.addEventListener("click", async () => {
-      const action = button.dataset.action;
-      if (!ACTIONS[action] || !currentGame) return;
-      try {
-        await withBusy(button, () => api()("/api/presidential/game/action", {
-          method: "POST",
-          body: JSON.stringify({ action })
-        }), result => {
-          const cost = result && result.cost ? " Расход казны: " + money(result.cost) + "." : "";
-          return ACTIONS[action] + " утверждено." + cost;
-        });
-      } catch (_) {}
-    });
-  });
-
-  $("advanceTurn").addEventListener("click", async () => {
+    $("advanceTurn").addEventListener("click", async () => {
     if (!currentGame) return;
     const points = Number((currentGame.state || {}).actionPoints ?? 2);
     const warning = points > 0 ? " Осталось " + points + " неиспользованных очка действий." : "";
