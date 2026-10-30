@@ -1,10 +1,13 @@
 name: Presidential Simulator integration smoke test
 
 on:
-  workflow_run:
-    workflows: ["pages build and deployment"]
-    types: [completed]
+  push:
     branches: [main]
+    paths:
+      - "frontend/**"
+      - "index.html"
+      - ".github/workflows/presidential-stack-smoke.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -30,7 +33,7 @@ jobs:
           const loginOrigin = "https://www.nettlegroup.space";
           const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-          async function fetchWithRetry(url, init, attempts = 8) {
+          async function fetchWithRetry(url, init, attempts = 30) {
             let last;
             for (let i = 0; i < attempts; i++) {
               try {
@@ -77,6 +80,13 @@ jobs:
             if (!sourceApp.includes(marker)) throw new Error("Committed frontend source is missing strategic game logic: " + marker);
           }
 
+          const publishedGameHtml = await fetchHtmlUntil(
+            gameAssetBase,
+            ["id=\"worldMap\"", "id=\"constitution\"", "closeDecreeTop"],
+            "Published game frontend",
+            30
+          );
+
           const loginHtml = await fetchHtmlUntil(
             loginOrigin + "/presidential-login.html",
             ["Verify_NettleBOT", "https://merekwi.github.io/presedento-sim/"],
@@ -116,7 +126,7 @@ jobs:
           });
           if (invalidTelegram.status !== 401) throw new Error("Invalid Telegram signature must be rejected with 401, received " + invalidTelegram.status);
 
-          const gameScript = await fetchWithRetry(gameAssetBase + "app.js", { headers: { "Cache-Control": "no-cache" } });
+          const gameScript = await fetchWithRetry(gameAssetBase + "app.js?fresh=" + Date.now(), { headers: { "Cache-Control": "no-cache" } });
           const appJs = await gameScript.text();
           if (!gameScript.ok || !appJs.length) throw new Error("Published game JavaScript asset is unavailable.");
           const gameRoutes = [
@@ -140,7 +150,7 @@ jobs:
 
           const flagAsset = await fetchWithRetry(gameAssetBase + "assets/flags/BR.svg", { headers: { "Cache-Control": "no-cache" } });
           const portraitAsset = await fetchWithRetry(gameAssetBase + "assets/portraits/01.svg", { headers: { "Cache-Control": "no-cache" } });
-          const worldMapAsset = await fetchWithRetry(gameAssetBase + "assets/world-countries.geojson", { headers: { "Cache-Control": "no-cache" } });
+          const worldMapAsset = await fetchWithRetry(gameAssetBase + "assets/world-countries.geojson?fresh=" + Date.now(), { headers: { "Cache-Control": "no-cache" } });
           const mapData = await worldMapAsset.json();
           if (!(await flagAsset.text()).includes("<svg") || !(await portraitAsset.text()).includes("<svg") || !Array.isArray(mapData.features) || mapData.features.length < 100) throw new Error("Local flag, portrait or world map asset is missing or invalid.");
 
