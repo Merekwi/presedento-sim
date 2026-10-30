@@ -1,22 +1,23 @@
 name: Presidential Simulator integration smoke test
 
 on:
-  push:
+  workflow_run:
+    workflows: ["Deploy Presidential Simulator frontend"]
+    types: [completed]
     branches: [main]
-    paths:
-      - "frontend/**"
-      - ".github/workflows/presidential-stack-smoke.yml"
-  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
   smoke:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -63,7 +64,7 @@ jobs:
             gameAssetBase,
             strategyPhrases.concat(["Presidential Simulator", "id=\"worldMap\"", "id=\"presidentPortrait\""]),
             "Presidential Simulator game page",
-            20
+            16
           );
 
           const loginHtml = await fetchHtmlUntil(
