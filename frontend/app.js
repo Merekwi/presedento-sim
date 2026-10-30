@@ -278,6 +278,8 @@
     putFlag("sidebarFlag", game.iso2, flag);
     setText("region", region || "ГОСУДАРСТВО");
     setText("bio", game.president_name + ", " + game.president_age + " лет · " + (game.president_bio || "Президент"));
+    const portraitRoot = $("presidentPortrait");
+    if (portraitRoot) portraitRoot.replaceChildren(portraitNode((game.state && game.state.presidentPortrait) || portraitIdFromName(game.president_name)));
     setText("date", dateLabel(game.game_date));
     setText("term", "Месяц " + String(game.turn_number || 1).padStart(3, "0"));
     setText("topbarTurn", "Ход " + String(game.turn_number || 1).padStart(3, "0"));
