@@ -256,13 +256,71 @@
     <div class="dialog-eyebrow">НОВАЯ ЗАКОНОДАТЕЛЬНАЯ ИНИЦИАТИВА</div><h3>Подготовить президентский указ</h3>
     <p>Опишите инициативу. Сервер подготовит официальный проект и рассчитает последствия после публикации.</p>
     <label for="order">Содержание инициативы</label><textarea id="order" rows="5" minlength="10" maxlength="5000" required placeholder="Например: запустить программу модернизации сельских больниц…"></textarea>
-    <div id="decreePreview" class="decree-preview hidden"><b id="docTitle"></b><p id="decreeSummary"></p><div id="docBody"></div><div class="decree-preview-actions"><button type="button" id="copy" class="secondary-button">Копировать</button><button type="button" id="publishDecree" class="primary-button">Опубликовать указ</button></div></div>
+    <div id="decreePreview" class="decree-preview hidden">
+      <article class="official-document" id="officialDocument">
+        <div class="document-security-line"></div>
+        <header class="document-header">
+          <div class="document-emblem" aria-hidden="true">
+            <svg viewBox="0 0 90 104" xmlns="http://www.w3.org/2000/svg">
+              <path d="M45 4L78 17V48C78 69 64 88 45 99C26 88 12 69 12 48V17Z" fill="#f5f0df" stroke="#9a7d45" stroke-width="2.5"/>
+              <path d="M45 11L71 21V48C71 64 60 80 45 89C30 80 19 64 19 48V21Z" fill="#193750" stroke="#c5a66b" stroke-width="1.2"/>
+              <path d="M45 22L51 38L68 38L54 48L59 65L45 55L31 65L36 48L22 38L39 38Z" fill="#d9bd7b"/>
+              <path d="M30 75H60M34 70H56" stroke="#d9bd7b" stroke-width="2" stroke-linecap="round"/>
+              <circle cx="45" cy="44" r="5" fill="#193750" stroke="#d9bd7b" stroke-width="1.5"/>
+            </svg>
+          </div>
+          <div class="document-heading">
+            <div class="document-country" id="docCountry">ГОСУДАРСТВО</div>
+            <div class="document-institution">КАНЦЕЛЯРИЯ ПРЕЗИДЕНТА</div>
+            <div class="document-rule"></div>
+            <div class="document-type">УКАЗ ПРЕЗИДЕНТА</div>
+            <div class="document-number">№ <b id="docNumber">—</b> <span>·</span> <time id="docDate">—</time></div>
+          </div>
+          <div class="document-registry">
+            <span>РЕЕСТР</span><b>ПУБЛИЧНЫЙ</b><i></i><small>ОФИЦИАЛЬНЫЙ<br>ДОКУМЕНТ</small>
+          </div>
+        </header>
+        <div class="document-body">
+          <h2 id="docTitle">О мерах государственной политики</h2>
+          <p class="document-preamble" id="decreeSummary"></p>
+          <div class="document-text" id="docBody"></div>
+          <div class="document-execution-note" id="docEffect"></div>
+        </div>
+        <footer class="document-footer">
+          <div class="document-signature">
+            <span>Президент</span><b id="docPresident">—</b><small>Подпись в реестре кампании</small>
+          </div>
+          <div class="document-stamp" aria-label="Официальная печать">
+            <svg viewBox="0 0 140 140" xmlns="http://www.w3.org/2000/svg">
+              <defs><path id="stampCircle" d="M70,70 m-52,0 a52,52 0 1,1 104,0 a52,52 0 1,1 -104,0"/></defs>
+              <circle cx="70" cy="70" r="61" fill="none" stroke="#a04c48" stroke-width="2"/>
+              <circle cx="70" cy="70" r="53" fill="none" stroke="#a04c48" stroke-width="1.2" stroke-dasharray="2 2"/>
+              <text font-size="8" letter-spacing="1.5" fill="#a04c48"><textPath href="#stampCircle" startOffset="6%">PRESIDENTIAL OFFICE · OFFICIAL SEAL ·</textPath></text>
+              <path d="M70 36L78 56L99 57L82 70L88 91L70 79L52 91L58 70L41 57L62 56Z" fill="none" stroke="#a04c48" stroke-width="1.6"/>
+              <path d="M57 101H83" stroke="#a04c48" stroke-width="1.5"/>
+              <text x="70" y="113" text-anchor="middle" font-size="7" fill="#a04c48" letter-spacing="1">ЗАРЕГИСТРИРОВАНО</text>
+            </svg>
+          </div>
+          <div class="document-copy-mark">
+            <span>ЭЛЕКТРОННАЯ КОПИЯ</span>
+            <b>ПОДЛИННОСТЬ ПОДТВЕРЖДЕНА</b>
+            <small>Presidential Simulator · Official Registry</small>
+          </div>
+        </footer>
+        <div class="document-security-line bottom"></div>
+      </article>
+      <div class="decree-preview-actions">
+        <button type="button" id="copy" class="secondary-button">Копировать текст</button>
+        <button type="button" id="printDecree" class="secondary-button">Печать / PDF</button>
+        <button type="button" id="publishDecree" class="primary-button">Опубликовать указ</button>
+      </div>
+    </div>
     <div class="dialog-actions"><button type="button" class="secondary-button" id="closeDecree">Закрыть</button><button type="submit" id="generate" class="primary-button">Подготовить проект</button></div>
   </form>
 </dialog>
 <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script><script src="https://cdn.jsdelivr.net/npm/d3-geo@3"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-geo@3.1.1/dist/d3-geo.min.js"></script>
 <script src="./config.js"></script><script src="./auth.js"></script><script src="./app.js"></script>
 </body>
 </html>
