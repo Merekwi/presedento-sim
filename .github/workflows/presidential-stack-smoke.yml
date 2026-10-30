@@ -85,5 +85,29 @@ jobs:
           });
           if (invalidTelegram.status !== 401) throw new Error("Invalid Telegram signature must be rejected with 401, received " + invalidTelegram.status);
 
-          console.log("Passed: game page, shared Telegram bridge, CORS, session guard, invalid Telegram signature rejection.");
+          for (const phrase of ["Международная карта", "Решения правительства", "Совет министров", "Вооружённые силы", "Завершить месяц"]) {
+            if (!gameHtml.includes(phrase)) throw new Error("New strategy interface is missing: " + phrase);
+          }
+          const gameScript = await fetchWithRetry("https://merekwi.github.io/presedento-sim/app.js");
+          const appJs = await gameScript.text();
+          for (const route of ["/api/presidential/game/action", "/api/presidential/game/advance", "/api/presidential/game/minister", "/api/presidential/game/diplomacy"]) {
+            if (!appJs.includes(route)) throw new Error("Frontend is not wired to route " + route);
+          }
+
+          const protectedRoutes = [
+            ["/api/presidential/game/action", { action: "public_health" }],
+            ["/api/presidential/game/advance", {}],
+            ["/api/presidential/game/minister", { action: "appoint", name: "Smoke Test", portfolio: "Образование", age: 45 }],
+            ["/api/presidential/game/diplomacy", { action: "summit", relationId: "00000000-0000-0000-0000-000000000000" }]
+          ];
+          for (const [route, body] of protectedRoutes) {
+            const response = await fetch(api + route, {
+              method: "POST",
+              headers: { Origin: gameOrigin, "Content-Type": "application/json" },
+              body: JSON.stringify(body),
+            });
+            if (response.status !== 401) throw new Error(route + " must require authentication (401), received " + response.status);
+          }
+
+          console.log("Passed: strategy UI, shared Telegram bridge, Neon health, CORS, protected gameplay routes and Telegram signature rejection.");
           NODE
