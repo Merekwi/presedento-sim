@@ -43,9 +43,19 @@ jobs:
             throw last;
           }
 
-          const gamePage = await fetchWithRetry("https://merekwi.github.io/presedento-sim/");
-          const gameHtml = await gamePage.text();
+          const strategyPhrases = ["Международная карта", "Решения правительства", "Совет министров", "Вооружённые силы", "Завершить месяц"];
+          let gameAssetBase = "https://merekwi.github.io/presedento-sim/";
+          const gamePage = await fetchWithRetry(gameAssetBase + "?fresh=" + Date.now(), { headers: { "Cache-Control": "no-cache" } });
+          let gameHtml = await gamePage.text();
           if (!gameHtml.includes("Presidential Simulator")) throw new Error("Game page title was not found.");
+          if (!strategyPhrases.every(phrase => gameHtml.includes(phrase))) {
+            gameAssetBase = "https://merekwi.github.io/presedento-sim/frontend/";
+            const nestedPage = await fetchWithRetry(gameAssetBase + "?fresh=" + Date.now(), { headers: { "Cache-Control": "no-cache" } });
+            gameHtml = await nestedPage.text();
+          }
+          if (!strategyPhrases.every(phrase => gameHtml.includes(phrase))) {
+            throw new Error("Published Pages does not serve the new game UI at root or /frontend/.");
+          }
 
           const loginPage = await fetchWithRetry(loginOrigin + "/presidential-login.html");
           const loginHtml = await loginPage.text();
@@ -85,10 +95,7 @@ jobs:
           });
           if (invalidTelegram.status !== 401) throw new Error("Invalid Telegram signature must be rejected with 401, received " + invalidTelegram.status);
 
-          for (const phrase of ["Международная карта", "Решения правительства", "Совет министров", "Вооружённые силы", "Завершить месяц"]) {
-            if (!gameHtml.includes(phrase)) throw new Error("New strategy interface is missing: " + phrase);
-          }
-          const gameScript = await fetchWithRetry("https://merekwi.github.io/presedento-sim/app.js");
+          const gameScript = await fetchWithRetry(gameAssetBase + "app.js", { headers: { "Cache-Control": "no-cache" } });
           const appJs = await gameScript.text();
           for (const route of ["/api/presidential/game/action", "/api/presidential/game/advance", "/api/presidential/game/minister", "/api/presidential/game/diplomacy"]) {
             if (!appJs.includes(route)) throw new Error("Frontend is not wired to route " + route);
