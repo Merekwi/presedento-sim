@@ -3,10 +3,16 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta http-equiv="refresh" content="0;url=./frontend/">
-  <link rel="canonical" href="./frontend/">
+  <meta name="theme-color" content="#101a2b">
   <title>Presidential Simulator</title>
-  <script>window.location.replace(new URL("frontend/", location.href).toString());</script>
+  <script>
+    (function () {
+      var target = new URL("frontend/", location.href);
+      target.search = location.search;
+      target.hash = location.hash;
+      location.replace(target.toString());
+    })();
+  </script>
 </head>
 <body>
   <p>Открываем Presidential Simulator…</p>
