@@ -57,9 +57,17 @@ jobs:
             throw new Error("Published Pages does not serve the new game UI at root or /frontend/.");
           }
 
-          const loginPage = await fetchWithRetry(loginOrigin + "/presidential-login.html");
+          const loginPage = await fetchWithRetry(loginOrigin + "/presidential-login.html", { headers: { "Cache-Control": "no-cache" } });
           const loginHtml = await loginPage.text();
           if (!loginHtml.includes("Verify_NettleBOT")) throw new Error("Shared Telegram login page is not published.");
+          if (!loginHtml.includes("https://merekwi.github.io/presedento-sim/frontend/")) {
+            throw new Error("Telegram callback must return directly to the frontend path.");
+          }
+          const rootPage = await fetchWithRetry("https://merekwi.github.io/presedento-sim/?fresh=" + Date.now(), { headers: { "Cache-Control": "no-cache" } });
+          const rootHtml = await rootPage.text();
+          if (!rootHtml.includes("target.hash = location.hash")) {
+            throw new Error("GitHub Pages root redirect must preserve the one-time login fragment.");
+          }
 
           const preflight = await fetch(api + "/api/presidential/me", {
             method: "OPTIONS",
