@@ -171,6 +171,7 @@
       $("presidentName").value = userName ? String(userName).slice(0, 80) : "";
       $("presidentAge").value = "45";
       $("campaignTitle").value = "";
+      $("partyName").value = "";
       $("politicalCourse").value = "social_democracy";
       $("difficulty").value = "normal";
       $("startYear").value = "2026";
@@ -305,7 +306,17 @@
       const traits = minister.traits && typeof minister.traits === "object" ? minister.traits : {};
       avatar.append(portraitNode(traits.portraitId || portraitIdFromName(minister.full_name), "portrait-svg"));
       const info = node("div", "minister-info");
-      info.append(node("b", "", minister.full_name), node("small", "", minister.portfolio + " · Возраст " + minister.age));
+      const details = node("div", "minister-effects");
+      const effectNames = {gdpGrowth:"рост ВВП",inflation:"инфляция",unemployment:"безработица",approval:"одобрение",stability:"стабильность",corruption:"коррупция",publicServices:"госуслуги",education:"образование",healthcare:"медицина",infrastructure:"инфраструктура",militaryPower:"армия",budgetBalance:"бюджет"};
+      Object.entries(traits.effects || {}).slice(0,3).forEach(([key,value]) => {
+        if (!effectNames[key]) return;
+        const amount = Number(value);
+        const chip = node("span",amount>=0?"effect-positive":"effect-negative",(amount>0?"+":"")+amount.toFixed(2)+" "+effectNames[key]);
+        details.append(chip);
+      });
+      info.append(node("b", "", minister.full_name), node("small", "", minister.portfolio + " · " + (traits.archetypeLabel || "Специалист") + " · " + minister.age + " лет"));
+      info.append(node("small", "minister-reliability", "Компетентность " + minister.competence + " · Лояльность " + minister.loyalty));
+      if (details.childNodes.length) info.append(details);
       const score = node("div", "minister-score", "★ " + minister.competence);
       const dismiss = node("button", "dismiss-button", "×");
       dismiss.type = "button";
@@ -411,6 +422,44 @@
       root.append(row);
     });
   }
+
+  function renderElection(game) {
+    const active=["election_campaign","election"].includes(String((game.state||{}).phase||""));
+    $("electionPanel").classList.toggle("hidden",!active);
+    $("governmentView").classList.toggle("hidden",active);
+    if (!active) return;
+    const election=(game.state||{}).election||{};
+    const remaining=Math.max(0,Number(election.actionsRemaining||0));
+    const support=Number(election.candidateSupport||0);
+    const opposition=Math.max(0,Math.min(100,100-support));
+    const control=Number(election.commissionControl||0);
+    setText("electionTitle",election.type||"Национальная избирательная кампания");
+    setText("electionRound",election.firstElection?"ПЕРВЫЕ ВЫБОРЫ":"ПЕРЕИЗБРАНИЕ · ТУР "+(election.round||2));
+    setText("electionDate",dateLabel(election.scheduledDate||game.game_date));
+    setText("electionDescription",election.kind==="parliamentary"?"Вам предстоит привести свою партию к победе и получить мандат на формирование правительства.":"Чтобы получить президентский мандат, необходимо набрать большинство голосов на национальных выборах.");
+    setText("electionCandidate",game.president_name);
+    setText("electionParty",election.partyName||"Ваша политическая партия");
+    const portrait=$("electionPortrait");
+    if(portrait) portrait.replaceChildren(portraitNode((game.state||{}).presidentPortrait||"p01"));
+    setText("candidateSupport",support.toFixed(1)+"%");
+    setText("oppositionSupport",opposition.toFixed(1)+"%");
+    $("candidateSupportBar").style.width=Math.min(100,support)+"%";
+    $("oppositionSupportBar").style.width=opposition+"%";
+    setText("campaignActionsRemaining",remaining+" / 4");
+    setText("commissionControl",control+" / 70");
+    setText("electionConsequences",control>=70?"ЦИК находится под вашим контролем. Можно попытаться отменить конкурентные выборы и установить диктатуру.":"Для честной победы используйте четыре предвыборных действия. Подчинение ЦИК открывает путь к авторитарному захвату власти, но ухудшает положение страны.");
+    document.querySelectorAll("[data-election-action]").forEach(button=>button.disabled=remaining<=0||busy);
+    $("electionVote").disabled=remaining>0||busy;
+    $("captureCommission").disabled=control>=70||busy;
+    $("establishDictatorship").classList.toggle("hidden",control<70);
+    $("establishDictatorship").disabled=busy;
+  }
+  async function electionRequest(route,payload,button,message) {
+    try {
+      await withBusy(button,()=>api()(route,{method:"POST",body:JSON.stringify(payload||{})}),message);
+    } catch (_) {}
+  }
+
   function renderGame(payload) {
     if (!payload || !payload.game) {
       currentGame = null;
@@ -420,6 +469,7 @@
     currentGame = payload.game;
     renderIdentity(currentGame);
     renderMetrics(currentGame);
+    renderElection(currentGame);
     renderMinisters(payload.ministers);
     renderEvents(payload.events);
     renderRelations(payload.relations);
@@ -530,6 +580,7 @@
     const payload = {
       countryId: Number(selectedCountryId), presidentName, presidentAge,
       campaignTitle: $("campaignTitle").value.trim(),
+      partyName: $("partyName").value.trim(),
       politicalCourse: $("politicalCourse").value,
       difficulty: $("difficulty").value,
       startYear: Number($("startYear").value),
@@ -541,6 +592,34 @@
     } catch (_) {}
   });
 
+
+  $("electionActions").addEventListener("click",event=>{
+    const button=event.target.closest("[data-election-action]");
+    if(!button||busy||!currentGame)return;
+    const labels={rally:"Митинги проведены.",debate:"Дебаты завершены.",manifesto:"Предвыборная программа опубликована.",coalition:"Коалиционное соглашение заключено."};
+    electionRequest("/api/presidential/game/election/campaign",{action:button.dataset.electionAction},button,labels[button.dataset.electionAction]);
+  });
+  $("captureCommission").addEventListener("click",()=>{
+    if(!currentGame||busy)return;
+    if(!confirm("Подчинить Центральную избирательную комиссию? Это увеличит коррупцию, снизит одобрение и политическую стабильность."))return;
+    electionRequest("/api/presidential/game/election/commission",{},$("captureCommission"),"Вы усилили контроль над ЦИК. Последствия отражены в показателях страны.");
+  });
+  $("establishDictatorship").addEventListener("click",()=>{
+    if(!currentGame||busy)return;
+    if(!confirm("Установить диктатуру? Конкурентные выборы будут отменены. Одобрение и стабильность снизятся, коррупция вырастет. Это решение необратимо в рамках этой кампании."))return;
+    electionRequest("/api/presidential/game/election/dictatorship",{},$("establishDictatorship"),"Вы установили авторитарный режим. Очередные конкурентные выборы отменены.");
+  });
+  $("electionVote").addEventListener("click",()=>{
+    if(!currentGame||busy)return;
+    if(!confirm("Начать подсчёт голосов? При поражении кампания завершится."))return;
+    const button=$("electionVote");
+    (async()=>{
+      try{
+        const result=await withBusy(button,()=>api()("/api/presidential/game/election/vote",{method:"POST",body:"{}"}),r=>r.won?"Победа! Вы набрали "+r.voteShare+"% голосов.":"Поражение. Вы набрали "+r.voteShare+"% голосов. Кампания завершена.");
+      }catch(_){}
+    })();
+  });
+
   $("appoint").addEventListener("click", () => $("ministerDialog").showModal());
   $("cancelMinister").addEventListener("click", () => $("ministerDialog").close());
   $("ministerForm").addEventListener("submit", async event => {
@@ -549,7 +628,11 @@
       action: "appoint",
       name: $("ministerName").value.trim(),
       portfolio: $("ministerPortfolio").value,
-      age: Number($("ministerAge").value)
+      age: Number($("ministerAge").value),
+      competence: Number($("ministerCompetence").value),
+      loyalty: Number($("ministerLoyalty").value),
+      archetype: $("ministerArchetype").value,
+      portraitId: $("ministerPortrait").value
     };
     const button = event.submitter;
     try {
@@ -557,6 +640,10 @@
       $("ministerDialog").close();
       $("ministerForm").reset();
       $("ministerAge").value = 45;
+      $("ministerCompetence").value = 70;
+      $("ministerLoyalty").value = 65;
+      $("ministerArchetype").value = "technocrat";
+      $("ministerPortrait").value = "p01";
     } catch (_) {}
   });
   $("ministers").addEventListener("click", async event => {
