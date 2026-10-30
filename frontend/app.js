@@ -277,10 +277,11 @@
     if (busy) return;
     busy = true;
     const previous = button ? button.textContent : "";
+    const keepCardContents = !!(button && button.classList.contains("action-card"));
     if (button) {
       button.disabled = true;
       button.dataset.previousText = previous;
-      button.textContent = "Обработка…";
+      if (!keepCardContents) button.textContent = "Обработка…";
     }
     document.querySelectorAll(".action-card").forEach(item => item.disabled = true);
     setText("saveStatus", "Сохранение изменений…");
@@ -296,7 +297,7 @@
       busy = false;
       if (button) {
         button.disabled = false;
-        button.textContent = previous;
+        if (!keepCardContents) button.textContent = previous;
       }
       if (currentGame) renderMetrics(currentGame);
       if (currentGame) {
