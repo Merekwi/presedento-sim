@@ -3,6 +3,7 @@
   const $ = id => document.getElementById(id);
   const api = () => window.PRESIDENTIAL_AUTH && window.PRESIDENTIAL_AUTH.api;
   let currentPayload = null, currentGame = null, draftId = null, busy = false;
+  const decreeCache = new Map();
   let setupCountries = [], selectedCountryId = null, selectedPortrait = "p01";
   let worldMapPromise = null, toastTimer = null, needsSetupAfterBusy = false;
 
@@ -250,15 +251,47 @@
       row.append(icon,info,stat);root.append(row);
     });
   }
+  function decreeEffectText(effects){
+    const data=effects&&effects.preview?effects.preview:effects||{};
+    const initial=Number(data.budgetCost||0),monthly=Number(data.monthlyCost||0),months=Number(data.durationMonths||0);
+    if(!initial&&!monthly&&!months)return "Финансовые и календарные параметры не указаны в старой версии документа.";
+    return "Первоначальное финансирование: "+money(initial)+". Ежемесячное финансирование: "+money(monthly)+". Срок исполнения: "+months+" месяцев. Общий предельный объём финансирования: "+money(initial+monthly*months)+".";
+  }
+  function fillOfficialDocument(decree,archived){
+    setText("docTitle",decree.title);
+    setText("decreeSummary",decree.summary||"");
+    $("docBody").textContent=decree.body||"";
+    setText("docNumber",String(decree.decree_number||"—"));
+    setText("docDate",dateLabel(decree.created_at||currentGame&&currentGame.game_date));
+    setText("docCountry",currentGame&&(currentGame.name_local||currentGame.name_en)||"ГОСУДАРСТВО");
+    setText("docPresident",currentGame&&currentGame.president_name||"Президент");
+    setText("docEffect",decreeEffectText(decree.effects&&decree.effects.preview?decree.effects.preview:decree.effects));
+    $("decreePreview").classList.remove("hidden");
+    $("generate").classList.add("hidden");
+    $("decreePreview").dataset.archived=archived?"true":"false";
+    const form=$("decreeForm");
+    const orderLabel=form.querySelector('label[for="order"]');
+    if(orderLabel)orderLabel.classList.toggle("hidden",!!archived);
+    $("order").classList.toggle("hidden",!!archived);
+    const title=form.querySelector("h3");
+    if(title)title.textContent=archived?"Архив опубликованных нормативных актов":"Подготовить президентский указ";
+    const intro=form.querySelector("p");
+    if(intro)intro.textContent=archived?"Официальная копия ранее опубликованного и зарегистрированного указа.":"Опишите инициативу. Сервер подготовит проект указа с финансовыми условиями и сроком исполнения.";
+    $("publishDecree").classList.toggle("hidden",!!archived);
+  }
   function renderDecrees(items){
-    const root=$("decreeHistory");if(!root)return;root.replaceChildren();
+    const root=$("decreeHistory");if(!root)return;root.replaceChildren();decreeCache.clear();
     const published=(items||[]).filter(item=>item.status==="published");
     if(!published.length){root.append(node("div","loading-row","Опубликованных указов пока нет."));return;}
     published.forEach(item=>{
-      const row=node("article","decree-row");
-      row.append(node("b","", "Указ №"+item.decree_number+" · "+item.title),
-        node("p","",item.summary||String(item.body||"").slice(0,200)),node("small","","ОПУБЛИКОВАНО"));
-      root.append(row);
+      decreeCache.set(String(item.id),item);
+      const row=node("article","decree-row"),copy=node("div","decree-history-copy");
+      copy.append(node("b","","Указ №"+item.decree_number+" · "+item.title),
+        node("p","",item.summary||String(item.body||"").slice(0,200)),
+        node("small","","ОПУБЛИКОВАНО · "+dateLabel(item.published_at||item.created_at)));
+      const open=node("button","decree-open-button","Открыть документ");
+      open.type="button";open.dataset.openDecree=item.id;
+      row.append(copy,open);root.append(row);
     });
   }
 
@@ -504,9 +537,26 @@
     try{await withBusy(button,()=>api()("/api/presidential/game/minister",{method:"POST",body:JSON.stringify({action:"dismiss",ministerId:button.dataset.dismissMinister})}),name+" отправлен в отставку.");}catch(_){}
   });
 
+  $("decreeHistory").addEventListener("click",event=>{
+    const button=event.target.closest("[data-open-decree]");if(!button)return;
+    const decree=decreeCache.get(String(button.dataset.openDecree));if(!decree)return;
+    draftId=null;
+    fillOfficialDocument(decree,true);
+    $("decreeDialog").showModal();
+  });
   $("openDecree").addEventListener("click",()=>{
     $("decreePreview").classList.add("hidden");$("generate").classList.remove("hidden");
-    $("decreeForm").reset();$("decreeDialog").showModal();
+    $("decreePreview").dataset.archived="false";
+    $("decreeForm").reset();
+    const label=$("decreeForm").querySelector('label[for="order"]');
+    if(label)label.classList.remove("hidden");
+    $("order").classList.remove("hidden");
+    const title=$("decreeForm").querySelector("h3");
+    if(title)title.textContent="Подготовить президентский указ";
+    const intro=$("decreeForm").querySelector("p");
+    if(intro)intro.textContent="Опишите инициативу. Сервер подготовит проект указа с финансовыми условиями и сроком исполнения.";
+    $("publishDecree").classList.remove("hidden");
+    $("decreeDialog").showModal();
   });
   $("closeDecree").addEventListener("click",()=>$("decreeDialog").close());
   $("decreeForm").addEventListener("submit",async event=>{
@@ -516,14 +566,7 @@
     try{
       const result=await api()("/api/presidential/game/decree/draft",{method:"POST",body:JSON.stringify({order})});
       const decree=result.decree;draftId=decree.id;
-      setText("docTitle",decree.title);setText("decreeSummary",decree.summary||"");
-      $("docBody").textContent=decree.body||"";
-      setText("docNumber",String(decree.decree_number||"—"));
-      setText("docDate",dateLabel(decree.created_at||currentGame.game_date));
-      setText("docCountry",currentGame.name_local||currentGame.name_en||"Государство");
-      setText("docPresident",currentGame.president_name||"Президент");
-      setText("docEffect","При публикации: первоначальные расходы "+money((decree.effects&&decree.effects.preview&&decree.effects.preview.budgetCost)||0)+", срок реализации — "+((decree.effects&&decree.effects.preview&&decree.effects.preview.durationMonths)||"уточняется")+" мес. Показатели будут меняться поэтапно.");
-      $("decreePreview").classList.remove("hidden");button.classList.add("hidden");
+      fillOfficialDocument(decree,false);
       toast("Официальный проект подготовлен. Проверьте преамбулу, поручения и финансовое обеспечение.");
     }catch(error){toast("Не удалось подготовить указ: "+error.message);}
     finally{button.disabled=false;button.textContent="Подготовить проект";}
