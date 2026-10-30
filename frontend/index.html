@@ -72,7 +72,10 @@
         <section class="panel world-panel">
           <div class="panel-heading"><div><span class="eyebrow">ГЕОПОЛИТИЧЕСКАЯ ОБСТАНОВКА</span><h3>Международная карта</h3></div><span class="panel-tag">МИРОВАЯ СИТУАЦИЯ</span></div>
           <div class="world-map-wrap">
-            <svg class="world-map" viewBox="0 0 820 340" role="img" aria-label="Схематическая стратегическая карта мира">
+            <div id="worldMap" class="world-map" role="img" aria-label="Карта мира с международными границами"><div class="map-loading">Загружаем карту государственных границ…</div></div>
+            <div class="map-caption"><span><i class="legend-player"></i>Ваше государство</span><span><i class="legend-border"></i>Государственные границы</span><small>Natural Earth · мировые границы</small></div>
+          </div>
+          <div class="map-bottom-stats"> viewBox="0 0 820 340" role="img" aria-label="Схематическая стратегическая карта мира">
               <defs>
                 <pattern id="mapGrid" width="34" height="34" patternUnits="userSpaceOnUse"><path d="M34 0H0V34" fill="none" stroke="#dce4ed" stroke-width=".7"/></pattern>
                 <filter id="mapGlow"><feGaussianBlur stdDeviation="5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
@@ -93,9 +96,7 @@
               </g>
               <g class="map-labels"><text x="105" y="48">СЕВЕРНАЯ АМЕРИКА</text><text x="336" y="44">ЕВРОПА</text><text x="494" y="48">АЗИЯ</text><text x="367" y="310">АФРИКА</text><text x="610" y="295">ОКЕАНИЯ</text><text x="449" y="126" id="mapCountryLabel">ВАША СТРАНА</text></g>
             </svg>
-            <div class="map-caption"><span><i class="legend-player"></i>Ваше государство</span><span><i class="legend-link"></i>Международные связи</span><small>Схематическая карта политической обстановки</small></div>
-          </div>
-          <div class="map-bottom-stats">
+
             <div><small>ДИПЛОМАТИЧЕСКИЕ КОНТАКТЫ</small><b id="relationCount">—</b></div>
             <div><small>ВОЕННЫЙ ПОТЕНЦИАЛ</small><b id="militaryPower">—</b></div>
             <div><small>ГОСУДАРСТВЕННЫЙ ДОЛГ</small><b id="debt">—</b></div>
@@ -156,6 +157,53 @@
   </main>
 </div>
 
+
+<dialog id="setupDialog" class="setup-dialog">
+  <form id="setupForm" method="dialog">
+    <div class="setup-heading">
+      <div><div class="dialog-eyebrow">НОВАЯ ПРЕЗИДЕНТСКАЯ КАМПАНИЯ</div><h2>Подготовка к управлению государством</h2><p>Выберите страну, настройте своего президента и определите курс правительства. Никаких случайных стран.</p></div>
+      <button type="button" id="closeSetup" class="setup-close" aria-label="Закрыть">×</button>
+    </div>
+    <div class="setup-layout">
+      <section class="setup-country-section">
+        <div class="setup-section-title"><span>01 / ГОСУДАРСТВО</span><b>Выберите страну</b></div>
+        <input id="countrySearch" class="country-search" type="search" placeholder="Поиск страны…" autocomplete="off">
+        <div id="countryGrid" class="country-grid"><div class="map-loading">Загружаем каталог государств…</div></div>
+        <div id="countryPreview" class="country-preview"><b>Страна ещё не выбрана</b><span>Выберите государство, чтобы увидеть его стартовые показатели.</span></div>
+      </section>
+      <section class="setup-profile-section">
+        <div class="setup-section-title"><span>02 / ПРЕЗИДЕНТ</span><b>Ваш профиль</b></div>
+        <label for="campaignTitle">Название кампании <small>необязательно</small></label>
+        <input id="campaignTitle" maxlength="90" placeholder="Например, Новый курс">
+        <label for="presidentName">Имя и фамилия президента</label>
+        <input id="presidentName" required minlength="3" maxlength="100" placeholder="Введите имя президента">
+        <div class="setup-inline-fields">
+          <div><label for="presidentAge">Возраст</label><input id="presidentAge" type="number" min="25" max="90" value="45" required></div>
+          <div><label for="startYear">Год начала</label><select id="startYear"><option>2026</option><option>2027</option><option>2028</option><option>2030</option></select></div>
+        </div>
+        <label>Внешность президента</label>
+        <div id="portraitGrid" class="portrait-grid" aria-label="Выбор портрета президента"></div>
+        <label for="politicalCourse">Политический курс</label>
+        <select id="politicalCourse">
+          <option value="social_democracy">Социальная демократия — сильные общественные услуги</option>
+          <option value="market_liberal">Рыночный либерализм — бизнес и инвестиции</option>
+          <option value="conservative">Консервативный курс — стабильность и безопасность</option>
+          <option value="green_transition">Зелёная модернизация — экология и инфраструктура</option>
+          <option value="industrial">Промышленное развитие — производство и технологии</option>
+        </select>
+        <label for="difficulty">Сложность</label>
+        <select id="difficulty">
+          <option value="normal">Стандартная — реалистичный баланс</option>
+          <option value="easy">Облегчённая — больше финансового запаса</option>
+          <option value="hard">Сложная — дефицит бюджета и низкая поддержка</option>
+        </select>
+        <div class="setup-note"><b>Что изменится?</b><span>Выбранный курс и сложность повлияют на бюджет, экономические показатели, общественную поддержку и политическую стабильность уже в первый ход.</span></div>
+      </section>
+    </div>
+    <div class="setup-footer"><span id="setupSelectionStatus">Сначала выберите государство</span><div><button type="button" id="cancelSetup" class="secondary-button">Отмена</button><button id="startCampaign" type="submit" class="primary-button" disabled>Начать игру <span>→</span></button></div></div>
+  </form>
+</dialog>
+
 <dialog id="ministerDialog" class="game-dialog">
   <form id="ministerForm" method="dialog">
     <div class="dialog-eyebrow">ФОРМИРОВАНИЕ ПРАВИТЕЛЬСТВА</div><h3>Назначить министра</h3>
@@ -177,6 +225,7 @@
 </dialog>
 <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script><script src="https://cdn.jsdelivr.net/npm/d3-geo@3"></script>
 <script src="./config.js"></script><script src="./auth.js"></script><script src="./app.js"></script>
 </body>
 </html>
