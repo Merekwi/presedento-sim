@@ -106,7 +106,7 @@
           <div class="panel-heading"><div><span class="eyebrow">ГЕОПОЛИТИЧЕСКАЯ ОБСТАНОВКА</span><h3>Международная карта</h3></div><span class="panel-tag">МИРОВАЯ СИТУАЦИЯ</span></div>
           <div class="world-map-wrap">
             <div id="worldMap" class="world-map" role="img" aria-label="Карта мира с международными границами"><div class="map-loading">Загружаем карту государственных границ…</div></div>
-            <div class="map-caption"><span><i class="legend-player"></i>Ваше государство</span><span><i class="legend-border"></i>Государственные границы</span><small>Natural Earth · мировые границы</small></div>
+            <div class="map-caption"><span><i class="legend-player"></i>Ваше государство</span><span><i class="legend-border"></i>Государственные границы</span><small>Natural Earth · встроенные данные</small></div>
           </div>
           <div class="map-bottom-stats">
             <div><small>ДИПЛОМАТИЧЕСКИЕ КОНТАКТЫ</small><b id="relationCount">—</b></div>
@@ -137,6 +137,29 @@
 <article class="program-card"><div class="program-card-top"><span>ПРОМЫШЛЕННОСТЬ</span><span>24 МЕС.</span></div><h3>Промышленные и технологические зоны</h3><p>Производственные кластеры, новые рабочие места и локальные цепочки поставок.</p><div class="program-foot"><span>Рост после запуска производств</span><button type="button" data-program-start="industrial_zones">Запустить</button></div></article>
 <article class="program-card"><div class="program-card-top"><span>ЭНЕРГЕТИКА</span><span>24 МЕС.</span></div><h3>Энергетическая устойчивость</h3><p>Модернизация сетей, резервные мощности и снижение инфраструктурных рисков.</p><div class="program-foot"><span>Постепенное снижение рисков</span><button type="button" data-program-start="energy_security">Запустить</button></div></article>
 </div></section>
+      <section class="section-block institution-section" id="constitution">
+        <div class="section-title"><div><span class="eyebrow">КОНСТИТУЦИОННЫЙ ПОРЯДОК</span><h2>Конституция и народное волеизъявление</h2><p>Поправки проходят общественное обсуждение, голосование парламента 2/3 и обязательный референдум.</p></div><div class="constitution-version"><b id="constitutionVersion">Редакция №1</b><span id="constitutionArticleCount">6 статей</span></div></div>
+        <div class="institution-workspace">
+          <article class="institution-panel"><div class="institution-panel-heading"><div><span class="eyebrow">ОСНОВНОЙ ЗАКОН</span><h3>Действующая Конституция</h3><p id="parliamentBalance">Состав парламента определяется результатами выборов.</p></div></div><div id="constitutionArticles" class="constitution-articles"><div class="loading-row">Загружаем статьи Конституции…</div></div></article>
+          <article class="institution-panel"><div class="institution-panel-heading"><div><span class="eyebrow">КОНСТИТУЦИОННАЯ ИНИЦИАТИВА</span><h3>Предложить поправку</h3><p>Укажите юридический текст и обоснование изменения.</p></div></div>
+            <label for="constitutionArticleSelect">Изменяемая статья</label><select id="constitutionArticleSelect"><option value="executive">Исполнительная власть</option><option value="legislature">Законодательная власть</option><option value="judiciary">Судебная власть</option><option value="elections">Выборы и представительство</option><option value="rights">Права и свободы</option><option value="regions">Территориальное устройство</option></select>
+            <label for="amendmentText">Новая редакция статьи</label><textarea id="amendmentText" rows="5" maxlength="2500" placeholder="Полный текст предлагаемой конституционной нормы…"></textarea>
+            <label for="amendmentReason">Обоснование и правовые последствия</label><textarea id="amendmentReason" rows="3" maxlength="1200" placeholder="Зачем нужна поправка и что именно она меняет…"></textarea>
+            <button type="button" id="proposeAmendment" class="primary-button institution-primary">Зарегистрировать поправку</button>
+            <div class="institution-process-actions"><button type="button" id="voteAmendmentParliament" class="secondary-button" disabled>Парламент — после двух месяцев</button><button type="button" id="holdConstitutionReferendum" class="secondary-button" disabled>Обязательный референдум</button></div>
+            <div id="amendmentHistory" class="institution-process-list"><div class="loading-row">История поправок появится после первой инициативы.</div></div>
+          </article>
+        </div>
+        <div class="referendum-workspace">
+          <article class="institution-panel"><div class="institution-panel-heading"><div><span class="eyebrow">НАРОДНОЕ ГОЛОСОВАНИЕ</span><h3>Инициировать референдум</h3><p>Публичная кампания длится два месяца. Голосование не проводится сразу после регистрации.</p></div></div>
+            <label for="referendumTopic">Тема референдума</label><select id="referendumTopic"><option value="economy">Экономическая политика</option><option value="social">Социальная политика</option><option value="institutions">Государственные институты</option><option value="security">Национальная безопасность</option><option value="regions">Полномочия регионов</option><option value="general">Общественно-политический вопрос</option></select>
+            <label for="referendumQuestion">Вопрос для избирателей</label><textarea id="referendumQuestion" rows="3" maxlength="500" placeholder="Должно ли государство…?"></textarea>
+            <div class="referendum-options"><div><label for="referendumYes">Вариант «за»</label><input id="referendumYes" maxlength="100" value="Поддержать предложение"></div><div><label for="referendumNo">Вариант «против»</label><input id="referendumNo" maxlength="100" value="Отклонить предложение"></div></div>
+            <button type="button" id="proposeReferendum" class="primary-button institution-primary">Назначить референдум</button>
+          </article>
+          <article class="institution-panel"><div class="institution-panel-heading"><div><span class="eyebrow">ЦЕНТРАЛЬНАЯ ИЗБИРАТЕЛЬНАЯ КОМИССИЯ</span><h3>Референдумы и итоги</h3><p>Учитываются явка, мнение социальных групп и установленный кворум.</p></div></div><button type="button" id="holdReferendum" class="secondary-button institution-hold" disabled>Голосование после двух месяцев кампании</button><div id="referendumHistory" class="institution-process-list"><div class="loading-row">Референдумы ещё не проводились.</div></div></article>
+        </div>
+      </section>
       <div class="lower-grid">
         <section class="panel" id="government">
           <div class="panel-heading"><div><span class="eyebrow">ИСПОЛНИТЕЛЬНАЯ ВЛАСТЬ</span><h3>Совет министров</h3></div><button id="appoint" class="small-button">＋ Назначить</button></div>
@@ -224,6 +247,7 @@
 
 <dialog id="decreeDialog" class="game-dialog decree-modal">
   <form id="decreeForm" method="dialog">
+    <div class="decree-page-toolbar"><span>КАНЦЕЛЯРИЯ ПРЕЗИДЕНТА · РЕЕСТР НОРМАТИВНЫХ АКТОВ</span><button type="button" id="closeDecreeTop">← Вернуться</button></div>
     <div class="dialog-eyebrow">НОВАЯ ЗАКОНОДАТЕЛЬНАЯ ИНИЦИАТИВА</div><h3>Подготовить президентский указ</h3>
     <p>Опишите инициативу. Сервер подготовит официальный проект и рассчитает последствия после публикации.</p>
     <label for="order">Содержание инициативы</label><textarea id="order" rows="5" minlength="10" maxlength="5000" required placeholder="Например: запустить программу модернизации сельских больниц…"></textarea>
@@ -291,7 +315,6 @@
 </dialog>
 <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/d3-geo@3.1.1/dist/d3-geo.min.js"></script>
 <script src="./config.js"></script><script src="./auth.js"></script><script src="./app.js"></script>
 </body>
 </html>

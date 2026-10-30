@@ -80,62 +80,42 @@
   }
 
   function loadWorldGeoJSON(){
-    if(!worldMapPromise){
-      const urls=[
-        "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson",
-        "https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_110m_admin_0_countries.geojson"
-      ];
-      worldMapPromise=(async()=>{
-        let lastError;
-        for(const url of urls){
-          try{
-            const response=await fetch(url,{cache:"force-cache"});
-            if(!response.ok)throw new Error("HTTP "+response.status);
-            const data=await response.json();
-            if(!data||!Array.isArray(data.features))throw new Error("Invalid GeoJSON");
-            return data;
-          }catch(error){lastError=error;}
-        }
-        throw lastError||new Error("GeoJSON unavailable");
-      })();
-    }
+    if(!worldMapPromise)worldMapPromise=fetch("./assets/world-countries.geojson",{cache:"force-cache"})
+      .then(r=>{if(!r.ok)throw new Error("локальные данные карты: HTTP "+r.status);return r.json();})
+      .then(data=>{if(!data||!Array.isArray(data.features)||!data.features.length)throw new Error("файл геоданных повреждён");return data;});
     return worldMapPromise;
   }
+  function mollweidePoint(point,width,height){
+    const lon=Number(point[0])*Math.PI/180,lat=Math.max(-89.9999,Math.min(89.9999,Number(point[1])))*Math.PI/180;
+    let theta=lat;
+    for(let i=0;i<12;i++){const den=2+2*Math.cos(2*theta);if(Math.abs(den)<1e-9)break;const delta=(2*theta+Math.sin(2*theta)-Math.PI*Math.sin(lat))/den;theta-=delta;if(Math.abs(delta)<1e-8)break;}
+    return [width/2+(2*Math.SQRT2/Math.PI*lon*Math.cos(theta))*width/(4*Math.SQRT2),height/2-(Math.SQRT2*Math.sin(theta))*height/(2*Math.SQRT2)];
+  }
+  function mapRingPath(ring,width,height){
+    if(!Array.isArray(ring)||ring.length<3)return "";
+    let d="",prev=null,segments=0;
+    for(const point of ring){if(!Array.isArray(point)||point.length<2)continue;const lon=Number(point[0]),p=mollweidePoint(point,width,height),seam=prev&&Math.abs(lon-prev[0])>180;d+=(prev&&!seam?"L":"M")+p[0].toFixed(2)+","+p[1].toFixed(2);if(!prev||seam)segments++;prev=[lon,Number(point[1])];}
+    return segments===1?d+"Z":d;
+  }
+  function geometryPath(g,w,h){
+    if(!g)return "";const polygons=g.type==="Polygon"?[g.coordinates]:g.type==="MultiPolygon"?g.coordinates:[];let d="";
+    for(const polygon of polygons||[])for(const ring of polygon||[])d+=mapRingPath(ring,w,h);
+    return d;
+  }
   async function renderWorldMap(iso2){
-    const root=$("worldMap");if(!root)return;
-    root.replaceChildren(node("div","map-loading","Загружаем географические границы государств…"));
-    if(!window.d3||typeof window.d3.geoNaturalEarth1!=="function"){
-      root.replaceChildren(node("div","map-loading","Не загрузился модуль карты. Обновите страницу или проверьте доступ к CDN."));
-      return;
-    }
+    const root=$("worldMap");if(!root)return;root.replaceChildren(node("div","map-loading","Загружаем встроенную карту мира…"));
     try{
-      const world=await loadWorldGeoJSON(),features=world.features;
-      const width=900,height=390,collection={type:"FeatureCollection",features};
-      const projection=window.d3.geoNaturalEarth1().fitExtent([[8,9],[width-8,height-9]],collection);
-      const path=window.d3.geoPath(projection);
-      const svg=document.createElementNS("http://www.w3.org/2000/svg","svg");
-      svg.setAttribute("class","world-map-svg");svg.setAttribute("viewBox","0 0 "+width+" "+height);
-      svg.setAttribute("role","img");svg.setAttribute("aria-label","Карта мира с государственными границами по данным Natural Earth");
-      const ocean=document.createElementNS("http://www.w3.org/2000/svg","rect");
-      ocean.setAttribute("class","map-ocean");ocean.setAttribute("width",width);ocean.setAttribute("height",height);svg.append(ocean);
-      features.forEach(feature=>{
-        const props=feature.properties||{};
-        const enhanced=String(props.ISO_A2_EH||"").toUpperCase();
-      const code=(enhanced&&enhanced!=="-99"?enhanced:String(props.ISO_A2||"")).toUpperCase();
-        const shape=document.createElementNS("http://www.w3.org/2000/svg","path");
-        shape.setAttribute("d",path(feature)||"");
-        shape.setAttribute("class","map-country"+(code===String(iso2||"").toUpperCase()?" active":""));
-        shape.setAttribute("tabindex","0");
-        const name=props.NAME_RU||props.NAME_EN||props.ADMIN||props.NAME||"Государство";
-        shape.setAttribute("aria-label",name);
-        shape.setAttribute("data-iso2",code);
-        const title=document.createElementNS("http://www.w3.org/2000/svg","title");title.textContent=name;shape.append(title);
-        svg.append(shape);
-      });
-      root.replaceChildren(svg);
-    }catch(error){
-      root.replaceChildren(node("div","map-loading","Не удалось загрузить карту: "+(error&&error.message?error.message:"ошибка данных")));
-    }
+      const data=await loadWorldGeoJSON(),w=900,h=450,ns="http://www.w3.org/2000/svg",svg=document.createElementNS(ns,"svg");
+      svg.setAttribute("class","world-map-svg");svg.setAttribute("viewBox","0 0 "+w+" "+h);svg.setAttribute("role","img");svg.setAttribute("aria-label","Политическая карта мира");svg.setAttribute("preserveAspectRatio","xMidYMid meet");
+      const ocean=document.createElementNS(ns,"rect");ocean.setAttribute("class","map-ocean");ocean.setAttribute("width",w);ocean.setAttribute("height",h);svg.append(ocean);
+      const grid=document.createElementNS(ns,"g");grid.setAttribute("class","map-graticule");
+      for(const lat of [-60,-30,0,30,60]){const line=document.createElementNS(ns,"path");let d="";for(let lon=-180;lon<=180;lon+=4){const p=mollweidePoint([lon,lat],w,h);d+=(lon===-180?"M":"L")+p[0].toFixed(1)+","+p[1].toFixed(1);}line.setAttribute("d",d);grid.append(line);}svg.append(grid);
+      const countries=document.createElementNS(ns,"g");
+      data.features.forEach(feature=>{const props=feature.properties||{},eh=String(props.ISO_A2_EH||"").toUpperCase(),code=(eh&&eh!=="-99"?eh:String(props.ISO_A2||"")).toUpperCase(),path=document.createElementNS(ns,"path");
+        path.setAttribute("d",geometryPath(feature.geometry,w,h));path.setAttribute("class","map-country"+(code===String(iso2||"").toUpperCase()?" active":""));path.setAttribute("data-iso2",code);
+        const name=props.NAME_RU||props.NAME_EN||props.ADMIN||props.NAME||"Государство";path.setAttribute("aria-label",name);const title=document.createElementNS(ns,"title");title.textContent=name;path.append(title);countries.append(path);});
+      svg.append(countries);root.replaceChildren(svg);
+    }catch(error){root.replaceChildren(node("div","map-loading","Не удалось открыть встроенную карту: "+(error&&error.message?error.message:"ошибка данных")));}
   }
 
   function renderIdentity(game){
@@ -251,6 +231,37 @@
       row.append(icon,info,stat);root.append(row);
     });
   }
+  const DEFAULT_CONSTITUTION_ARTICLES=[
+    {id:"executive",title:"Исполнительная власть",text:"Полномочия главы государства ограничены Конституцией, законом и механизмами парламентского и судебного контроля."},
+    {id:"legislature",title:"Законодательная власть",text:"Законодательная власть осуществляется парламентом, избираемым на основе всеобщего и равного избирательного права."},
+    {id:"judiciary",title:"Судебная власть",text:"Судебная власть независима. Судьи подчиняются Конституции и закону; вмешательство в правосудие запрещено."},
+    {id:"elections",title:"Выборы и политическое представительство",text:"Выборы проводятся периодически на основе равного, прямого и тайного голосования при политическом плюрализме."},
+    {id:"rights",title:"Права и свободы человека",text:"Государство признаёт и гарантирует основные права и свободы человека, равенство перед законом и судебную защиту."},
+    {id:"regions",title:"Территориальное устройство",text:"Полномочия центральных и региональных органов разграничиваются законом с соблюдением единства государства."}
+  ];
+  function institutionStatus(status){return ({public_consultation:"Общественное обсуждение",referendum_scheduled:"Ожидает референдума",approved:"Одобрено",parliamentary_rejected:"Отклонено парламентом",referendum_rejected:"Отклонено на референдуме",campaign:"Идёт кампания",invalid:"Недостаточная явка"})[status]||"Завершено";}
+  function renderInstitutions(game){
+    const s=game.state||{},c=s.constitution||{},articles=Array.isArray(c.articles)&&c.articles.length?c.articles:DEFAULT_CONSTITUTION_ARTICLES,turn=Number(game.turn_number||0),government=s.phase==="government";
+    setText("constitutionVersion","Редакция №"+Number(c.version||1));setText("constitutionArticleCount",articles.length+" статей");
+    const art=$("constitutionArticles");if(art){art.replaceChildren();articles.forEach((item,i)=>{const card=node("article","constitution-article");card.append(node("div","constitution-article-number","СТАТЬЯ "+String(i+1).padStart(2,"0")),node("h4","",item.title),node("p","",item.text));art.append(card);});}
+    const proposals=Array.isArray(c.proposals)?c.proposals:[],amendRoot=$("amendmentHistory");
+    if(amendRoot){amendRoot.replaceChildren();if(!proposals.length)amendRoot.append(node("div","loading-row","Поправки ещё не вносились."));proposals.slice(-4).reverse().forEach(item=>{const card=node("article","institution-process-card"),head=node("div","institution-process-head");head.append(node("b","",item.articleTitle||"Поправка"),node("span","institution-status",institutionStatus(item.status)));card.append(head,node("p","",item.reason||item.proposedText||""));const meta=[];if(item.consultationEndsTurn)meta.push("Обсуждение до месяца "+item.consultationEndsTurn);if(item.parliamentShare!==undefined)meta.push("Поддержка парламента "+number(item.parliamentShare,1)+"%");if(item.referendumTurn)meta.push("Референдум после месяца "+item.referendumTurn);if(item.referendumShare!==undefined)meta.push("Поддержка на референдуме "+number(item.referendumShare,1)+"%");if(meta.length)card.append(node("small","institution-process-meta",meta.join(" · ")));amendRoot.append(card);});}
+    const active=[...proposals].reverse().find(x=>["public_consultation","referendum_scheduled"].includes(x.status));
+    const p=$("voteAmendmentParliament"),cr=$("holdConstitutionReferendum");
+    const parliamentDue=active&&active.status==="public_consultation"&&turn>=Number(active.consultationEndsTurn||999999);
+    if(p){p.disabled=busy||!government||!parliamentDue;p.textContent=parliamentDue?"Провести голосование парламента":"Парламент — после двух месяцев обсуждения";}
+    const constitutionDue=active&&active.status==="referendum_scheduled"&&turn>=Number(active.referendumTurn||999999);
+    if(cr){cr.disabled=busy||!government||!constitutionDue;cr.textContent=constitutionDue?"Открыть итог референдума":"Обязательный референдум после парламентского одобрения";}
+    const propose=$("proposeAmendment");if(propose)propose.disabled=busy||!government||Number(s.actionPoints??2)<1||Boolean(active);
+    const parliament=s.parliament||{};setText("parliamentBalance",parliament.governmentSeats!==undefined?Number(parliament.governmentSeats)+"% мест у правительственной коалиции · конституционное большинство — 2/3":"Состав парламента будет определён по итогам первых выборов.");
+    const referendums=Array.isArray(s.referendums)?s.referendums:[],refRoot=$("referendumHistory");
+    if(refRoot){refRoot.replaceChildren();if(!referendums.length)refRoot.append(node("div","loading-row","Референдумы ещё не проводились."));referendums.slice(-5).reverse().forEach(item=>{const card=node("article","institution-process-card"),head=node("div","institution-process-head");head.append(node("b","",item.question),node("span","institution-status",institutionStatus(item.status)));card.append(head,node("p","","«"+(item.yesLabel||"За")+"» / «"+(item.noLabel||"Против")+"»"));if(item.yesShare!==undefined)card.append(node("small","institution-process-meta","За: "+number(item.yesShare,1)+"% · Против: "+number(100-item.yesShare,1)+"% · Явка: "+number(item.turnout,1)+"%"));else card.append(node("small","institution-process-meta","Голосование после месяца "+item.voteTurn));refRoot.append(card);});}
+    const running=[...referendums].reverse().find(x=>x.status==="campaign"),start=$("proposeReferendum"),hold=$("holdReferendum");
+    if(start)start.disabled=busy||!government||Number(s.actionPoints??2)<1||Boolean(running);
+    const referendumDue=running&&turn>=Number(running.voteTurn||999999);
+    if(hold){hold.disabled=busy||!government||!referendumDue;hold.textContent=referendumDue?"Провести референдум":"Голосование после двух месяцев общественной кампании";}
+  }
+
   function decreeEffectText(effects){
     const data=effects&&effects.preview?effects.preview:effects||{};
     const initial=Number(data.budgetCost||0),monthly=Number(data.monthlyCost||0),months=Number(data.durationMonths||0);
@@ -444,7 +455,7 @@
     currentPayload=payload;currentGame=payload.game;
     renderIdentity(currentGame);renderMetrics(currentGame);renderElection(currentGame);
     renderMinisters(payload.ministers);renderEvents(payload.events);renderRelations(payload.relations);
-    renderUnits(payload.units);renderDecrees(payload.decrees);renderProjects(currentGame);
+    renderUnits(payload.units);renderDecrees(payload.decrees);renderProjects(currentGame);renderInstitutions(currentGame);
     setText("saveStatus","Сохранение синхронизировано");
     const advance=$("advanceTurn"),newGame=$("newGame");
     if(advance)advance.disabled=busy||["election_campaign","election"].includes(currentGame.state&&currentGame.state.phase);
@@ -547,6 +558,33 @@
     }catch(_){}
   });
 
+  $("proposeAmendment").addEventListener("click",async()=>{
+    if(!currentGame||busy)return;
+    const articleId=$("constitutionArticleSelect").value,proposedText=$("amendmentText").value.trim(),reason=$("amendmentReason").value.trim();
+    if(proposedText.length<30||reason.length<20)return toast("Нужны полный текст поправки и подробное обоснование.");
+    if(!confirm("Начать двухмесячное общественное обсуждение? Затем потребуется 2/3 голосов парламента и обязательный референдум."))return;
+    try{await withBusy($("proposeAmendment"),()=>api()("/api/presidential/game/constitution/propose",{method:"POST",body:JSON.stringify({articleId,proposedText,reason})}),"Поправка зарегистрирована. Началось общественное обсуждение.");$("amendmentText").value="";$("amendmentReason").value="";}catch(_){}
+  });
+  $("voteAmendmentParliament").addEventListener("click",async()=>{
+    if(!currentGame||busy||!confirm("Провести голосование парламента? Для продолжения требуется 2/3 голосов."))return;
+    try{await withBusy($("voteAmendmentParliament"),()=>api()("/api/presidential/game/constitution/parliament",{method:"POST",body:"{}"}),r=>r&&r.approved?"Поправка получила квалифицированное большинство. Назначен референдум.":"Парламент отклонил поправку.");}catch(_){}
+  });
+  $("holdConstitutionReferendum").addEventListener("click",async()=>{
+    if(!currentGame||busy||!confirm("Подвести официальные итоги обязательного референдума по поправке к Конституции?"))return;
+    try{await withBusy($("holdConstitutionReferendum"),()=>api()("/api/presidential/game/constitution/referendum",{method:"POST",body:"{}"}),r=>r&&r.approved?"Новая редакция Конституции вступила в силу.":"Избиратели не поддержали поправку.");}catch(_){}
+  });
+  $("proposeReferendum").addEventListener("click",async()=>{
+    if(!currentGame||busy)return;
+    const question=$("referendumQuestion").value.trim(),topic=$("referendumTopic").value,yesLabel=$("referendumYes").value.trim()||"Да",noLabel=$("referendumNo").value.trim()||"Нет";
+    if(question.length<20)return toast("Формулировка вопроса должна содержать не менее 20 символов.");
+    if(!confirm("Зарегистрировать референдум? До голосования пройдут два месяца общественной кампании."))return;
+    try{await withBusy($("proposeReferendum"),()=>api()("/api/presidential/game/referendum/propose",{method:"POST",body:JSON.stringify({question,topic,yesLabel,noLabel})}),"Началась общественная кампания референдума.");$("referendumQuestion").value="";}catch(_){}
+  });
+  $("holdReferendum").addEventListener("click",async()=>{
+    if(!currentGame||busy||!confirm("Закрыть голосование и объявить официальный результат референдума?"))return;
+    try{await withBusy($("holdReferendum"),()=>api()("/api/presidential/game/referendum/hold",{method:"POST",body:"{}"}),r=>r&&r.approved?"Предложение получило поддержку большинства.":"Предложение не получило большинства или не набрало кворум.");}catch(_){}
+  });
+
   $("relationsList").addEventListener("click",async event=>{
     const button=event.target.closest("[data-relation-action]");if(!button||busy)return;
     const action=button.dataset.relationAction,country=button.dataset.country||"страну";
@@ -604,6 +642,7 @@
     $("decreeDialog").showModal();
   });
   $("closeDecree").addEventListener("click",()=>$("decreeDialog").close());
+  $("closeDecreeTop").addEventListener("click",()=>$("decreeDialog").close());
   $("decreeForm").addEventListener("submit",async event=>{
     event.preventDefault();const order=$("order").value.trim();
     if(order.length<10)return toast("Опишите инициативу подробнее.");

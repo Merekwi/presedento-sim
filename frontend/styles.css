@@ -393,3 +393,62 @@ button:disabled{opacity:.48;cursor:not-allowed}
 .setup-only-options{max-width:640px;margin:0 auto;padding:0 20px 18px}
 @media(max-width:980px){.campaign-grid{grid-template-columns:1fr}.campaign-choice-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:620px){.campaign-group-polls{grid-template-columns:1fr 1fr}.campaign-choice-grid{grid-template-columns:1fr}.campaign-choice-description{min-height:0}.campaign-choice-card{padding:15px}.setup-only-options{padding:0 4px 14px}}
+
+
+/* Constitution and referendum process */
+.institution-section{margin-top:30px}
+.constitution-version{display:grid;gap:4px;text-align:right;padding:11px 15px;border:1px solid #dce5e5;border-radius:11px;background:#fff;min-width:120px}
+.constitution-version b{font:800 13px Manrope;color:#27445b}.constitution-version span{font-size:9px;color:#82909c}
+.institution-workspace,.referendum-workspace{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:14px;margin-top:15px}
+.referendum-workspace{grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr);margin-top:14px}
+.institution-panel{min-width:0;padding:20px;border:1px solid #e1e8eb;border-radius:13px;background:#fff;box-shadow:0 4px 18px #21384a08}
+.institution-panel-heading{margin-bottom:15px}.institution-panel-heading h3{font:800 16px Manrope;color:#213a52;margin:5px 0}
+.institution-panel-heading p{font-size:10px;line-height:1.6;color:#7b8996;margin:0}
+.constitution-articles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.constitution-article{padding:12px 13px;border:1px solid #e9edef;border-radius:9px;background:#fafbfb}
+.constitution-article-number{font-size:8px;font-weight:800;letter-spacing:1px;color:#a58b5d}
+.constitution-article h4{font:800 11px Manrope;color:#273d53;margin:6px 0}.constitution-article p{font:10px/1.6 Georgia,serif;color:#637182;margin:0;white-space:pre-wrap}
+.institution-panel label{display:block;margin:12px 0 5px;font-size:9px;font-weight:800;color:#6b7a8b}
+.institution-panel input,.institution-panel select,.institution-panel textarea{display:block;width:100%;border:1px solid #dce4e9;border-radius:8px;background:#fbfcfd;color:#26394e;padding:10px 11px;font:11px Manrope;outline:none;box-sizing:border-box}
+.institution-panel textarea{resize:vertical;min-height:70px;line-height:1.6}
+.institution-panel input:focus,.institution-panel select:focus,.institution-panel textarea:focus{border-color:#7fb8ad;box-shadow:0 0 0 3px #7fb8ad22}
+.institution-primary{width:100%;justify-content:center;margin-top:14px;min-height:42px}
+.institution-process-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.institution-process-actions button,.institution-hold{font-size:9px;line-height:1.4}
+.institution-process-actions button:disabled,.institution-hold:disabled,.institution-primary:disabled{opacity:.48;cursor:not-allowed}
+.institution-hold{width:100%;margin:0 0 12px}
+.institution-process-list{display:grid;gap:8px;margin-top:13px}
+.institution-process-card{padding:12px;border:1px solid #e7ecef;border-radius:9px;background:#fafbfc}
+.institution-process-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.institution-process-head b{font-size:10px;line-height:1.45;color:#2c4259}
+.institution-status{flex:0 0 auto;padding:4px 6px;border-radius:5px;background:#edf2f4;color:#617689;font-size:7px;font-weight:800}
+.institution-process-card p{font-size:9px;line-height:1.55;color:#657487;margin:7px 0 0;white-space:pre-wrap}
+.institution-process-meta{display:block;margin-top:8px;font-size:8px;line-height:1.6;color:#8b98a3}
+.referendum-options{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:950px){.institution-workspace,.referendum-workspace{grid-template-columns:1fr}}
+@media(max-width:620px){.institution-panel{padding:15px}.constitution-articles{grid-template-columns:1fr}.institution-process-actions,.referendum-options{grid-template-columns:1fr}.constitution-version{margin-top:9px;text-align:left}.section-title{gap:10px}}
+
+/* Open decrees as a full-screen document page. */
+.decree-modal{position:fixed;inset:0;margin:0;width:100vw;height:100dvh;max-width:none;max-height:none;overflow-y:auto;overflow-x:hidden;border:0;border-radius:0;padding:0;background:#e9edf0;color:#233449;box-shadow:none}
+.decree-modal[open]{display:block}
+.decree-modal form{width:min(100%,1040px);min-height:100%;max-height:none;overflow:visible;margin:0 auto;padding:0 30px 32px;box-sizing:border-box}
+.decree-page-toolbar{position:sticky;top:0;z-index:10;display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 -30px 24px;padding:14px 30px;background:#172c43;color:#e9eef2;box-shadow:0 4px 15px #1a2d4120}
+.decree-page-toolbar span{font-size:9px;letter-spacing:1.2px;font-weight:800}
+.decree-page-toolbar button{border:1px solid #ffffff45;border-radius:7px;padding:8px 12px;background:#ffffff12;color:#fff;font-size:9px;font-weight:800}
+.decree-modal form>h3{font:800 22px Manrope;color:#213a52;margin:6px 0 10px}
+.decree-modal form>p{max-width:760px;font-size:11px;line-height:1.7;color:#778697}
+.decree-modal form>label{font-size:10px;font-weight:800;color:#63758a}
+.decree-modal form>textarea{display:block;width:100%;box-sizing:border-box;border:1px solid #d6dfe4;border-radius:10px;background:#fff;padding:14px;font:12px/1.65 Manrope;resize:vertical}
+.decree-preview{max-height:none;overflow:visible;margin:20px 0 0;padding:0;border:0;border-radius:0;background:transparent}
+.official-document{width:100%;max-width:900px;min-height:calc(100dvh - 210px);box-sizing:border-box;margin:0 auto;padding:42px 58px 30px;display:flex;flex-direction:column}
+.document-body{flex:1}
+.decree-modal .dialog-actions{display:flex;justify-content:flex-end;max-width:900px;margin:18px auto 0;padding:12px 0 0;border-top:1px solid #d5dfe4}
+.decree-modal .decree-preview-actions{max-width:900px;margin:15px auto 0}
+@media(max-width:650px){.decree-modal form{padding:0 12px 25px}.decree-page-toolbar{margin:0 -12px 17px;padding:12px}.decree-page-toolbar span{font-size:7px;letter-spacing:.5px}.decree-modal form>h3{font-size:18px}.official-document{min-height:calc(100dvh - 180px);padding:22px 18px 18px}}
+@media print{
+ .decree-page-toolbar,.decree-modal form>.dialog-eyebrow,.decree-modal form>h3,.decree-modal form>p,.decree-modal form>label,.decree-modal form>textarea,.decree-modal .dialog-actions{display:none!important}
+ .decree-modal{position:static!important;inset:auto!important;width:100%!important;height:auto!important;overflow:visible!important}
+ .decree-modal form{width:100%!important;padding:0!important}
+ #decreePreview{position:static!important;width:100%!important;margin:0!important}
+ .official-document{min-height:0!important;border:0;box-shadow:none;padding:18mm 20mm}
+}

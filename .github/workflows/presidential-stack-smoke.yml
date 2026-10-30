@@ -126,6 +126,11 @@ jobs:
             "/api/presidential/game/diplomacy",
             "/api/presidential/game/election/decision",
             "/api/presidential/game/election/vote",
+            "/api/presidential/game/constitution/propose",
+            "/api/presidential/game/constitution/parliament",
+            "/api/presidential/game/constitution/referendum",
+            "/api/presidential/game/referendum/propose",
+            "/api/presidential/game/referendum/hold",
             "/api/presidential/game/decree/draft",
             "/api/presidential/game/decree/publish"
           ];
@@ -135,9 +140,9 @@ jobs:
 
           const flagAsset = await fetchWithRetry(gameAssetBase + "assets/flags/BR.svg", { headers: { "Cache-Control": "no-cache" } });
           const portraitAsset = await fetchWithRetry(gameAssetBase + "assets/portraits/01.svg", { headers: { "Cache-Control": "no-cache" } });
-          if (!(await flagAsset.text()).includes("<svg") || !(await portraitAsset.text()).includes("<svg")) {
-            throw new Error("Local flag or portrait asset is missing.");
-          }
+          const worldMapAsset = await fetchWithRetry(gameAssetBase + "assets/world-countries.geojson", { headers: { "Cache-Control": "no-cache" } });
+          const mapData = await worldMapAsset.json();
+          if (!(await flagAsset.text()).includes("<svg") || !(await portraitAsset.text()).includes("<svg") || !Array.isArray(mapData.features) || mapData.features.length < 100) throw new Error("Local flag, portrait or world map asset is missing or invalid.");
 
           const protectedRoutes = [
             ["/api/presidential/game/program", { action: "start", projectId: "health_modernization" }],
@@ -146,6 +151,11 @@ jobs:
             ["/api/presidential/game/diplomacy", { action: "consultations", relationId: "00000000-0000-0000-0000-000000000000" }],
             ["/api/presidential/game/election/decision", { issueId: "budget", choiceId: "spending_review" }],
             ["/api/presidential/game/election/vote", {}],
+            ["/api/presidential/game/constitution/propose", { articleId: "rights", proposedText: "Государство гарантирует дополнительные механизмы судебной защиты и равенство граждан перед законом.", reason: "Поправка расширяет гарантии судебной защиты и процессуальные права граждан." }],
+            ["/api/presidential/game/constitution/parliament", {}],
+            ["/api/presidential/game/constitution/referendum", {}],
+            ["/api/presidential/game/referendum/propose", { topic: "social", question: "Следует ли расширить государственную программу доступной медицинской помощи?", yesLabel: "Поддержать программу", noLabel: "Отклонить программу" }],
+            ["/api/presidential/game/referendum/hold", {}],
             ["/api/presidential/game/decree/draft", { order: "Модернизировать государственную систему здравоохранения." }],
             ["/api/presidential/game/decree/publish", { decreeId: "00000000-0000-0000-0000-000000000000" }]
           ];
