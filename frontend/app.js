@@ -4,7 +4,7 @@
   const api = () => window.PRESIDENTIAL_AUTH && window.PRESIDENTIAL_AUTH.api;
   let currentPayload = null, currentGame = null, draftId = null, busy = false;
   const decreeCache = new Map();
-  let setupCountries = [], selectedCountryId = null, selectedPortrait = "p01";
+  
   let worldMapPromise = null, toastTimer = null, needsSetupAfterBusy = false;
 
   function toast(message) {
@@ -302,23 +302,119 @@
     if(panel)panel.classList.toggle("hidden",!active);
     if(government)government.classList.toggle("hidden",active);
     if(!active)return;
-    const election=(game.state||{}).election||{},remaining=Math.max(0,Number(election.actionsRemaining||0));
-    const support=Number(election.candidateSupport||0),opposition=Math.max(0,100-support),control=Number(election.commissionControl||0);
+
+    const state=game.state||{},election=state.election||{};
+    const agenda=Array.isArray(election.agenda)?election.agenda:[];
+    const decisions=Array.isArray(election.decisions)?election.decisions:[];
+    const index=Math.max(0,Number(election.issueIndex||0));
+    const current=agenda[index]||null;
+    const support=Number(election.candidateSupport||0),opposition=Math.max(0,100-support);
+    const completed=index>=agenda.length&&agenda.length>0;
+
     setText("electionTitle",election.type||"Национальная избирательная кампания");
     setText("electionRound",election.firstElection?"ПЕРВЫЕ ВЫБОРЫ":"ПЕРЕИЗБРАНИЕ · ТУР "+(election.round||2));
     setText("electionDate",dateLabel(election.scheduledDate||game.game_date));
-    setText("electionDescription",election.kind==="parliamentary"?"Вам предстоит привести свою партию к победе и получить мандат на формирование правительства.":"Чтобы получить президентский мандат, необходимо набрать большинство голосов на национальных выборах.");
-    setText("electionCandidate",game.president_name);setText("electionParty",election.partyName||"Ваша политическая партия");
-    const photo=$("electionPortrait");if(photo)photo.replaceChildren(portraitNode((game.state||{}).presidentPortrait||"p01"));
-    setText("candidateSupport",support.toFixed(1)+"%");setText("oppositionSupport",opposition.toFixed(1)+"%");
+    setText("electionDescription","Вы не просто рекламируете кандидата: каждое решение формирует программу будущего правительства и меняет поддержку разных слоёв населения.");
+    setText("electionCandidate",game.president_name);
+    setText("electionParty",election.partyName||"Ваша политическая партия");
+    const photo=$("electionPortrait");
+    if(photo)photo.replaceChildren(portraitNode(state.presidentPortrait||"p01"));
+    setText("candidateSupport",support.toFixed(1)+"%");
+    setText("oppositionSupport",opposition.toFixed(1)+"%");
     const candidateBar=$("candidateSupportBar"),oppositionBar=$("oppositionSupportBar");
-    if(candidateBar)candidateBar.style.width=Math.min(100,support)+"%";if(oppositionBar)oppositionBar.style.width=opposition+"%";
-    setText("campaignActionsRemaining",remaining+" / 4");setText("commissionControl",control+" / 70");
-    setText("electionConsequences",control>=70?"ЦИК находится под вашим контролем. Вы можете попытаться отменить конкурентные выборы и установить диктатуру.":"Используйте четыре предвыборных действия, чтобы убедить избирателей. Подчинение ЦИК открывает путь к авторитарному захвату власти, но ухудшает положение страны.");
-    document.querySelectorAll("[data-election-action]").forEach(button=>button.disabled=remaining<=0||busy);
-    const vote=$("electionVote");if(vote)vote.disabled=remaining>0||busy;
-    const capture=$("captureCommission");if(capture)capture.disabled=control>=70||busy;
-    const dictator=$("establishDictatorship");if(dictator){dictator.classList.toggle("hidden",control<70);dictator.disabled=busy;}
+    if(candidateBar)candidateBar.style.width=Math.min(100,support)+"%";
+    if(oppositionBar)oppositionBar.style.width=Math.min(100,opposition)+"%";
+    setText("campaignActionsRemaining",agenda.length?Math.min(index,agenda.length)+" / "+agenda.length:"—");
+    setText("electionConsequences",
+      "Доверие к программе: "+number(election.policyCredibility??50,0)+"/100 · Институциональное доверие: "+number(election.institutionalTrust??50,0)+"/100 · Бюджетные обязательства: "+number(election.fiscalImpactPct??0,2)+"% ВВП");
+
+    const groupRoot=$("campaignGroupPolls");
+    if(groupRoot){
+      groupRoot.replaceChildren();
+      const labels={workers:"Работающие",business:"Предприниматели",rural:"Сельские регионы",youth:"Молодёжь",publicSector:"Госсектор",conservative:"Консервативные избиратели"};
+      const groups=election.voterGroups||{};
+      Object.entries(labels).forEach(([key,label])=>{
+        const value=clamp(groups[key]??support,0,100);
+        const row=node("div","campaign-group-row"),head=node("div","campaign-group-head");
+        head.append(node("span","",label),node("b","",Math.round(value)+"%"));
+        const track=node("div","campaign-group-track"),fill=node("i");
+        fill.style.width=value+"%";track.append(fill);row.append(head,track);groupRoot.append(row);
+      });
+    }
+
+    const issueRoot=$("electionIssue");
+    if(issueRoot){
+      issueRoot.replaceChildren();
+      if(current){
+        const intro=node("div","campaign-issue-intro");
+        intro.append(node("div","campaign-issue-number","ВОПРОС "+(index+1)+" ИЗ "+agenda.length));
+        intro.append(node("h3","",current.title||"Политический выбор"));
+        intro.append(node("p","",current.context||"Стране требуется политическое решение."));
+        intro.append(node("h4","",current.question||"Какую позицию должна занять ваша партия?"));
+        issueRoot.append(intro);
+
+        const metricRoot=node("div","campaign-indicators");
+        const metricFormats={
+          treasury:v=>money(v),debt:v=>number(v,1)+"% ВВП",taxRate:v=>number(v,1)+"%",
+          inflation:v=>number(v,1)+"%",unemployment:v=>number(v,1)+"%",
+          gdpGrowth:v=>(Number(v)>0?"+":"")+number(v,1)+"%",
+          infrastructure:v=>number(v,0)+"/100",publicServices:v=>number(v,0)+"/100",
+          corruption:v=>number(v,0)+"/100",stability:v=>number(v,0)+"/100",
+          approval:v=>number(v,0)+"%",militaryPower:v=>number(v,0)+"/100"
+        };
+        (current.indicators||[]).forEach(metric=>{
+          const value=Number(state[metric.key]??0),cell=node("div","campaign-indicator");
+          cell.append(node("small","",metric.label||metric.key),node("b","",metricFormats[metric.key]?metricFormats[metric.key](value):number(value,1)+(metric.suffix||"")));
+          metricRoot.append(cell);
+        });
+        if(metricRoot.childNodes.length)issueRoot.append(metricRoot);
+
+        const choices=node("div","campaign-choice-grid");
+        (current.choices||[]).forEach(choice=>{
+          const card=node("article","campaign-choice-card");
+          card.append(node("div","campaign-choice-kicker","ВАРИАНТ ПОЛИТИКИ"));
+          card.append(node("h4","",choice.title));
+          card.append(node("p","campaign-choice-description",choice.description));
+          const pros=node("div","campaign-tradeoff campaign-benefit");
+          pros.append(node("b","","Потенциальный выигрыш"),node("span","",choice.benefit||""));
+          const cons=node("div","campaign-tradeoff campaign-risk");
+          cons.append(node("b","","Цена решения"),node("span","",choice.risk||""));
+          const submit=node("button","campaign-choice-submit","Выбрать этот курс →");
+          submit.type="button";submit.dataset.electionChoice=choice.id;submit.dataset.issueId=current.id;submit.disabled=busy;
+          card.append(pros,cons,submit);choices.append(card);
+        });
+        issueRoot.append(choices);
+      }else if(agenda.length){
+        issueRoot.append(node("div","campaign-complete-title","Политическая программа сформирована"));
+        issueRoot.append(node("p","campaign-complete-copy","Вы определили позицию партии по всем ключевым вопросам. Теперь избиратели оценят не лозунги, а последовательность и последствия предложенной программы."));
+      }else{
+        issueRoot.append(node("div","campaign-complete-title","Сохранение старой версии кампании"));
+        issueRoot.append(node("p","campaign-complete-copy","Эта кампания была создана до появления новой политической системы выборов. Начните новую кампанию, чтобы страна и кандидат были сгенерированы случайно, а выборы проходили по шести содержательным вопросам."));
+      }
+    }
+
+    const history=$("electionDecisionHistory");
+    if(history){
+      history.replaceChildren();
+      if(!decisions.length)history.append(node("div","campaign-history-empty","Решения ещё не приняты."));
+      decisions.forEach((decision,i)=>{
+        const row=node("div","campaign-history-row");
+        row.append(node("span","campaign-history-index",String(i+1).padStart(2,"0")));
+        const copy=node("div","campaign-history-copy");
+        copy.append(node("b","",decision.issueTitle||decision.issueId||"Вопрос"),node("small","",decision.choiceTitle||decision.choiceId||""));
+        row.append(copy);history.append(row);
+      });
+    }
+
+    const progress=$("campaignProgress");
+    if(progress)progress.style.width=(agenda.length?Math.min(100,index/agenda.length*100):0)+"%";
+    const vote=$("electionVote");
+    if(vote){
+      vote.classList.toggle("hidden",!completed);
+      vote.disabled=!completed||busy;
+      vote.textContent=completed?"Провести национальные выборы →":"Сначала завершите программу";
+    }
+    document.querySelectorAll("[data-election-choice]").forEach(button=>button.disabled=busy);
   }
 
   function renderProjects(game){
@@ -385,56 +481,15 @@
     }
   }
 
-  function renderCountryGrid(){
-    const root=$("countryGrid");if(!root)return;root.replaceChildren();
-    const query=String($("countrySearch").value||"").trim().toLocaleLowerCase("ru-RU");
-    const countries=setupCountries.filter(country=>[country.name_local,country.name_en,country.region,country.iso2].some(value=>String(value||"").toLocaleLowerCase("ru-RU").includes(query)));
-    if(!countries.length){root.append(node("div","loading-row","Страна не найдена."));return;}
-    countries.forEach(country=>{
-      const button=node("button","country-option"+(String(country.id)===String(selectedCountryId)?" selected":""));
-      button.type="button";button.dataset.countryId=country.id;
-      button.append(flagNode(country.iso2,country.flag_emoji));
-      const copy=node("span","country-option-copy");
-      copy.append(node("b","",country.name_local||country.name_en),node("small","",country.region||country.government_type||""));
-      button.append(copy,node("span","country-option-check",String(country.iso2||"").toUpperCase()));root.append(button);
-    });
-    setText("setupSelectionStatus",selectedCountryId?"Выбрано: "+((setupCountries.find(item=>String(item.id)===String(selectedCountryId))||{}).name_local||"страна"):"Сначала выберите государство");
-    $("startCampaign").disabled=!selectedCountryId||busy;
-  }
-  function selectCountry(id){
-    selectedCountryId=String(id);
-    const country=setupCountries.find(item=>String(item.id)===selectedCountryId);if(!country)return;
-    const base=country.baseline_state||{},preview=$("countryPreview");preview.replaceChildren();
-    const head=node("div","country-preview-head");head.append(flagNode(country.iso2,country.flag_emoji),node("div","",country.name_local||country.name_en));
-    const facts=node("div","country-preview-facts");
-    [["ВВП",number(base.gdp,1)+" млрд $"],["Население",number(base.population,1)+" млн"],["Безработица",number(base.unemployment,1)+"%"],["Инфляция",number(base.inflation,1)+"%"]].forEach(pair=>{
-      const cell=node("div","");cell.append(node("small","",pair[0]),node("b","",pair[1]));facts.append(cell);
-    });
-    preview.append(head,facts,node("span","country-preview-government",country.government_type||country.region||""));
-    renderCountryGrid();
-  }
   async function openSetup(){
     if(busy||!api())return;
-    try{
-      const result=await api()("/api/presidential/game/setup");
-      setupCountries=Array.isArray(result.countries)?result.countries:[];
-      selectedCountryId=null;selectedPortrait="p01";
-      $("countrySearch").value="";
-      $("countryPreview").replaceChildren(node("b","","Страна ещё не выбрана"),node("span","","Выберите государство, чтобы увидеть его стартовые показатели."));
-      $("portraitGrid").replaceChildren();
-      for(let i=1;i<=16;i++){
-        const id="p"+String(i).padStart(2,"0"),button=node("button","portrait-choice"+(id===selectedPortrait?" selected":""));
-        button.type="button";button.dataset.portrait=id;button.title="Портрет "+i;button.append(portraitNode(id,"portrait-svg"));$("portraitGrid").append(button);
-      }
-      const userName=window.PRESIDENTIAL_AUTH&&window.PRESIDENTIAL_AUTH.user&&window.PRESIDENTIAL_AUTH.user.firstName;
-      $("presidentName").value=userName?String(userName).slice(0,80):"";
-      $("presidentAge").value="45";$("campaignTitle").value="";$("partyName").value="";
-      $("politicalCourse").value="social_democracy";$("difficulty").value="normal";$("startYear").value="2026";
-      renderCountryGrid();if(!$("setupDialog").open)$("setupDialog").showModal();
-    }catch(error){toast("Не удалось загрузить каталог стран: "+error.message);}
+    $("partyName").value="";
+    $("difficulty").value="normal";
+    setText("setupSelectionStatus","Страна, кандидат, возраст и биография будут определены случайно.");
+    if(!$("setupDialog").open)$("setupDialog").showModal();
   }
 
-  async function electionRequest(route,payload,button,message){
+  function electionRequest(route,payload,button,message){
     try{await withBusy(button,()=>api()(route,{method:"POST",body:JSON.stringify(payload||{})}),message);}catch(_){}
   }
 
@@ -450,27 +505,16 @@
   $("newGame").addEventListener("click",()=>openSetup());
   $("closeSetup").addEventListener("click",()=>$("setupDialog").close());
   $("cancelSetup").addEventListener("click",()=>$("setupDialog").close());
-  $("countrySearch").addEventListener("input",renderCountryGrid);
-  $("countryGrid").addEventListener("click",event=>{
-    const button=event.target.closest("[data-country-id]");if(button)selectCountry(button.dataset.countryId);
-  });
-  $("portraitGrid").addEventListener("click",event=>{
-    const button=event.target.closest("[data-portrait]");if(!button)return;
-    selectedPortrait=button.dataset.portrait;
-    document.querySelectorAll(".portrait-choice").forEach(item=>item.classList.toggle("selected",item.dataset.portrait===selectedPortrait));
-  });
   $("setupForm").addEventListener("submit",async event=>{
     event.preventDefault();
-    if(!selectedCountryId)return toast("Сначала выберите государство.");
-    const name=$("presidentName").value.trim(),age=Number($("presidentAge").value);
-    if(name.length<3||!Number.isInteger(age)||age<25||age>90)return toast("Проверьте имя и возраст президента.");
+    const partyName=$("partyName").value.trim();
+    if(partyName.length>80)return toast("Название партии слишком длинное.");
     if(currentGame&&!confirm("Начать новую кампанию? Текущее сохранение будет завершено."))return;
-    const payload={
-      countryId:Number(selectedCountryId),presidentName:name,presidentAge:age,
-      campaignTitle:$("campaignTitle").value.trim(),partyName:$("partyName").value.trim(),
-      politicalCourse:$("politicalCourse").value,difficulty:$("difficulty").value,startYear:Number($("startYear").value),portraitId:selectedPortrait
-    };
-    try{await withBusy($("startCampaign"),()=>api()("/api/presidential/game/new",{method:"POST",body:JSON.stringify(payload)}),"Вы создали новую кампанию. Теперь предстоит победить на выборах.");$("setupDialog").close();}catch(_){}
+    const payload={partyName,difficulty:$("difficulty").value};
+    try{
+      await withBusy($("startCampaign"),()=>api()("/api/presidential/game/new",{method:"POST",body:JSON.stringify(payload)}),"Новая страна и кандидат определены случайно. Началась политическая кампания.");
+      $("setupDialog").close();
+    }catch(_){}
   });
 
   $("programCatalog").addEventListener("click",async event=>{
@@ -485,21 +529,22 @@
     try{await withBusy(button,()=>api()("/api/presidential/game/program",{method:"POST",body:JSON.stringify({action:"cancel",projectId:button.dataset.programCancel})}),"Программа остановлена.");}catch(_){}
   });
   $("electionActions").addEventListener("click",event=>{
-    const button=event.target.closest("[data-election-action]");if(!button||busy)return;
-    const messages={rally:"Митинги проведены.",debate:"Дебаты завершены.",manifesto:"Предвыборная программа опубликована.",coalition:"Коалиционное соглашение заключено."};
-    electionRequest("/api/presidential/game/election/campaign",{action:button.dataset.electionAction},button,messages[button.dataset.electionAction]);
-  });
-  $("captureCommission").addEventListener("click",()=>{
-    if(busy||!confirm("Подчинить Центральную избирательную комиссию? Это увеличит коррупцию, снизит одобрение и политическую стабильность."))return;
-    electionRequest("/api/presidential/game/election/commission",{},$("captureCommission"),"Вы усилили контроль над ЦИК. Последствия отражены в показателях страны.");
-  });
-  $("establishDictatorship").addEventListener("click",()=>{
-    if(busy||!confirm("Установить диктатуру? Конкурентные выборы будут отменены, одобрение и стабильность снизятся, коррупция вырастет. Это решение необратимо в рамках этой кампании."))return;
-    electionRequest("/api/presidential/game/election/dictatorship",{},$("establishDictatorship"),"Вы установили авторитарный режим. Конкурентные выборы отменены.");
+    const button=event.target.closest("[data-election-choice]");
+    if(!button||busy)return;
+    const issueId=button.dataset.issueId,choiceId=button.dataset.electionChoice;
+    const issue=(currentGame&&currentGame.state&&currentGame.state.election&&currentGame.state.election.agenda||[]).find(item=>item.id===issueId);
+    const choice=(issue&&issue.choices||[]).find(item=>item.id===choiceId);
+    if(!issue||!choice)return;
+    const confirmation="Вы собираетесь выбрать курс «"+choice.title+"».\n\nПотенциальный выигрыш: "+(choice.benefit||"неизвестен")+"\n\nЦена решения: "+(choice.risk||"неизвестна")+"\n\nРешение станет частью программы партии и будет влиять на страну после победы.";
+    if(!confirm(confirmation))return;
+    electionRequest("/api/presidential/game/election/decision",{issueId,choiceId},button,"Политическое решение принято. Реакция разных групп избирателей отражена в опросах.");
   });
   $("electionVote").addEventListener("click",async()=>{
-    if(!currentGame||busy||!confirm("Начать подсчёт голосов? При поражении кампания завершится."))return;
-    try{await withBusy($("electionVote"),()=>api()("/api/presidential/game/election/vote",{method:"POST",body:"{}"}),result=>result&&result.won?"Победа! Вы набрали "+result.voteShare+"% голосов.":"Поражение. Вы набрали "+result.voteShare+"% голосов.");}catch(_){}
+    if(!currentGame||busy)return;
+    if(!confirm("Передать программу партии избирателям и провести национальные выборы? Результат зависит от поддержки разных групп, финансовой реалистичности обещаний и доверия к институтам. При поражении кампания завершится."))return;
+    try{
+      await withBusy($("electionVote"),()=>api()("/api/presidential/game/election/vote",{method:"POST",body:"{}"}),result=>result&&result.won?"Победа! Вы получили "+result.voteShare+"% голосов. Начинается исполнение предвыборной программы.":"Поражение. Вы получили "+result.voteShare+"% голосов. Избиратели отвергли предложенный курс.");
+    }catch(_){}
   });
 
   $("relationsList").addEventListener("click",async event=>{

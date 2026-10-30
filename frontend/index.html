@@ -47,44 +47,37 @@
     <div class="content">
 
       <section id="electionPanel" class="election-panel hidden">
-        <div class="election-hero">
-          <div class="election-hero-copy">
-            <span class="eyebrow light">НАЦИОНАЛЬНЫЙ ИЗБИРАТЕЛЬНЫЙ ШТАБ</span>
-            <div class="election-kicker"><span id="electionRound">ПЕРВЫЕ ВЫБОРЫ</span><span id="electionDate">—</span></div>
-            <h2 id="electionTitle">Избирательная кампания</h2>
-            <p id="electionDescription">Вам предстоит получить поддержку избирателей и победить на национальных выборах.</p>
-            <div class="election-candidate"><div id="electionPortrait" class="election-portrait"></div><div><small>ВАШ КАНДИДАТ</small><b id="electionCandidate">—</b><span id="electionParty">—</span></div></div>
-          </div>
-          <div class="election-ballot" aria-hidden="true"><span>✓</span><b>ИЗБИРАТЕЛЬНЫЙ<br>БЮЛЛЕТЕНЬ</b><small>OFFICIAL VOTE</small></div>
-        </div>
-        <div class="election-grid">
-          <div class="election-panel-card election-polls">
-            <div class="election-card-head"><div><span class="eyebrow">ПРЕДВЫБОРНЫЕ ОПРОСЫ</span><h3>Поддержка кандидатов</h3></div><span class="panel-tag">ПРОГНОЗ</span></div>
-            <div class="poll-row"><div><span>Ваша партия</span><b id="candidateSupport">—</b></div><div class="poll-track"><i id="candidateSupportBar"></i></div></div>
-            <div class="poll-row opposition"><div><span>Главный оппонент</span><b id="oppositionSupport">—</b></div><div class="poll-track"><i id="oppositionSupportBar"></i></div></div>
-            <div class="election-meta-row"><span>Действия кампании</span><b id="campaignActionsRemaining">—</b></div>
-            <div class="election-meta-row"><span>Контроль ЦИК</span><b id="commissionControl">0 / 70</b></div>
-            <div id="electionConsequences" class="election-consequences">Победа даст мандат на управление страной. Поражение завершит кампанию.</div>
-          </div>
-          <div class="election-panel-card">
-            <div class="election-card-head"><div><span class="eyebrow">РАБОТА ШТАБА</span><h3>Предвыборные решения</h3></div><span class="panel-tag">4 ДЕЙСТВИЯ</span></div>
-            <div id="electionActions" class="election-actions">
-              <button type="button" data-election-action="rally"><b>Провести митинги</b><small>Региональные встречи и работа с избирателями · +4 п.п.</small></button>
-              <button type="button" data-election-action="debate"><b>Публичные дебаты</b><small>Убедить колеблющихся избирателей · +4 п.п.</small></button>
-              <button type="button" data-election-action="manifesto"><b>Опубликовать программу</b><small>Подробный план реформ · +3 п.п.</small></button>
-              <button type="button" data-election-action="coalition"><b>Создать коалицию</b><small>Договориться с союзными партиями · +5 п.п.</small></button>
-            </div>
-            <div class="election-corruption">
-              <div><b>Административный ресурс</b><small>Попытка подчинить Центральную избирательную комиссию. Это повысит коррупцию и снизит доверие.</small></div>
-              <button type="button" id="captureCommission" class="secondary-button">Подчинить ЦИК</button>
-            </div>
-            <button type="button" id="electionVote" class="election-vote" disabled>Перейти к голосованию <span>→</span></button>
-            <button type="button" id="establishDictatorship" class="dictatorship-button hidden">Установить диктатуру</button>
-          </div>
-        </div>
-        <div id="electionResult" class="election-result hidden"></div>
-      </section>
-      <div id="governmentView">
+  <div class="election-hero">
+    <div class="election-hero-copy">
+      <span class="eyebrow light">НАЦИОНАЛЬНЫЙ ИЗБИРАТЕЛЬНЫЙ ШТАБ</span>
+      <div class="election-kicker"><span id="electionRound">ПЕРВЫЕ ВЫБОРЫ</span><span id="electionDate">—</span></div>
+      <h2 id="electionTitle">Избирательная кампания</h2>
+      <p id="electionDescription">Вам предстоит сформировать программу и получить поддержку избирателей.</p>
+      <div class="election-candidate"><div id="electionPortrait" class="election-portrait"></div><div><small>КАНДИДАТ В ПРЕЗИДЕНТЫ</small><b id="electionCandidate">—</b><span id="electionParty">—</span></div></div>
+    </div>
+    <div class="election-ballot" aria-hidden="true"><span>✓</span><b>ИЗБИРАТЕЛЬНЫЙ<br>БЮЛЛЕТЕНЬ</b><small>OFFICIAL VOTE</small></div>
+  </div>
+  <div class="campaign-progress-wrap"><div><span>СФОРМИРОВАНО ПОЗИЦИЙ ПАРТИИ</span><b id="campaignActionsRemaining">0 / 6</b></div><div class="campaign-progress"><i id="campaignProgress"></i></div></div>
+  <div class="election-grid campaign-grid">
+    <div class="election-panel-card election-polls">
+      <div class="election-card-head"><div><span class="eyebrow">ПРЕДВЫБОРНЫЕ ОПРОСЫ</span><h3>Поддержка кандидата</h3></div><span class="panel-tag">ПРОГНОЗ</span></div>
+      <div class="poll-row"><div><span>Ваша партия</span><b id="candidateSupport">—</b></div><div class="poll-track"><i id="candidateSupportBar"></i></div></div>
+      <div class="poll-row opposition"><div><span>Оппозиция и другие партии</span><b id="oppositionSupport">—</b></div><div class="poll-track"><i id="oppositionSupportBar"></i></div></div>
+      <div id="campaignGroupPolls" class="campaign-group-polls"></div>
+      <div id="electionConsequences" class="election-consequences">Опросы обновляются после каждого политического решения.</div>
+      <div class="campaign-history-heading"><span class="eyebrow">ПРИНЯТЫЕ РЕШЕНИЯ</span><h4>Предвыборная программа</h4></div>
+      <div id="electionDecisionHistory" class="campaign-history"><div class="campaign-history-empty">Решения ещё не приняты.</div></div>
+    </div>
+    <div class="election-panel-card campaign-decision-panel">
+      <div class="election-card-head"><div><span class="eyebrow">ПОЛИТИЧЕСКИЙ ВЫБОР</span><h3>Ключевые вопросы страны</h3></div><span class="panel-tag">АНАЛИЗ И ПОСЛЕДСТВИЯ</span></div>
+      <div id="electionIssue" class="campaign-issue"><div class="campaign-issue-intro"><h3>Загрузка повестки…</h3></div></div>
+      <button type="button" id="electionVote" class="election-vote hidden" disabled>Провести национальные выборы <span>→</span></button>
+    </div>
+  </div>
+  <div id="electionResult" class="election-result hidden"></div>
+</section>
+
+            <div id="governmentView">
       <section class="country-banner" id="overview">
         <div class="banner-copy">
           <div class="eyebrow light" id="region">ЗАГРУЗКА ГОСУДАРСТВА</div>
@@ -180,48 +173,26 @@
 <dialog id="setupDialog" class="setup-dialog">
   <form id="setupForm" method="dialog">
     <div class="setup-heading">
-      <div><div class="dialog-eyebrow">НОВАЯ ПРЕЗИДЕНТСКАЯ КАМПАНИЯ</div><h2>Подготовка к управлению государством</h2><p>Выберите страну, настройте своего президента и определите курс правительства. Никаких случайных стран.</p></div>
+      <div><div class="dialog-eyebrow">НОВАЯ ПРЕЗИДЕНТСКАЯ КАМПАНИЯ</div><h2>Начать новую политическую жизнь</h2><p>Вы не выбираете страну и кандидата. Они определяются случайным образом — как в реальном политическом процессе. Настроить можно только название партии и сложность симуляции.</p></div>
       <button type="button" id="closeSetup" class="setup-close" aria-label="Закрыть">×</button>
     </div>
-    <div class="setup-layout">
-      <section class="setup-country-section">
-        <div class="setup-section-title"><span>01 / ГОСУДАРСТВО</span><b>Выберите страну</b></div>
-        <input id="countrySearch" class="country-search" type="search" placeholder="Поиск страны…" autocomplete="off">
-        <div id="countryGrid" class="country-grid"><div class="map-loading">Загружаем каталог государств…</div></div>
-        <div id="countryPreview" class="country-preview"><b>Страна ещё не выбрана</b><span>Выберите государство, чтобы увидеть его стартовые показатели.</span></div>
-      </section>
-      <section class="setup-profile-section">
-        <div class="setup-section-title"><span>02 / ПРЕЗИДЕНТ</span><b>Ваш профиль</b></div>
-        <label for="campaignTitle">Название сохранения <small>необязательно</small></label>
-        <input id="campaignTitle" maxlength="90" placeholder="Например, Новый курс">
-        <label for="partyName">Политическая партия</label>
-        <input id="partyName" maxlength="80" placeholder="Например, Партия национального развития">
-        <label for="presidentName">Имя и фамилия президента</label>
-        <input id="presidentName" required minlength="3" maxlength="100" placeholder="Введите имя президента">
-        <div class="setup-inline-fields">
-          <div><label for="presidentAge">Возраст</label><input id="presidentAge" type="number" min="25" max="90" value="45" required></div>
-          <div><label for="startYear">Год начала</label><select id="startYear"><option>2026</option><option>2027</option><option>2028</option><option>2030</option></select></div>
-        </div>
-        <label>Внешность президента</label>
-        <div id="portraitGrid" class="portrait-grid" aria-label="Выбор портрета президента"></div>
-        <label for="politicalCourse">Политический курс</label>
-        <select id="politicalCourse">
-          <option value="social_democracy">Социальная демократия — сильные общественные услуги</option>
-          <option value="market_liberal">Рыночный либерализм — бизнес и инвестиции</option>
-          <option value="conservative">Консервативный курс — стабильность и безопасность</option>
-          <option value="green_transition">Зелёная модернизация — экология и инфраструктура</option>
-          <option value="industrial">Промышленное развитие — производство и технологии</option>
-        </select>
-        <label for="difficulty">Сложность</label>
-        <select id="difficulty">
-          <option value="normal">Стандартная — реалистичный баланс</option>
-          <option value="easy">Облегчённая — больше финансового запаса</option>
-          <option value="hard">Сложная — дефицит бюджета и низкая поддержка</option>
-        </select>
-        <div class="setup-note"><b>Что изменится?</b><span>Выбранный курс и сложность повлияют на бюджет, экономические показатели, общественную поддержку и политическую стабильность уже в первый ход.</span></div>
-      </section>
+    <div class="random-campaign-card">
+      <div class="random-campaign-symbol">?</div>
+      <div><b>Случайная страна. Случайный кандидат.</b><span>Государство, имя, возраст, портрет, стартовая экономика и политическая среда будут сгенерированы сервером при создании сохранения.</span></div>
     </div>
-    <div class="setup-footer"><span id="setupSelectionStatus">Сначала выберите государство</span><div><button type="button" id="cancelSetup" class="secondary-button">Отмена</button><button id="startCampaign" type="submit" class="primary-button" disabled>Начать игру <span>→</span></button></div></div>
+    <div class="setup-profile-section setup-only-options">
+      <div class="setup-section-title"><span>ПАРАМЕТРЫ ИГРЫ</span><b>Две настройки кампании</b></div>
+      <label for="partyName">Название политической партии</label>
+      <input id="partyName" maxlength="80" placeholder="Например, Партия национального развития">
+      <label for="difficulty">Сложность симуляции</label>
+      <select id="difficulty">
+        <option value="normal">Обычная — сбалансированные стартовые условия</option>
+        <option value="easy">Облегчённая — больше ресурсов и общественной поддержки</option>
+        <option value="hard">Сложная — слабая казна, нестабильность и высокий долг</option>
+      </select>
+      <div class="setup-note"><b>Никаких других настроек.</b><span>В стране уже есть свои институты, экономика, общественные группы, политические силы и будущие кризисы. Вам предстоит работать с теми условиями, которые достанутся случайно.</span></div>
+    </div>
+    <div class="setup-footer"><span id="setupSelectionStatus">Готово к случайной генерации государства и кандидата</span><div><button type="button" id="cancelSetup" class="secondary-button">Отмена</button><button id="startCampaign" type="submit" class="primary-button">Начать игру <span>→</span></button></div></div>
   </form>
 </dialog>
 
