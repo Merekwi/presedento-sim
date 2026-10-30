@@ -43,7 +43,7 @@ jobs:
             throw last;
           }
 
-          const strategyPhrases = ["Международная карта", "Решения правительства", "Совет министров", "Вооружённые силы", "Завершить месяц"];
+          const strategyPhrases = ["Международная карта", "Государственные программы", "Совет министров", "Вооружённые силы", "Карта мира с международными границами", "УКАЗ ПРЕЗИДЕНТА"];
           let gameAssetBase = "https://merekwi.github.io/presedento-sim/";
           const gamePage = await fetchWithRetry(gameAssetBase + "?fresh=" + Date.now(), { headers: { "Cache-Control": "no-cache" } });
           let gameHtml = await gamePage.text();
@@ -117,15 +117,42 @@ jobs:
 
           const gameScript = await fetchWithRetry(gameAssetBase + "app.js", { headers: { "Cache-Control": "no-cache" } });
           const appJs = await gameScript.text();
-          for (const route of ["/api/presidential/game/action", "/api/presidential/game/advance", "/api/presidential/game/minister", "/api/presidential/game/diplomacy"]) {
+          for (const marker of ["function renderGame", "function renderRelations", "function renderProjects", "function renderWorldMap", "./assets/portraits/"]) {
+            if (!appJs.includes(marker)) throw new Error("Missing working UI module: " + marker);
+          }
+          const gameRoutes = [
+            "/api/presidential/game/program",
+            "/api/presidential/game/advance",
+            "/api/presidential/game/minister",
+            "/api/presidential/game/diplomacy",
+            "/api/presidential/game/election/campaign",
+            "/api/presidential/game/election/commission",
+            "/api/presidential/game/election/dictatorship",
+            "/api/presidential/game/election/vote",
+            "/api/presidential/game/decree/draft",
+            "/api/presidential/game/decree/publish"
+          ];
+          for (const route of gameRoutes) {
             if (!appJs.includes(route)) throw new Error("Frontend is not wired to route " + route);
           }
 
+          const flagAsset = await fetchWithRetry(gameAssetBase + "assets/flags/BR.svg", { headers: { "Cache-Control": "no-cache" } });
+          const portraitAsset = await fetchWithRetry(gameAssetBase + "assets/portraits/01.svg", { headers: { "Cache-Control": "no-cache" } });
+          if (!(await flagAsset.text()).includes("<svg") || !(await portraitAsset.text()).includes("<svg")) {
+            throw new Error("Local flag or portrait asset is missing.");
+          }
+
           const protectedRoutes = [
-            ["/api/presidential/game/action", { action: "public_health" }],
+            ["/api/presidential/game/program", { action: "start", projectId: "health_modernization" }],
             ["/api/presidential/game/advance", {}],
-            ["/api/presidential/game/minister", { action: "appoint", name: "Smoke Test", portfolio: "Образование", age: 45 }],
-            ["/api/presidential/game/diplomacy", { action: "summit", relationId: "00000000-0000-0000-0000-000000000000" }]
+            ["/api/presidential/game/minister", { action: "appoint", name: "Smoke Test", portfolio: "Образование", age: 45, competence: 70, loyalty: 70, archetype: "technocrat", portraitId: "p01" }],
+            ["/api/presidential/game/diplomacy", { action: "consultations", relationId: "00000000-0000-0000-0000-000000000000" }],
+            ["/api/presidential/game/election/campaign", { action: "rally" }],
+            ["/api/presidential/game/election/commission", {}],
+            ["/api/presidential/game/election/dictatorship", {}],
+            ["/api/presidential/game/election/vote", {}],
+            ["/api/presidential/game/decree/draft", { order: "Модернизировать государственную систему здравоохранения." }],
+            ["/api/presidential/game/decree/publish", { decreeId: "00000000-0000-0000-0000-000000000000" }]
           ];
           for (const [route, body] of protectedRoutes) {
             const response = await fetch(api + route, {
@@ -136,5 +163,5 @@ jobs:
             if (response.status !== 401) throw new Error(route + " must require authentication (401), received " + response.status);
           }
 
-          console.log("Passed: strategy UI, shared Telegram bridge, Neon health, CORS, protected gameplay routes and Telegram signature rejection.");
+          console.log("Passed: campaign UI, map and portraits assets, programme/election/diplomacy/decree routes, Telegram bridge, Neon health, CORS and signature rejection.");
           NODE
