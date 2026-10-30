@@ -252,3 +252,82 @@ button:disabled{opacity:.48;cursor:not-allowed}
 @media(max-width:900px){.election-grid{grid-template-columns:1fr}.election-hero{min-height:195px}}
 @media(max-width:600px){.election-hero{padding:21px 19px}.election-ballot{display:none}.election-hero h2{font-size:25px}.election-actions{grid-template-columns:1fr 1fr}.election-corruption{align-items:flex-start;flex-direction:column}.minister-custom-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:390px){.election-actions{grid-template-columns:1fr}}
+
+
+/* Cartographic rendering */
+.world-map{height:auto;min-height:280px;display:block;background:#eaf1f1;position:relative;overflow:hidden}
+.world-map-svg{width:100%;height:auto;min-height:260px;max-height:400px;display:block}
+.map-ocean{fill:#e9f1f2}
+.map-country{fill:#d4dfdc;stroke:#ffffff;stroke-width:.8;stroke-linejoin:round;vector-effect:non-scaling-stroke;transition:fill .15s,stroke .15s}
+.map-country:nth-of-type(3n){fill:#ccd9d5}
+.map-country:nth-of-type(5n){fill:#e0e8e4}
+.map-country:hover,.map-country:focus{fill:#a8c5ba;stroke:#fff;outline:none}
+.map-country.active{fill:#caa568;stroke:#fff;stroke-width:1.5}
+.map-country.active:hover{fill:#b58b4e}
+.map-loading{min-height:245px;display:grid;place-items:center;padding:24px;color:#81939b;font-size:10px;line-height:1.6;text-align:center}
+.flag-svg{display:block;width:28px;height:19px;object-fit:cover;flex:0 0 auto;border-radius:3px;box-shadow:0 1px 3px #17263a24}
+.flag-fallback{font-size:20px;line-height:1}
+
+/* Official presidential decree document */
+.decree-modal{width:min(940px,96vw);max-width:none;max-height:94vh;overflow:auto}
+.decree-modal form{max-height:94vh;overflow:auto}
+.decree-preview{margin-top:18px}
+.official-document{position:relative;overflow:hidden;background:#fcfbf5;border:1px solid #d7d0bf;padding:31px 42px 24px;color:#263242;box-shadow:0 10px 28px #26384a16;font-family:Georgia,"Times New Roman",serif}
+.document-security-line{height:4px;background:linear-gradient(90deg,#9c7a40,#d8c392,#9c7a40);margin:-31px -42px 23px}
+.document-security-line.bottom{margin:22px -42px -24px;height:3px}
+.document-header{display:grid;grid-template-columns:88px 1fr 86px;gap:16px;align-items:center;padding-bottom:20px;border-bottom:1px solid #d8cfbb}
+.document-emblem svg{width:78px;height:91px;display:block}
+.document-heading{text-align:center}
+.document-country{font-size:12px;letter-spacing:1.9px;font-weight:700;color:#20374b}
+.document-institution{margin-top:5px;font-size:8px;letter-spacing:2px;color:#7f704f}
+.document-rule{width:74px;height:1px;margin:10px auto;background:#b79b63}
+.document-type{font-size:18px;letter-spacing:2px;font-weight:700;color:#24374c}
+.document-number{margin-top:7px;font-size:9px;letter-spacing:.4px;color:#796d58}
+.document-number span{padding:0 7px;color:#b29b6d}
+.document-registry{text-align:center;border:1px solid #d4c8ae;padding:8px 4px;color:#8c784d}
+.document-registry span,.document-registry b,.document-registry small{display:block}
+.document-registry span{font-size:6px;letter-spacing:1.5px}
+.document-registry b{font-size:8px;letter-spacing:.8px;margin:3px 0}
+.document-registry i{display:block;width:23px;height:1px;margin:5px auto;background:#b29b6d}
+.document-registry small{font-size:6px;line-height:1.45;letter-spacing:.5px}
+.document-body{padding:22px 8px 5px}
+.document-body h2{font:700 21px/1.35 Georgia,"Times New Roman",serif;text-align:center;color:#24374b;margin:0 0 17px}
+.document-preamble{font:italic 12px/1.75 Georgia,"Times New Roman",serif;text-align:justify;color:#4d5660;margin:0 0 18px}
+.document-text{font:12px/1.8 Georgia,"Times New Roman",serif;text-align:justify;white-space:pre-wrap;color:#333b43}
+.document-text strong{font-weight:700}
+.document-execution-note{margin-top:20px;padding:11px 13px;border:1px solid #e5ddca;background:#f7f4e9;font:9px/1.6 Arial,sans-serif;color:#766846}
+.document-footer{display:grid;grid-template-columns:1fr 145px 1fr;gap:14px;align-items:end;margin-top:26px;padding:18px 8px 4px;border-top:1px solid #ded6c4}
+.document-signature span,.document-signature b,.document-signature small{display:block}
+.document-signature span{font-size:10px;color:#7c725f}
+.document-signature b{font-size:15px;color:#2b3948;margin:16px 0 4px}
+.document-signature small{font:8px Arial,sans-serif;color:#8e887d}
+.document-stamp{justify-self:center;opacity:.82;transform:rotate(-9deg)}
+.document-stamp svg{width:116px;height:116px;display:block}
+.document-copy-mark{text-align:right;font:7px/1.6 Arial,sans-serif;color:#867a61;letter-spacing:.6px}
+.document-copy-mark span,.document-copy-mark b,.document-copy-mark small{display:block}
+.document-copy-mark b{font-size:7px;color:#64765e}
+.decree-preview-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap}
+.decree-preview-actions button{min-width:110px}
+@media(max-width:650px){
+ .official-document{padding:22px 18px 18px}
+ .document-security-line{margin:-22px -18px 17px}
+ .document-security-line.bottom{margin:18px -18px -18px}
+ .document-header{grid-template-columns:54px 1fr 58px;gap:7px}
+ .document-emblem svg{width:50px;height:62px}
+ .document-type{font-size:14px}.document-country{font-size:9px;letter-spacing:1px}
+ .document-institution{font-size:6px;letter-spacing:1px}
+ .document-registry{padding:5px 2px}.document-registry small{font-size:5px}
+ .document-body{padding:17px 0 4px}.document-body h2{font-size:17px}
+ .document-preamble,.document-text{font-size:10px;line-height:1.65}
+ .document-footer{grid-template-columns:1fr 90px;gap:8px}
+ .document-stamp{grid-column:2;grid-row:1}.document-stamp svg{width:83px;height:83px}
+ .document-copy-mark{grid-column:1/-1;text-align:left}
+}
+@media print{
+ body *{visibility:hidden!important}
+ #decreePreview,#decreePreview *{visibility:visible!important}
+ #decreePreview{position:absolute;left:0;top:0;width:100%;margin:0!important}
+ .official-document{border:0;box-shadow:none;padding:24mm 20mm}
+ .decree-preview-actions{display:none!important}
+ .decree-modal{position:static!important;max-height:none!important;overflow:visible!important}
+}
