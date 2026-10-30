@@ -63,6 +63,12 @@ jobs:
           if (preflight.headers.get("access-control-allow-origin") !== gameOrigin) throw new Error("Wrong game CORS origin.");
           if (!(preflight.headers.get("access-control-allow-headers") || "").toLowerCase().includes("authorization")) throw new Error("Authorization header is not allowed by CORS.");
 
+          const health = await fetch(api + "/api/presidential/health", { headers: { Origin: gameOrigin } });
+          const healthData = await health.json();
+          if (!health.ok || healthData.database !== true || Number(healthData.countryCount) < 20) {
+            throw new Error("Presidential database health check failed: " + JSON.stringify(healthData));
+          }
+
           const me = await fetch(api + "/api/presidential/me", { headers: { Origin: gameOrigin } });
           if (me.status !== 401) throw new Error("Unauthenticated /me should return 401, received " + me.status);
           if (me.headers.get("access-control-allow-origin") !== gameOrigin) throw new Error("Authenticated API route does not return game CORS headers.");
