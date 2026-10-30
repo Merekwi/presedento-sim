@@ -1,14 +1,9 @@
 # Neon database
 
-Dedicated Neon project: `presidential-simulator` (PostgreSQL 16).
+Dedicated Neon project: `presidential-simulator` (PostgreSQL 16), main branch.
 
-Initial schema has been created directly in Neon:
-- `countries`
-- `game_saves`
-- `decrees`
-- `ministers`
-- `diplomatic_relations`
-- `military_units`
-- `game_events`
+Current schema includes countries, game users and sessions, one-time Telegram login codes, game saves, decrees, ministers, diplomatic relations, military units, game events and audit log.
 
-Credentials must only be stored as Cloudflare Worker secrets. The next milestone is authentication, save ownership, transactional game turns, and persisting published decrees.
+Apply migrations in order from `database/migrations/`. Migration `002-auth-and-sim-systems.sql` documents the Telegram identity/session tables, safe additive columns, audit log and the initial 20-country catalogue. It uses `IF NOT EXISTS` and `ON CONFLICT` so it can be re-applied without deleting saved data.
+
+The application server uses a restricted `presidentapi` database role. Never put its connection string or any other credentials in this folder, Git history or frontend code.
