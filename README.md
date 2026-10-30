@@ -33,7 +33,7 @@ Cloudflare и Vercel не используются. Игровой Neon-прое
 
 ## Развёртывание API
 
-API добавлен в существующую Neon Function проекта Nettle Group `nettlegroup`, branch `main`, slug `nettleapi`. Последнее развёртывание: deployment #14 (Node.js 24, completed).
+API добавлен в существующую Neon Function проекта Nettle Group `nettlegroup`, branch `main`, slug `nettleapi`. Последнее развёртывание: deployment #15 (Node.js 24, completed).
 
 В env функции добавлены:
 - `PRESIDENTIAL_DATABASE_URL` — connection string ограниченной роли `presidentapi` игровой базы.
