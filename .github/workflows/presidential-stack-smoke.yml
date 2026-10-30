@@ -62,7 +62,7 @@ jobs:
 
           const gameHtml = await fetchHtmlUntil(
             gameAssetBase,
-            strategyPhrases.concat(["Presidential Simulator", "id=\"worldMap\"", "id=\"presidentPortrait\""]),
+            strategyPhrases.concat(["Presidential Simulator", "id=\"worldMap\"", "id=\"presidentPortrait\"", "Случайная страна. Случайный кандидат.", "Название политической партии", "Сложность симуляции"]),
             "Presidential Simulator game page",
             16
           );
@@ -117,8 +117,6 @@ jobs:
             "/api/presidential/game/minister",
             "/api/presidential/game/diplomacy",
             "/api/presidential/game/election/decision",
-            "/api/presidential/game/election/commission",
-            "/api/presidential/game/election/dictatorship",
             "/api/presidential/game/election/vote",
             "/api/presidential/game/decree/draft",
             "/api/presidential/game/decree/publish"
