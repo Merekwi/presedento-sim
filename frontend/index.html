@@ -21,7 +21,7 @@
     </div>
     <nav class="main-nav" aria-label="Основная навигация">
       <a class="nav-link active" href="#overview"><span class="nav-icon">▦</span>Главный штаб</a>
-      <a class="nav-link" href="#economy"><span class="nav-icon">◫</span>Экономика и реформы</a>
+      <a class="nav-link" href="#programs"><span class="nav-icon">◫</span>Госпрограммы</a>
       <a class="nav-link" href="#government"><span class="nav-icon">♙</span>Правительство</a>
       <a class="nav-link" href="#diplomacy"><span class="nav-icon">◎</span>Дипломатия</a>
       <a class="nav-link" href="#defense"><span class="nav-icon">⬡</span>Вооружённые силы</a>
@@ -133,18 +133,17 @@
         </section>
       </div>
 
-      <section class="section-block" id="economy">
-        <div class="section-title"><div><span class="eyebrow">ПОЛИТИЧЕСКАЯ ПРОГРАММА</span><h2>Решения правительства</h2><p>Выбирайте направления развития. Каждая мера расходует очко действий и средства казны.</p></div><div class="ap-badge"><b id="actionPointsLarge">2</b><span>ОЧКА ДЕЙСТВИЙ</span></div></div>
-        <div class="action-grid">
-          <button class="action-card" data-action="public_health"><span class="action-symbol">✚</span><span class="action-category">СОЦИАЛЬНАЯ ПОЛИТИКА</span><b>Здравоохранение</b><small>Модернизировать больницы и расширить доступ к медицинской помощи.</small><span class="action-footer">Инвестиции в медицину <i>→</i></span></button>
-          <button class="action-card" data-action="education"><span class="action-symbol">⌂</span><span class="action-category">ЧЕЛОВЕЧЕСКИЙ КАПИТАЛ</span><b>Образование</b><small>Повысить качество школ, университетов и профессиональной подготовки.</small><span class="action-footer">Реформа образования <i>→</i></span></button>
-          <button class="action-card" data-action="infrastructure"><span class="action-symbol">⌁</span><span class="action-category">ЭКОНОМИКА</span><b>Инфраструктура</b><small>Запустить строительство дорог, железных дорог и логистических узлов.</small><span class="action-footer">Национальный проект <i>→</i></span></button>
-          <button class="action-card" data-action="tax_relief"><span class="action-symbol">％</span><span class="action-category">ФИНАНСОВАЯ ПОЛИТИКА</span><b>Снижение налогов</b><small>Стимулировать частный сектор и поддержать малый бизнес.</small><span class="action-footer">Налоговая реформа <i>→</i></span></button>
-          <button class="action-card" data-action="anti_corruption"><span class="action-symbol">⌕</span><span class="action-category">ГОСУПРАВЛЕНИЕ</span><b>Борьба с коррупцией</b><small>Усилить аудит, прозрачность закупок и независимый контроль.</small><span class="action-footer">Антикоррупционная мера <i>→</i></span></button>
-          <button class="action-card" data-action="defense"><span class="action-symbol">⬡</span><span class="action-category">НАЦИОНАЛЬНАЯ БЕЗОПАСНОСТЬ</span><b>Обороноспособность</b><small>Увеличить финансирование подготовки и снабжения вооружённых сил.</small><span class="action-footer">Оборонная программа <i>→</i></span></button>
-        </div>
-      </section>
-
+<section class="section-block" id="programs">
+<div class="section-title"><div><span class="eyebrow">ДОЛГОСРОЧНАЯ ГОСУДАРСТВЕННАЯ ПОЛИТИКА</span><h2>Государственные программы</h2><p>Проекты финансируются постепенно. Результаты накапливаются месяц за месяцем; при нехватке средств проект приостанавливается.</p></div><div class="ap-badge"><b id="actionPointsLarge">2</b><span>ОЧКА ДЕЙСТВИЙ</span></div></div>
+<div id="activePrograms" class="active-programs"><div class="loading-row">Активных программ пока нет.</div></div>
+<div id="programCatalog" class="program-catalog">
+<article class="program-card"><div class="program-card-top"><span>СОЦИАЛЬНАЯ СФЕРА</span><span>18 МЕС.</span></div><h3>Модернизация здравоохранения</h3><p>Ремонт больниц, оборудование клиник и региональные кадровые программы.</p><div class="program-foot"><span>Первоначальный платёж и ежемесячное финансирование</span><button type="button" data-program-start="health_modernization">Запустить</button></div></article>
+<article class="program-card"><div class="program-card-top"><span>ЧЕЛОВЕЧЕСКИЙ КАПИТАЛ</span><span>24 МЕС.</span></div><h3>Реформа образования</h3><p>Обновление школ и университетов, подготовка преподавателей и профессиональное обучение.</p><div class="program-foot"><span>Многоэтапное финансирование</span><button type="button" data-program-start="school_reform">Запустить</button></div></article>
+<article class="program-card"><div class="program-card-top"><span>ИНФРАСТРУКТУРА</span><span>30 МЕС.</span></div><h3>Национальная транспортная сеть</h3><p>Дороги, мосты, железнодорожные узлы и логистические центры.</p><div class="program-foot"><span>Крупные долгосрочные инвестиции</span><button type="button" data-program-start="transport_network">Запустить</button></div></article>
+<article class="program-card"><div class="program-card-top"><span>ГОСУПРАВЛЕНИЕ</span><span>16 МЕС.</span></div><h3>Цифровое государство и аудит</h3><p>Единые реестры, цифровые услуги, открытые закупки и контроль расходов.</p><div class="program-foot"><span>Снижение коррупционных потерь</span><button type="button" data-program-start="digital_government">Запустить</button></div></article>
+<article class="program-card"><div class="program-card-top"><span>ПРОМЫШЛЕННОСТЬ</span><span>24 МЕС.</span></div><h3>Промышленные и технологические зоны</h3><p>Производственные кластеры, новые рабочие места и локальные цепочки поставок.</p><div class="program-foot"><span>Рост после запуска производств</span><button type="button" data-program-start="industrial_zones">Запустить</button></div></article>
+<article class="program-card"><div class="program-card-top"><span>ЭНЕРГЕТИКА</span><span>24 МЕС.</span></div><h3>Энергетическая устойчивость</h3><p>Модернизация сетей, резервные мощности и снижение инфраструктурных рисков.</p><div class="program-foot"><span>Постепенное снижение рисков</span><button type="button" data-program-start="energy_security">Запустить</button></div></article>
+</div></section>
       <div class="lower-grid">
         <section class="panel" id="government">
           <div class="panel-heading"><div><span class="eyebrow">ИСПОЛНИТЕЛЬНАЯ ВЛАСТЬ</span><h3>Совет министров</h3></div><button id="appoint" class="small-button">＋ Назначить</button></div>
