@@ -44,15 +44,9 @@ jobs:
           }
 
           const strategyPhrases = ["Международная карта", "Государственные программы", "Совет министров", "Вооружённые силы", "Карта мира с международными границами", "УКАЗ ПРЕЗИДЕНТА"];
-          let gameAssetBase = "https://merekwi.github.io/presedento-sim/";
-          const gamePage = await fetchWithRetry(gameAssetBase + "?fresh=" + Date.now(), { headers: { "Cache-Control": "no-cache" } });
-          let gameHtml = await gamePage.text();
-          if (!gameHtml.includes("Presidential Simulator")) throw new Error("Game page title was not found.");
-          if (!strategyPhrases.every(phrase => gameHtml.includes(phrase))) {
-            throw new Error("GitHub Pages root does not serve the frontend/ artifact as the game root.");
-          }
+          const gameAssetBase = "https://merekwi.github.io/presedento-sim/";
 
-          async function fetchHtmlUntil(url, expected, label, attempts = 12) {
+          async function fetchHtmlUntil(url, expected, label, attempts = 20) {
             let html = "";
             for (let attempt = 0; attempt < attempts; attempt++) {
               const response = await fetchWithRetry(url + (url.includes("?") ? "&" : "?") + "fresh=" + Date.now(), {
@@ -64,6 +58,13 @@ jobs:
             }
             throw new Error(label + " did not finish publishing the expected callback changes.");
           }
+
+          const gameHtml = await fetchHtmlUntil(
+            gameAssetBase,
+            strategyPhrases.concat(["Presidential Simulator", "id=\"worldMap\"", "id=\"presidentPortrait\""]),
+            "Presidential Simulator game page",
+            20
+          );
 
           const loginHtml = await fetchHtmlUntil(
             loginOrigin + "/presidential-login.html",
