@@ -188,3 +188,67 @@ button:disabled{opacity:.48;cursor:not-allowed}
 .president-seal>b{font-size:8px;letter-spacing:.8px}
 .president-seal>small{font-size:6px}
 @media(max-width:650px){.president-seal{display:none}}
+
+
+/* Election stage and minister customization */
+.election-panel{margin-bottom:18px}
+.election-hero{display:flex;justify-content:space-between;align-items:center;gap:24px;min-height:220px;padding:28px 34px;border-radius:15px;color:#fff;background:linear-gradient(112deg,#15263e 0%,#25455d 68%,#456476 100%);box-shadow:0 14px 35px #12233a18;overflow:hidden;position:relative}
+.election-hero:after{content:"";position:absolute;width:360px;height:360px;border:1px solid #ffffff18;border-radius:50%;right:12%;top:-210px;box-shadow:0 0 0 45px #ffffff08,0 0 0 90px #ffffff05}
+.election-hero-copy{position:relative;z-index:1;max-width:700px}
+.election-hero .eyebrow{color:#c2d0df}
+.election-kicker{display:flex;gap:14px;align-items:center;margin-top:13px;color:#d8c395;font-size:8px;font-weight:800;letter-spacing:1.1px}
+.election-kicker span+span{color:#a9b9c9}
+.election-hero h2{font:800 clamp(26px,3vw,37px) Manrope;letter-spacing:-1px;margin:6px 0}
+.election-hero p{font-size:11px;color:#c4d0dc;margin:0;max-width:580px}
+.election-candidate{display:flex;align-items:center;gap:12px;margin-top:17px}
+.election-portrait{width:49px;height:55px;overflow:hidden;border:1px solid #e5c993;border-radius:9px;background:#e1e7e8}
+.election-portrait .portrait-svg{width:100%;height:100%}
+.election-candidate small,.election-candidate b,.election-candidate span{display:block}
+.election-candidate small{font-size:7px;color:#acbdce;letter-spacing:1px;font-weight:800}
+.election-candidate b{font:800 13px Manrope;margin:2px 0}
+.election-candidate span{font-size:9px;color:#d1dbe5}
+.election-ballot{width:132px;height:142px;flex:0 0 132px;border:1px solid #ffffff43;border-radius:14px;display:grid;align-content:center;justify-items:center;gap:7px;color:#e9d6ac;position:relative;z-index:1;transform:rotate(3deg)}
+.election-ballot span{width:38px;height:38px;border:1px solid #e7d2a1;border-radius:50%;display:grid;place-items:center;font-size:24px}
+.election-ballot b{text-align:center;font-size:8px;line-height:1.5;letter-spacing:1px;color:#fff}
+.election-ballot small{font-size:6px;letter-spacing:1px;color:#b4c4d2}
+.election-grid{display:grid;grid-template-columns:minmax(280px,.85fr) minmax(0,1.15fr);gap:13px;margin-top:13px}
+.election-panel-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:19px;box-shadow:var(--shadow);min-width:0}
+.election-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:17px}
+.election-card-head h3{font:800 15px Manrope;margin:4px 0 0;color:#24364a}
+.poll-row{margin:15px 0}
+.poll-row>div:first-child{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;font-size:10px;color:#536579}
+.poll-row b{font:800 13px Manrope;color:#277e70}
+.poll-row.opposition b{color:#a66b68}
+.poll-track{height:8px;border-radius:20px;background:#edf1f3;overflow:hidden}
+.poll-track i{display:block;height:100%;width:0;background:#4a9b8d;border-radius:20px;transition:width .25s}
+.poll-row.opposition .poll-track i{background:#b47a75}
+.election-meta-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-top:1px solid #edf0f2;font-size:9px;color:#7c8997}
+.election-meta-row b{color:#344a5f;font:800 11px Manrope}
+.election-consequences{padding:10px 11px;margin-top:10px;border-radius:8px;background:#f5f7f7;border:1px solid #e9eeee;color:#758391;font-size:8px;line-height:1.55}
+.election-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.election-actions button{min-width:0;text-align:left;border:1px solid #e2e9ed;border-radius:9px;padding:11px;background:#fbfcfd;color:#293b50;transition:.15s}
+.election-actions button:hover:not(:disabled){border-color:#7fb5aa;background:#f3f8f7}
+.election-actions button b,.election-actions button small{display:block}
+.election-actions button b{font-size:10px}
+.election-actions button small{margin-top:4px;font-size:8px;line-height:1.45;color:#8794a1}
+.election-corruption{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:13px;padding:11px;border:1px solid #e8e5de;border-radius:9px;background:#fbfaf7}
+.election-corruption>div{min-width:0}
+.election-corruption b,.election-corruption small{display:block}
+.election-corruption b{font-size:9px;color:#6b604c}
+.election-corruption small{font-size:8px;color:#8f8779;line-height:1.45;margin-top:3px}
+.election-corruption button{white-space:nowrap;font-size:8px;color:#806d4d;border-color:#e4d8c3}
+.election-vote,.dictatorship-button{width:100%;margin-top:10px;border:0;border-radius:8px;padding:12px 15px;background:#1c806f;color:#fff;font-size:10px;font-weight:800}
+.election-vote:disabled{background:#dbe5e3;color:#79938d}
+.election-vote span{float:right}
+.dictatorship-button{margin-top:7px;background:#8d4545}
+.dictatorship-button:hover{background:#763b3b}
+.election-result{margin-top:12px;padding:13px 15px;border:1px solid #e4e9ed;border-radius:9px;background:#fff;font-size:10px}
+.minister-reliability{font-size:8px!important;color:#788b9c!important;margin-top:3px!important}
+.minister-effects{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.minister-effects span{font-size:7px;font-weight:800;padding:3px 5px;border-radius:5px;background:#f2f5f5}
+.effect-positive{color:#247866;background:#edf6f2!important}
+.effect-negative{color:#a45f5b;background:#faf0ef!important}
+.minister-custom-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:900px){.election-grid{grid-template-columns:1fr}.election-hero{min-height:195px}}
+@media(max-width:600px){.election-hero{padding:21px 19px}.election-ballot{display:none}.election-hero h2{font-size:25px}.election-actions{grid-template-columns:1fr 1fr}.election-corruption{align-items:flex-start;flex-direction:column}.minister-custom-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:390px){.election-actions{grid-template-columns:1fr}}
