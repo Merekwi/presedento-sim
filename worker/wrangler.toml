@@ -1,0 +1,8 @@
+name = "presidential-simulator-api"
+main = "src/index.js"
+compatibility_date = "2026-10-30"
+workers_dev = true
+
+[vars]
+OPENROUTER_MODEL = "REPLACE_WITH_CURRENT_FREE_MODEL_SLUG"
+ALLOWED_ORIGIN = "https://REPLACE_WITH_GITHUB_USERNAME.github.io"
