@@ -1,13 +1,27 @@
 (() => {
   "use strict";
   const $ = id => document.getElementById(id);
-  const api = () => window.PRESIDENTIAL_AUTH && window.PRESIDENTIAL_AUTH.api;
+  const api = () => {
+    const auth=window.PRESIDENTIAL_AUTH;
+    if(!auth||!auth.api)return null;
+    return (route,options={})=>{
+      if(String(options.method||"GET").toUpperCase()!=="POST")return auth.api(route,options);
+      let payload={};
+      try{payload=options.body?JSON.parse(options.body):{};}
+      catch(_){return Promise.reject(new Error("Не удалось сохранить данные запроса локально."));}
+      try{
+        const id=enqueueBackgroundTask({kind:"game-request",client:"api",route,payload});
+        return Promise.resolve({__backgroundQueued:true,id});
+      }catch(error){return Promise.reject(error);}
+    };
+  };
   let currentPayload = null, currentGame = null, draftId = null, busy = false;
   const decreeCache = new Map();
 
   const OUTBOX_PREFIX="presidential.ai.outbox.v1.";
   const DRAFT_PREFIX="presidential.localdraft.v1.";
   let outboxOwner=null,outbox=[],outboxRunning=false;
+  const outboxCallbacks=new Map();
 
   function localOwnerId(){
     const user=window.PRESIDENTIAL_AUTH&&window.PRESIDENTIAL_AUTH.user||{};
@@ -110,19 +124,19 @@
     try{localStorage.setItem(savedDecreeDraftKey(),JSON.stringify({saveId:activeSaveId(),decree}));}
     catch(error){console.warn("Could not store generated decree locally:",error);}
   }
-  function enqueueBackgroundTask({kind,route,payload}){
+  function enqueueBackgroundTask({kind,route,payload,client="ai"}){
     if(!initializeOutbox())throw new Error("Необходимо войти через Telegram.");
     if(outbox.length>=40)throw new Error("Локальная очередь заполнена. Дождитесь завершения предыдущих запросов.");
     const item={
       id:(window.crypto&&crypto.randomUUID)?crypto.randomUUID():"job-"+Date.now()+"-"+Math.random().toString(36).slice(2),
-      kind,client:"ai",route,payload,saveId:activeSaveId(),
+      kind,client,route,payload,saveId:activeSaveId(),
       createdAt:new Date().toISOString(),status:"queued"
     };
     outbox.push(item);
     try{persistOutbox();}
     catch(error){outbox=outbox.filter(entry=>entry.id!==item.id);throw error;}
-    toast("Информация сохранена на устройстве. ИИ обработает её в фоновом режиме.");
-    void startBackgroundQueue();return item.id;
+    toast("Информация сохранена на устройстве и поставлена в фоновую очередь.");
+    setTimeout(()=>void startBackgroundQueue(),0);return item.id;
   }
   async function handleBackgroundSuccess(item,result){
     try{
@@ -138,25 +152,36 @@
       if(item.kind==="presidential-action"){
         const coup=result&&result.coup;
         toast(coup?(coup.success?"Попытка переворота удалась. Последствия отражены в истории действий.":"Попытка переворота провалилась. Последствия отражены в истории действий."):"Президентское действие обработано и внесено в историю.");
+        return;
       }
+      if(item.kind==="decree-publish"){
+        draftId=null;try{localStorage.removeItem(savedDecreeDraftKey());}catch(_){}
+        if($("decreeDialog")&&$("decreeDialog").open)$("decreeDialog").close();
+        toast("Указ опубликован. Исполнение программы началось.");return;
+      }
+      if(item.kind==="game-request")toast("Сохранённое действие выполнено. Данные государства обновлены.");
     }catch(error){console.warn("Background task result could not be rendered:",error);}
   }
   async function startBackgroundQueue(){
-    if(outboxRunning||!initializeOutbox()||!aiApi()||!currentGame)return;
+    if(outboxRunning||!initializeOutbox())return;
+    const auth=window.PRESIDENTIAL_AUTH;
+    const newCampaignQueued=outbox.some(item=>item.status==="queued"&&item.route==="/api/presidential/game/new");
+    if(!auth||!auth.api||!auth.aiApi||(!currentGame&&!newCampaignQueued))return;
     outboxRunning=true;updateOutboxIndicator();
     try{
       while(true){
         const item=outbox.find(entry=>entry.status==="queued");
         if(!item)break;
         const saveId=activeSaveId();
-        if(item.saveId&&saveId&&item.saveId!==saveId){
-          item.status="blocked";item.error="Кампания уже изменилась. Запрос сохранён, но не отправлен в другое сохранение.";
+        if((item.saveId&&item.saveId!==saveId)||(!currentGame&&item.route!=="/api/presidential/game/new")){
+          item.status="blocked";item.error="Кампания уже изменилась или завершилась. Запрос сохранён, но не отправлен в другое сохранение.";
           persistOutbox();continue;
         }
         item.status="sending";item.lastAttemptAt=new Date().toISOString();persistOutbox();
         let result;
         try{
-          result=await aiApi()(item.route,{method:"POST",headers:{"Idempotency-Key":item.id},body:JSON.stringify(item.payload)});
+          const request=item.client==="api"?auth.api:auth.aiApi;
+          result=await request(item.route,{method:"POST",headers:{"Idempotency-Key":item.id},body:JSON.stringify(item.payload)});
         }catch(error){
           item.status="failed";item.error=error&&error.message?error.message:"Неизвестная ошибка отправки";
           item.failedAt=new Date().toISOString();persistOutbox();
@@ -164,7 +189,13 @@
         }
         outbox=outbox.filter(entry=>entry.id!==item.id);
         try{persistOutbox();}catch(storageError){console.warn("Could not remove completed outbox task:",storageError);}
-        await refreshGame();await handleBackgroundSuccess(item,result);
+        await refreshGame();
+        const callback=outboxCallbacks.get(item.id);
+        outboxCallbacks.delete(item.id);
+        if(callback){
+          try{toast(typeof callback==="function"?callback(result):callback);}
+          catch(error){console.warn("Background success message failed:",error);}
+        }else await handleBackgroundSuccess(item,result);
       }
     }finally{outboxRunning=false;updateOutboxIndicator();}
   }
@@ -688,7 +719,7 @@
     const vote=$("electionVote");
     if(vote){
       vote.classList.toggle("hidden",!completed);
-      vote.disabled=!completed||busy;
+      vote.disabled=!completed||busy||hasPendingBackgroundJobs();
       vote.textContent=completed?"Провести национальные выборы →":"Сначала завершите программу";
     }
     document.querySelectorAll("[data-election-proposal],[data-election-activity]").forEach(button=>button.disabled=busy);
@@ -810,8 +841,8 @@
     renderUnits(payload.units);renderDecrees(payload.decrees);renderProjects(currentGame);renderInstitutions(currentGame);renderPoliticalActionPanel(currentGame);
     setText("saveStatus","Сохранение синхронизировано");
     const advance=$("advanceTurn"),newGame=$("newGame");
-    if(advance)advance.disabled=busy||["election_campaign","election"].includes(currentGame.state&&currentGame.state.phase);
-    if(newGame)newGame.disabled=busy;
+    if(advance)advance.disabled=busy||hasPendingBackgroundJobs()||["election_campaign","election"].includes(currentGame.state&&currentGame.state.phase);
+    if(newGame)newGame.disabled=busy||hasPendingBackgroundJobs();
   }
 
   async function refreshGame(){
@@ -842,6 +873,10 @@
     setText("saveStatus","Сохранение изменений…");
     try{
       const result=await work();
+      if(result&&result.__backgroundQueued){
+        if(result.id&&successMessage)outboxCallbacks.set(result.id,successMessage);
+        return result;
+      }
       await refreshGame();
       if(successMessage)toast(typeof successMessage==="function"?successMessage(result):successMessage);
       return result;
@@ -1021,13 +1056,12 @@
       $("order").value="";clearLocalDraft("order");
     }catch(error){toast(error.message);}
   });
-  $("publishDecree").addEventListener("click",async()=>{
+  $("publishDecree").addEventListener("click",()=>{
     if(!draftId||busy)return;
     if(!confirm("Опубликовать указ? Он создаст финансируемую программу, а показатели будут изменяться постепенно в течение срока исполнения."))return;
     try{
-      await withBusy($("publishDecree"),()=>aiApi()("/api/presidential/ai/decree/publish",{method:"POST",body:JSON.stringify({decreeId:draftId})}),result=>"Указ опубликован. Начато исполнение программы; проверьте её в разделе государственных программ.");
-      draftId=null;try{localStorage.removeItem(savedDecreeDraftKey());}catch(_){}$("decreeDialog").close();
-    }catch(_){}
+      enqueueBackgroundTask({kind:"decree-publish",route:"/api/presidential/ai/decree/publish",payload:{decreeId:draftId}});
+    }catch(error){toast(error.message);}
   });
   $("copy").addEventListener("click",async()=>{
     try{await navigator.clipboard.writeText($("docTitle").textContent+"\n\n"+$("docBody").textContent);toast("Текст указа скопирован.");}
