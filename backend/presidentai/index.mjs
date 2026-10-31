@@ -194,6 +194,8 @@ async function decreePublish(request, env, auth) {
     if (!found.rows.length) throw Object.assign(new Error("Черновик не найден или уже опубликован"), { status: 404 });
     const decree = found.rows[0], effects = safeObject(decree.effects);
     const changes = sanitizeDeltas(effects.changes);
+    delete changes.treasury;
+    delete changes.budgetBalance;
     const state = safeObject(game.state);
     const actionPoints = Math.max(0, Number(state.actionPoints ?? 2));
     if (actionPoints < 1) throw Object.assign(new Error("Недостаточно очков действий для публикации указа"), { status: 409 });
