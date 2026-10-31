@@ -88,6 +88,26 @@ export function applyGroupDeltas(currentGroups, input) {
   return { groups, applied: deltas };
 }
 
+export function applyCampaignEventEffects(currentElection, input) {
+  const election = currentElection && typeof currentElection === "object" && !Array.isArray(currentElection)
+    ? structuredClone(currentElection)
+    : {};
+  const groupResult = applyGroupDeltas(election.voterGroups, input);
+  const values = Object.values(groupResult.applied);
+  const average = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+  // An entire event is deliberately incremental; individual rounds cannot swing the poll dramatically.
+  const supportDelta = clamp(average * 0.18, -0.45, 0.45);
+  const support = clamp(Number(election.candidateSupport ?? 20) + supportDelta, 5, 95);
+  election.voterGroups = groupResult.groups;
+  election.candidateSupport = Number(support.toFixed(1));
+  election.oppositionSupport = Number((100 - support).toFixed(1));
+  return {
+    election,
+    applied: groupResult.applied,
+    supportDelta: Number(supportDelta.toFixed(2))
+  };
+}
+
 export function coupProbability(state) {
   const s = state && typeof state === "object" ? state : {};
   const military = clamp(s.militaryPower ?? 50, 0, 100);
