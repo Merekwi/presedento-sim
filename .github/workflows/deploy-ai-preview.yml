@@ -3,6 +3,7 @@ name: Deploy supplemental AI API
 on:
   push:
     branches:
+      - main
       - feature/ai-political-engine
     paths:
       - "backend/presidentai/**"
