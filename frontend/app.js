@@ -1,20 +1,7 @@
 (() => {
   "use strict";
   const $ = id => document.getElementById(id);
-  const api = () => {
-    const auth=window.PRESIDENTIAL_AUTH;
-    if(!auth||!auth.api)return null;
-    return (route,options={})=>{
-      if(String(options.method||"GET").toUpperCase()!=="POST")return auth.api(route,options);
-      let payload={};
-      try{payload=options.body?JSON.parse(options.body):{};}
-      catch(_){return Promise.reject(new Error("Не удалось сохранить данные запроса локально."));}
-      try{
-        const id=enqueueBackgroundTask({kind:"game-request",client:"api",route,payload});
-        return Promise.resolve({__backgroundQueued:true,id});
-      }catch(error){return Promise.reject(error);}
-    };
-  };
+  const api = () => window.PRESIDENTIAL_AUTH && window.PRESIDENTIAL_AUTH.api;
   let currentPayload = null, currentGame = null, draftId = null, busy = false;
   const decreeCache = new Map();
 
@@ -56,7 +43,7 @@
     catch(error){throw new Error("Браузер не смог сохранить запрос локально. Освободите место в хранилище и повторите.");}
     updateOutboxIndicator();
   }
-  function hasPendingBackgroundJobs(){return outbox.some(item=>item.status==="queued"||item.status==="sending"||item.status==="failed");}
+  function hasPendingBackgroundJobs(){return outbox.some(item=>item.status==="queued"||item.status==="sending");}
   function updateOutboxIndicator(){
     let host=$("backgroundQueueStatus");
     if(!host){
@@ -192,7 +179,7 @@
         const itemIndex=outbox.findIndex(entry=>entry.id===item.id);
         if(outbox.slice(0,itemIndex).some(entry=>entry.status==="failed"))break;
         const saveId=activeSaveId();
-        if((item.saveId&&item.saveId!==saveId)||(!currentGame&&item.route!=="/api/presidential/game/new")){
+        if((item.route!=="/api/presidential/game/new"&&item.saveId&&item.saveId!==saveId)||(!currentGame&&item.route!=="/api/presidential/game/new")){
           item.status="blocked";item.error="Кампания уже изменилась или завершилась. Запрос сохранён, но не отправлен в другое сохранение.";
           persistOutbox();continue;
         }
@@ -202,9 +189,21 @@
           const request=item.client==="api"?auth.api:auth.aiApi;
           result=await request(item.route,{method:"POST",body:JSON.stringify(item.payload)});
         }catch(error){
-          item.status="failed";item.error=error&&error.message?error.message:"Неизвестная ошибка отправки";
+          item.attempts=Math.max(0,Number(item.attempts||0))+1;
+          const message=error&&error.message?error.message:"Неизвестная ошибка отправки";
+          const networkFailure=error instanceof TypeError||/failed to fetch|networkerror|load failed/i.test(message);
+          if(networkFailure&&item.attempts<2){
+            item.status="queued";item.error="Временная ошибка соединения. Повторная попытка…";
+            persistOutbox();
+            await new Promise(resolve=>setTimeout(resolve,1200));
+            continue;
+          }
+          item.status="failed";
+          item.error=networkFailure
+            ?"Не удалось подключиться к серверу ИИ (сеть или CORS). Запрос сохранён на устройстве."
+            :message;
           item.failedAt=new Date().toISOString();persistOutbox();
-          toast("Запрос сохранён локально, но сервер не ответил: "+item.error);break;
+          toast("Запрос сохранён локально. "+item.error);break;
         }
         outbox=outbox.filter(entry=>entry.id!==item.id);
         try{persistOutbox();}catch(storageError){console.warn("Could not remove completed outbox task:",storageError);}
@@ -220,7 +219,7 @@
   }
   function retryFailedBackgroundJobs(){
     if(outboxRunning)return;
-    outbox.forEach(item=>{if(item.status==="failed"){item.status="queued";delete item.error;}});
+    outbox.forEach(item=>{if(item.status==="failed"){item.status="queued";item.attempts=0;delete item.error;}});
     try{persistOutbox();void startBackgroundQueue();}catch(error){toast(error.message);}
   }
   function discardBlockedBackgroundJobs(){
@@ -1225,6 +1224,7 @@
     initializeOutbox();attachStaticLocalDrafts();
     await refreshGame();void startBackgroundQueue();
   }
+  window.addEventListener("online",retryFailedBackgroundJobs);
   window.addEventListener("presidential-auth-ready",onPresidentialAuthReady);
   if(window.PRESIDENTIAL_AUTH&&window.PRESIDENTIAL_AUTH.user)onPresidentialAuthReady();
 })();
