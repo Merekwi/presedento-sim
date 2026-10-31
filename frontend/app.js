@@ -374,17 +374,9 @@
       const avatar=node("div","minister-avatar");avatar.append(portraitNode(traits.portraitId||portraitIdFromName(minister.full_name),"portrait-svg"));
       const info=node("div","minister-info");
       info.append(node("b","",minister.full_name));
-      info.append(node("small","",minister.portfolio+" · "+(traits.archetypeLabel||"Специалист")+" · "+minister.age+" лет"));
-      info.append(node("small","minister-reliability","Компетентность "+minister.competence+" · Лояльность "+minister.loyalty));
-      const effects=node("div","minister-effects");
-      const labels={gdpGrowth:"рост ВВП",inflation:"инфляция",unemployment:"безработица",approval:"одобрение",stability:"стабильность",corruption:"коррупция",publicServices:"госуслуги",education:"образование",healthcare:"медицина",infrastructure:"инфраструктура",militaryPower:"армия",budgetBalance:"бюджет"};
-      Object.entries(traits.effects||{}).forEach(([key,value])=>{
-        if(!labels[key])return;
-        const n=Number(value),chip=node("span",n>=0?"effect-positive":"effect-negative",(n>0?"+":"")+n.toFixed(2)+" "+labels[key]);
-        effects.append(chip);
-      });
-      if(effects.childNodes.length)info.append(effects);
-      const score=node("div","minister-score","★ "+minister.competence);
+      info.append(node("small","",minister.portfolio+" · "+minister.age+" лет"));
+      info.append(node("small","minister-reliability","Компетентность "+Number(minister.competence??100)+"/100 · Лояльность "+Number(minister.loyalty??100)+"/100"));
+      const score=node("div","minister-score","★ "+Number(minister.competence??100));
       const dismiss=node("button","dismiss-button","×");dismiss.type="button";dismiss.title="Отправить министра в отставку";
       dismiss.dataset.dismissMinister=minister.id;dismiss.dataset.ministerName=minister.full_name;dismiss.disabled=busy;
       row.append(avatar,info,score,dismiss);root.append(row);
@@ -869,8 +861,14 @@
 
   function renderProjects(game){
     const root=$("activePrograms");if(!root)return;root.replaceChildren();
-    const projects=Array.isArray(game.state&&game.state.projects)?game.state.projects:[],active=projects.filter(item=>item.status==="active");
-    if(!active.length)root.append(node("div","programs-empty","Активных проектов нет. Выберите долгосрочную программу ниже."));
+    const state=game.state||{};
+    const isGovernment=String(state.phase||"")==="government";
+    const projects=Array.isArray(state.projects)?state.projects:[],active=projects.filter(item=>item.status==="active");
+    if(!active.length){
+      root.append(node("div","programs-empty",isGovernment
+        ?"Активных проектов пока нет. Выберите готовую программу или разработайте собственную."
+        :"Государственные программы откроются после победы на выборах и вступления в должность."));
+    }
     active.forEach(project=>{
       const card=node("article","active-program-card"),head=node("div","active-program-head"),copy=node("div","");
       copy.append(node("b","",project.title),node("small","",project.category+" · "+project.monthsCompleted+"/"+project.durationMonths+" месяцев"));
@@ -884,9 +882,16 @@
     });
     document.querySelectorAll("[data-program-start]").forEach(button=>{
       const exists=active.some(item=>item.projectId===button.dataset.programStart);
-      button.disabled=busy||exists||active.length>=3||Number((game.state||{}).actionPoints??2)<1;
-      button.textContent=exists?"Уже запущена":"Запустить";
+      button.disabled=busy||!isGovernment||exists||active.length>=3||Number(state.actionPoints??2)<1;
+      button.textContent=!isGovernment?"После выборов":exists?"Уже запущена":"Запустить";
+      button.title=!isGovernment?"Доступно после вступления в должность":active.length>=3?"Можно вести не более трёх программ одновременно":"";
     });
+    const create=$("createStateProgram");
+    if(create){
+      create.disabled=busy||!isGovernment;
+      create.textContent=isGovernment?"＋ Собственная программа":"Доступно после выборов";
+      create.title=isGovernment?"Подготовить собственную программу через проект президентского указа":"Доступно после победы на выборах";
+    }
   }
 
 
@@ -1075,6 +1080,20 @@
     if(!confirm("Запустить долгосрочную программу? Потребуются первоначальный платёж, одно очко действий и ежемесячное финансирование. Результаты будут накапливаться постепенно."))return;
     try{await withBusy(button,()=>api()("/api/presidential/game/program",{method:"POST",body:JSON.stringify({action:"start",projectId})}),"Программа запущена. Результаты будут накапливаться по месяцам.");}catch(_){}
   });
+  $("createStateProgram").addEventListener("click",()=>{
+    if(!currentGame||String(currentGame.state&&currentGame.state.phase||"")!=="government"){
+      return toast("Собственные государственные программы доступны после вступления в должность.");
+    }
+    $("openDecree").click();
+    const form=$("decreeForm");
+    const eyebrow=form&&form.querySelector(".dialog-eyebrow");
+    const heading=form&&form.querySelector(":scope > h3");
+    const intro=form&&Array.from(form.children).find(el=>el.tagName==="P");
+    if(eyebrow)eyebrow.textContent="ГОСУДАРСТВЕННАЯ ПРОГРАММА";
+    if(heading)heading.textContent="Разработать собственную государственную программу";
+    if(intro)intro.textContent="Опишите государственную проблему, цели, конкретные меры, сроки и предполагаемое финансирование. ИИ подготовит проект президентского указа; после публикации программа появится среди действующих проектов.";
+    if($("order"))$("order").placeholder="Например: национальная программа модернизации сельских больниц, строительство фельдшерских пунктов, закупка оборудования, сроки и источники финансирования...";
+  });
   $("activePrograms").addEventListener("click",async event=>{
     const button=event.target.closest("[data-program-cancel]");if(!button||busy)return;
     if(!confirm("Остановить программу? Уже потраченные средства не возвращаются."))return;
@@ -1176,12 +1195,12 @@
     event.preventDefault();
     const payload={
       action:"appoint",name:$("ministerName").value.trim(),portfolio:$("ministerPortfolio").value,
-      age:Number($("ministerAge").value),competence:Number($("ministerCompetence").value),
-      loyalty:Number($("ministerLoyalty").value),archetype:$("ministerArchetype").value,portraitId:$("ministerPortrait").value
+      age:Number($("ministerAge").value),competence:100,loyalty:100,archetype:"technocrat",
+      portraitId:$("ministerPortrait").value
     };
     try{
-      await withBusy(event.submitter,()=>api()("/api/presidential/game/minister",{method:"POST",body:JSON.stringify(payload)}),"Министр назначен. Его качества будут влиять на ежемесячные показатели.");
-      $("ministerDialog").close();$("ministerForm").reset();$("ministerAge").value=45;$("ministerCompetence").value=70;$("ministerLoyalty").value=65;
+      await withBusy(event.submitter,()=>api()("/api/presidential/game/minister",{method:"POST",body:JSON.stringify(payload)}),"Министр назначен: компетентность и лояльность 100/100.");
+      $("ministerDialog").close();$("ministerForm").reset();$("ministerAge").value=45;
     }catch(_){}
   });
   $("ministers").addEventListener("click",async event=>{
