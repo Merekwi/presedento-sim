@@ -37,6 +37,8 @@ CREATE TABLE IF NOT EXISTS military_wars (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE military_wars ADD COLUMN IF NOT EXISTS commander_directive TEXT NOT NULL DEFAULT '';
+
 CREATE TABLE IF NOT EXISTS military_technologies (
   save_id UUID NOT NULL REFERENCES game_saves(id) ON DELETE CASCADE,
   tech_id TEXT NOT NULL,
