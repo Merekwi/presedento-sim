@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   sanitizeDeltas, applyStateDeltas, applyGroupDeltas,
   coupProbability, resolveCoup, updateElection, normalizeTreaties,
-  initializeElectionBaseline, isDuplicateCampaignAction
+  initializeElectionBaseline, isDuplicateCampaignAction, applyCampaignEventEffects
 } from "./engine.mjs";
 
 test("AI deltas accept only known numeric metrics and enforce limits", () => {
@@ -93,4 +93,29 @@ test("duplicate campaign actions are detected after whitespace and punctuation n
   const actions = [{ text: "Провести встречи с жителями регионов!" }];
   assert.equal(isDuplicateCampaignAction(actions, " провести   встречи с жителями регионов "), true);
   assert.equal(isDuplicateCampaignAction(actions, "Организовать публичные дебаты"), false);
+});
+
+test("debate and press event effects shift polls gradually and retain realistic bounds", () => {
+  const current = {
+    candidateSupport: 24,
+    oppositionSupport: 76,
+    voterGroups: { workers: 20, business: 18, rural: 22, youth: 25, publicSector: 19, conservative: 21 }
+  };
+  const result = applyCampaignEventEffects(current, {
+    workers: 4, business: 4, rural: 4, youth: 4, publicSector: 4, conservative: 4
+  });
+  assert.equal(result.election.candidateSupport, 24.4);
+  assert.equal(result.election.oppositionSupport, 75.6);
+  assert.equal(result.supportDelta, 0.45);
+  assert.equal(result.election.voterGroups.workers, 24);
+  assert.equal(current.candidateSupport, 24);
+});
+
+test("a poor debate answer can reduce support, but never by more than 0.45 per round", () => {
+  const result = applyCampaignEventEffects({
+    candidateSupport: 24,
+    voterGroups: { workers: 20, business: 20, rural: 20, youth: 20, publicSector: 20, conservative: 20 }
+  }, { workers: -4, business: -4, rural: -4, youth: -4, publicSector: -4, conservative: -4 });
+  assert.equal(result.supportDelta, -0.45);
+  assert.equal(result.election.candidateSupport, 23.6);
 });
