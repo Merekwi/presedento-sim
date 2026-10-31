@@ -242,6 +242,15 @@
     root.textContent=message; root.classList.remove("hidden");
     clearTimeout(toastTimer); toastTimer=setTimeout(()=>root.classList.add("hidden"),4500);
   }
+  function actionErrorMessage(error){
+    const code=error&&typeof error.message==="string"?error.message:"";
+    const known={
+      insufficient_treasury:"В казне недостаточно средств для этого действия. Проверьте доступный бюджет.",
+      insufficient_campaign_funds:"Недостаточно средств на проведение этой кампании.",
+      no_action_points:"На этот месяц закончились очки действий. Продолжить можно после следующего месяца."
+    };
+    return known[code]||code||"ошибка сервера";
+  }
   function node(tag,cls,content){
     const el=document.createElement(tag);if(cls)el.className=cls;
     if(content!==undefined&&content!==null)el.textContent=String(content);
@@ -1028,7 +1037,7 @@
       await refreshGame();
       if(successMessage)toast(typeof successMessage==="function"?successMessage(result):successMessage);
       return result;
-    }catch(error){toast("Действие не выполнено: "+(error&&error.message?error.message:"ошибка сервера"));throw error;}
+    }catch(error){toast("Действие не выполнено: "+actionErrorMessage(error));throw error;}
     finally{
       busy=false;
       if(button)button.disabled=false;
