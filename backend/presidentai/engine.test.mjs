@@ -1,0 +1,54 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {
+  sanitizeDeltas, applyStateDeltas, applyGroupDeltas,
+  coupProbability, resolveCoup, updateElection, normalizeTreaties
+} from "./engine.mjs";
+
+test("AI deltas accept only known numeric metrics and enforce limits", () => {
+  const actual = sanitizeDeltas({ approval: 999, stability: -999, unknown: 4, gdpGrowth: "100", treasury: 3.5 });
+  assert.deepEqual(actual, { approval: 12, stability: -12, treasury: 3.5 });
+});
+
+test("state application clamps final values and preserves unrelated state", () => {
+  const { state } = applyStateDeltas({ approval: 97, treasury: 2, unrelated: "keep" }, { approval: 12, treasury: -25 });
+  assert.equal(state.approval, 100);
+  assert.equal(state.treasury, 0);
+  assert.equal(state.unrelated, "keep");
+});
+
+test("voter group changes are bounded", () => {
+  const { groups } = applyGroupDeltas({ workers: 98, business: 4 }, { workers: 8, business: -8, fake: 8 });
+  assert.equal(groups.workers, 100);
+  assert.equal(groups.business, 0);
+  assert.equal(groups.fake, undefined);
+});
+
+test("coup probability stays between eight and sixty-five percent", () => {
+  assert.equal(coupProbability({ militaryPower: 100, stability: 100, corruption: 100, democracyIndex: 0 }), 65);
+  assert.equal(coupProbability({ militaryPower: 0, stability: 0, corruption: 0, democracyIndex: 100 }), 8);
+});
+
+test("failed and successful coup outcomes both preserve explicit state", () => {
+  const base = { stability: 60, approval: 50, democracyIndex: 60, corruption: 30, unrelated: true };
+  const failed = resolveCoup(base, 100);
+  const won = resolveCoup(base, 1);
+  assert.equal(failed.success, false);
+  assert.equal(failed.state.powerGrab.status, "failed");
+  assert.equal(won.success, true);
+  assert.equal(won.state.dictatorship, true);
+  assert.equal(won.state.unrelated, true);
+});
+
+test("election proposals add free-text decisions and advance only one agenda point", () => {
+  const current = { phase: "election_campaign", election: { issueIndex: 0, agenda: [{id:"economy",title:"Экономика"},{id:"health",title:"Здравоохранение"}], voterGroups:{workers:50}, candidateSupport:50, decisions:[] } };
+  const result = updateElection(current, { decisionTitle:"Налоговая реформа", credibilityDelta:2, voterEffects:{workers:3}, policyEffects:{gdpGrowth:1} }, "Снизить налог на труд и закрыть льготы монополиям", current.election.agenda[0]);
+  assert.equal(result.state.election.issueIndex, 1);
+  assert.equal(result.state.election.currentIssue, "health");
+  assert.equal(result.state.election.decisions[0].playerProposal.includes("монополиям"), true);
+  assert.equal(result.state.election.candidateSupport > 50, true);
+});
+
+test("diplomacy treaties retain old list values", () => {
+  assert.deepEqual(normalizeTreaties([{name:"Договор"}]).activeDeals, [{name:"Договор"}]);
+});
