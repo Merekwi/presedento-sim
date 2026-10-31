@@ -163,7 +163,14 @@
       <div class="lower-grid">
         <section class="panel" id="government">
           <div class="panel-heading"><div><span class="eyebrow">ИСПОЛНИТЕЛЬНАЯ ВЛАСТЬ</span><h3>Совет министров</h3></div><button id="appoint" class="small-button">＋ Назначить</button></div>
-          <div id="ministers" class="minister-list"><div class="loading-row">Загружаем состав правительства…</div></div>
+          <div class="minister-cabinet-block">
+            <div class="minister-subheading"><b>Действующий кабинет</b><small>Каждый министр работает только в пределах полученного мандата.</small></div>
+            <div id="ministers" class="minister-list"><div class="loading-row">Загружаем состав правительства…</div></div>
+          </div>
+          <div class="minister-reserve-block">
+            <div class="minister-subheading"><b>Кадровый резерв</b><small>Изучите сильные и слабые стороны кандидатов и самостоятельно распределите должности.</small></div>
+            <div id="ministerCandidates" class="minister-candidate-list"><div class="loading-row">Загружаем список кандидатов…</div></div>
+          </div>
         </section>
         <section class="panel" id="events">
           <div class="panel-heading"><div><span class="eyebrow">ГОСУДАРСТВЕННОЕ ИНФОБЮРО</span><h3>Последние события</h3></div><span class="panel-tag">ХРОНИКА</span></div>
@@ -366,19 +373,24 @@
   </form>
 </dialog>
 
-<dialog id="ministerDialog" class="game-dialog">
+<dialog id="ministerDialog" class="game-dialog minister-assignment-dialog">
   <form id="ministerForm" method="dialog">
-    <div class="dialog-eyebrow">ФОРМИРОВАНИЕ ПРАВИТЕЛЬСТВА</div><h3>Назначить министра</h3>
-    <label for="ministerName">Имя и фамилия</label><input id="ministerName" name="name" required minlength="3" maxlength="100" placeholder="Например, Анна Новак">
-    <label for="ministerPortfolio">Портфель</label><select id="ministerPortfolio" name="portfolio" required><option value="Финансы">Министерство финансов</option><option value="Иностранные дела">Министерство иностранных дел</option><option value="Оборона">Министерство обороны</option><option value="Экономика">Министерство экономики</option><option value="Здравоохранение">Министерство здравоохранения</option><option value="Образование">Министерство образования</option><option value="Внутренние дела">Министерство внутренних дел</option></select>
-    <label for="ministerAge">Возраст</label><input id="ministerAge" name="age" type="number" min="25" max="90" value="45" required>
-    <div class="minister-random-note">
-      <strong>Качества определяются автоматически</strong>
-      <span>У каждого кандидата будут свои показатели компетентности, лояльности и специализация. Максимальных значений по умолчанию нет.</span>
-    </div>
-    <label for="ministerPortrait">Портрет</label>
-    <select id="ministerPortrait"><option value="p01">Портрет 1</option><option value="p02">Портрет 2</option><option value="p03">Портрет 3</option><option value="p04">Портрет 4</option><option value="p05">Портрет 5</option><option value="p06">Портрет 6</option><option value="p07">Портрет 7</option><option value="p08">Портрет 8</option><option value="p09">Портрет 9</option><option value="p10">Портрет 10</option><option value="p11">Портрет 11</option><option value="p12">Портрет 12</option><option value="p13">Портрет 13</option><option value="p14">Портрет 14</option><option value="p15">Портрет 15</option><option value="p16">Портрет 16</option></select>
-    <div class="dialog-actions"><button type="button" class="secondary-button" id="cancelMinister">Отмена</button><button type="submit" class="primary-button">Назначить</button></div>
+    <div class="dialog-eyebrow">ФОРМИРОВАНИЕ ПРАВИТЕЛЬСТВА</div>
+    <h3>Назначение министра</h3>
+    <input type="hidden" id="ministerCandidateId">
+    <div id="ministerCandidateSummary" class="minister-selected-candidate"></div>
+    <label for="ministerPortfolio">Какой мандат поручить кандидату?</label>
+    <select id="ministerPortfolio" name="portfolio" required>
+      <option value="Финансы">Министерство финансов</option>
+      <option value="Иностранные дела">Министерство иностранных дел</option>
+      <option value="Оборона">Министерство обороны</option>
+      <option value="Экономика">Министерство экономики</option>
+      <option value="Здравоохранение">Министерство здравоохранения</option>
+      <option value="Образование">Министерство образования</option>
+      <option value="Внутренние дела">Министерство внутренних дел</option>
+    </select>
+    <p class="minister-mandate-note">Характеристики кандидата не меняются при назначении. Эффективность будет зависеть от того, насколько его навыки подходят выбранному направлению.</p>
+    <div class="dialog-actions"><button type="button" class="secondary-button" id="cancelMinister">Отмена</button><button type="submit" class="primary-button">Утвердить назначение</button></div>
   </form>
 </dialog>
 
