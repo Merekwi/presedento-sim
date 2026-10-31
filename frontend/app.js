@@ -375,8 +375,8 @@
       const info=node("div","minister-info");
       info.append(node("b","",minister.full_name));
       info.append(node("small","",minister.portfolio+" · "+minister.age+" лет"));
-      info.append(node("small","minister-reliability","Компетентность "+Number(minister.competence??100)+"/100 · Лояльность "+Number(minister.loyalty??100)+"/100"));
-      const score=node("div","minister-score","★ "+Number(minister.competence??100));
+      info.append(node("small","minister-reliability","Компетентность "+Number(minister.competence??50)+"/100 · Лояльность "+Number(minister.loyalty??50)+"/100"));
+      const score=node("div","minister-score","★ "+Number(minister.competence??50));
       const dismiss=node("button","dismiss-button","×");dismiss.type="button";dismiss.title="Отправить министра в отставку";
       dismiss.dataset.dismissMinister=minister.id;dismiss.dataset.ministerName=minister.full_name;dismiss.disabled=busy;
       row.append(avatar,info,score,dismiss);root.append(row);
@@ -1197,11 +1197,10 @@
     event.preventDefault();
     const payload={
       action:"appoint",name:$("ministerName").value.trim(),portfolio:$("ministerPortfolio").value,
-      age:Number($("ministerAge").value),competence:100,loyalty:100,archetype:"technocrat",
-      portraitId:$("ministerPortrait").value
+      age:Number($("ministerAge").value),portraitId:$("ministerPortrait").value
     };
     try{
-      await withBusy(event.submitter,()=>api()("/api/presidential/game/minister",{method:"POST",body:JSON.stringify(payload)}),"Министр назначен: компетентность и лояльность 100/100.");
+      await withBusy(event.submitter,()=>api()("/api/presidential/game/minister",{method:"POST",body:JSON.stringify(payload)}),"Министр назначен: качества и специализация определены.");
       $("ministerDialog").close();$("ministerForm").reset();$("ministerAge").value=45;
     }catch(_){}
   });
