@@ -50,13 +50,16 @@ test("election proposals add free-text decisions and advance only one agenda poi
   assert.equal(result.state.election.currentIssue, "health");
   assert.equal(result.state.election.decisions[0].playerProposal.includes("монополиям"), true);
   assert.equal(result.state.election.candidateSupport > 50, true);
+  assert.equal(result.state.election.partyPoll[0].support, result.state.election.candidateSupport);
+  assert.equal(Number(result.state.election.partyPoll.reduce((sum, party) => sum + party.support, 0).toFixed(1)), 100);
+  assert.equal(result.state.election.partyPoll.length, 5);
 });
 
 test("diplomacy treaties retain old list values", () => {
   assert.deepEqual(normalizeTreaties([{name:"Договор"}]).activeDeals, [{name:"Договор"}]);
 });
 
-test("new election baseline starts well below a 50 percent majority and is idempotent", () => {
+test("new election baseline starts above 50 percent and is idempotent", () => {
   const current = {
     phase: "election_campaign",
     approval: 70,
@@ -65,7 +68,10 @@ test("new election baseline starts well below a 50 percent majority and is idemp
   const first = initializeElectionBaseline(current, "save-123");
   const support = first.state.election.candidateSupport;
   assert.equal(first.changed, true);
-  assert.ok(support >= 32 && support <= 40);
+  assert.ok(support >= 52 && support <= 60);
+  assert.equal(first.state.election.partyPoll[0].isPlayer, true);
+  assert.equal(first.state.election.partyPoll.length, 5);
+  assert.equal(Number(first.state.election.partyPoll.reduce((sum, party) => sum + party.support, 0).toFixed(1)), 100);
   assert.equal(first.state.election.oppositionSupport, 100 - support);
   assert.ok(first.state.election.voterGroups.workers >= 8);
   assert.ok(first.state.election.voterGroups.business <= 70);
@@ -86,7 +92,9 @@ test("baseline upgrade preserves progress already made in an existing campaign",
     politicalActions: [{ text: "town hall meeting" }]
   };
   const result = initializeElectionBaseline(current, "existing-save");
-  assert.ok(result.state.election.candidateSupport >= 36);
+  assert.ok(result.state.election.candidateSupport >= 54);
+  assert.equal(result.state.election.baselineVersion, 4);
+  assert.equal(result.state.election.partyPoll.length, 5);
   assert.ok(result.state.election.candidateSupport > result.state.election.startingSupport);
   assert.equal(result.state.election.baselineVersion, 3);
 });
