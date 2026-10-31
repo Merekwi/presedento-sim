@@ -176,9 +176,156 @@
           <div class="panel-heading"><div><span class="eyebrow">МИНИСТЕРСТВО ИНОСТРАННЫХ ДЕЛ</span><h3>Дипломатические отношения</h3></div><span class="panel-tag">МИРОВАЯ ПОВЕСТКА</span></div>
           <div id="relationsList" class="relation-list"><div class="loading-row">Загружаем международные отношения…</div></div>
         </section>
-        <section class="panel" id="defense">
-          <div class="panel-heading"><div><span class="eyebrow">МИНИСТЕРСТВО ОБОРОНЫ</span><h3>Вооружённые силы</h3></div><span class="panel-tag">ОБОРОНОСПОСОБНОСТЬ</span></div>
-          <div id="militaryUnits" class="unit-list"><div class="loading-row">Загружаем структуру вооружённых сил…</div></div>
+        <section class="panel military-command-panel" id="defense">
+          <div class="panel-heading">
+            <div><span class="eyebrow">ГЕНЕРАЛЬНЫЙ ШТАБ · МИНИСТЕРСТВО ОБОРОНЫ</span><h3>Вооружённые силы и военные операции</h3><p>Комплектование армии, военные технологии, охрана границ и управление войной.</p></div>
+            <span class="panel-tag">СТРАТЕГИЧЕСКОЕ УПРАВЛЕНИЕ</span>
+          </div>
+
+          <div class="military-map-layout">
+            <div class="military-map-column">
+              <div class="military-map-toolbar">
+                <div><b>Оперативная карта</b><small id="militaryMapHint">Колесо мыши — масштаб · перетаскивание — перемещение</small></div>
+                <div class="military-map-zoom">
+                  <button type="button" id="militaryZoomOut" aria-label="Уменьшить масштаб">−</button>
+                  <button type="button" id="militaryZoomReset">100%</button>
+                  <button type="button" id="militaryZoomIn" aria-label="Увеличить масштаб">＋</button>
+                </div>
+              </div>
+              <div id="militaryMap" class="military-map" role="application" aria-label="Интерактивная военная карта мира">
+                <div class="map-loading">Загружаем оперативную карту…</div>
+              </div>
+              <div class="military-map-legend">
+                <span><i class="military-legend-home"></i>Ваше государство</span>
+                <span><i class="military-legend-enemy"></i>Противник</span>
+                <span><i class="military-legend-front"></i>Линия фронта</span>
+                <span><i class="military-legend-patrol"></i>Патруль</span>
+              </div>
+              <div class="military-map-actions">
+                <label>Режим карты
+                  <select id="militaryMapMode">
+                    <option value="view">Обзор</option>
+                    <option value="patrol">Проложить патруль</option>
+                    <option value="order">Отдать приказ на карте</option>
+                  </select>
+                </label>
+                <label>Подразделение
+                  <select id="militaryMapUnit"></select>
+                </label>
+                <label>Приказ
+                  <select id="militaryMapOrder">
+                    <option value="advance">Наступать к точке</option>
+                    <option value="defend">Защищать район</option>
+                    <option value="hold">Удерживать позицию</option>
+                    <option value="recon">Провести разведку</option>
+                    <option value="withdraw">Отойти на рубеж</option>
+                    <option value="support">Поддержать соседние части</option>
+                  </select>
+                </label>
+              </div>
+              <div class="military-route-draft">
+                <span id="militaryMapDraftStatus">Выберите режим патруля или ручного управления.</span>
+                <button type="button" id="saveMilitaryPatrol" class="secondary-button" disabled>Сохранить маршрут</button>
+                <button type="button" id="clearMilitaryMapDraft" class="secondary-button">Очистить точки</button>
+              </div>
+            </div>
+
+            <aside class="military-war-column">
+              <section class="military-war-card">
+                <div class="military-card-heading"><div><span class="eyebrow">ВОЕННОЕ ПОЛОЖЕНИЕ</span><h4>Военные конфликты</h4></div><span id="militaryWarStatus" class="military-state-chip">МИР</span></div>
+                <div id="militaryNoWar">
+                  <p>Сейчас государство не участвует в войне. Конфликт можно начать с известной страны; решение о начале войны остаётся за президентом.</p>
+                  <label for="warOpponentSelect">Государство-противник</label>
+                  <select id="warOpponentSelect"><option value="">Загружаем список стран…</option></select>
+                  <label for="warGoalInput">Цель войны</label>
+                  <input id="warGoalInput" maxlength="160" value="Ограниченные военные цели" placeholder="Укажите политическую цель">
+                  <button type="button" id="startMilitaryWar" class="danger-button">Объявить войну</button>
+                </div>
+                <div id="militaryActiveWar" class="hidden">
+                  <div class="military-opponent-name" id="militaryOpponentName">—</div>
+                  <div class="military-front-track"><i id="militaryFrontControl"></i></div>
+                  <div class="military-front-meta"><span>Контроль фронта</span><b id="militaryFrontValue">50%</b></div>
+                  <div class="military-war-stats">
+                    <div><small>Свои потери</small><b id="militaryFriendlyLosses">0</b></div>
+                    <div><small>Потери противника</small><b id="militaryEnemyLosses">0</b></div>
+                    <div><small>Оперативный ход</small><b id="militaryBattleTurn">0</b></div>
+                  </div>
+                  <label for="militaryCommandMode">Кто управляет войсками</label>
+                  <select id="militaryCommandMode"><option value="ai">Военный штаб ИИ</option><option value="manual">Президент · ручное управление</option></select>
+                  <label for="militaryPosture">Стратегическая директива</label>
+                  <select id="militaryPosture"><option value="defensive">Оборона и удержание позиций</option><option value="balanced">Сбалансированные действия</option><option value="offensive">Наступательная операция</option></select>
+                  <div class="military-war-buttons">
+                    <button type="button" id="saveMilitaryDirective" class="secondary-button">Передать директиву</button>
+                    <button type="button" id="advanceMilitaryWar" class="primary-button">Следующий оперативный ход</button>
+                    <button type="button" id="ceaseMilitaryWar" class="secondary-button">Запросить прекращение огня</button>
+                  </div>
+                  <p id="militaryWarReport" class="military-war-report">Штаб ожидает распоряжений.</p>
+                </div>
+              </section>
+            </aside>
+          </div>
+
+          <div class="military-dashboard-grid">
+            <section class="military-subpanel">
+              <div class="military-card-heading"><div><span class="eyebrow">ЛИЧНЫЙ СОСТАВ</span><h4>Комплектование армии</h4></div></div>
+              <div class="military-personnel-metrics">
+                <div><small>Действующая армия</small><b id="militaryActivePersonnel">—</b></div>
+                <div><small>Подготовленный резерв</small><b id="militaryReservePersonnel">—</b></div>
+                <div><small>Доступный кадровый ресурс</small><b id="militaryAvailablePersonnel">—</b></div>
+                <div><small>Желающие служить по контракту / мес.</small><b id="militaryApplicants">—</b></div>
+              </div>
+              <label for="militaryServiceLaw">Закон о военной службе</label>
+              <select id="militaryServiceLaw">
+                <option value="volunteer">Добровольная контрактная служба</option>
+                <option value="selective">Выборочный призыв резервистов</option>
+                <option value="universal">Всеобщая воинская обязанность</option>
+              </select>
+              <label for="militaryContractSalary">Привлекательность контракта · индекс оплаты <b id="militarySalaryValue">1,00×</b></label>
+              <input id="militaryContractSalary" type="range" min="0.65" max="2.2" step="0.05" value="1">
+              <div class="military-control-actions"><button type="button" id="saveMilitaryService" class="secondary-button">Утвердить закон</button><button type="button" id="saveMilitaryContracts" class="secondary-button">Условия контракта</button></div>
+              <button type="button" id="mobilizeMilitaryReserve" class="secondary-button">Мобилизовать подготовленный резерв</button>
+              <small class="military-explainer">Численность не появляется из воздуха: набор ограничен демографическим ресурсом, желанием граждан заключать контракт, оплатой, подготовкой резерва и действующим законом.</small>
+            </section>
+
+            <section class="military-subpanel">
+              <div class="military-card-heading"><div><span class="eyebrow">ОБОРОННЫЕ РАСХОДЫ</span><h4>Военный бюджет</h4></div></div>
+              <div class="military-budget-values"><span>Доля ВВП</span><b id="militaryBudgetValue">1,6%</b></div>
+              <input id="militaryBudgetShare" type="range" min="0.5" max="6" step="0.1" value="1.6">
+              <div class="military-budget-values"><span>Доля на исследования</span><b id="militaryResearchShareValue">12%</b></div>
+              <input id="militaryResearchShare" type="range" min="2" max="40" step="1" value="12">
+              <button type="button" id="saveMilitaryBudget" class="secondary-button">Утвердить военный бюджет</button>
+              <div class="military-program-heading"><span class="eyebrow">ГОСУДАРСТВЕННЫЕ ПРОГРАММЫ</span></div>
+              <div class="military-program-list">
+                <article><b>Модернизация армии</b><small>Обновление техники, повышение готовности и ремонтной базы.</small><button type="button" data-military-program="modernization">Запустить программу</button></article>
+                <article><b>Подготовка резерва</b><small>Обучение гражданского резерва и расширение подготовленного кадрового ресурса.</small><button type="button" data-military-program="reserve_training">Запустить программу</button></article>
+                <article><b>Развитие контрактной службы</b><small>Рекрутинг, повышение привлекательности службы и подготовка новых контрактников.</small><button type="button" data-military-program="contract_recruitment">Запустить программу</button></article>
+              </div>
+              <div id="activeMilitaryPrograms" class="active-military-programs"></div>
+            </section>
+
+            <section class="military-subpanel">
+              <div class="military-card-heading"><div><span class="eyebrow">ВОЕННАЯ НАУКА</span><h4>Технологии и исследования</h4></div></div>
+              <label for="militaryResearchSelect">Направление исследований</label>
+              <select id="militaryResearchSelect"></select>
+              <button type="button" id="startMilitaryResearch" class="secondary-button">Назначить приоритет исследований</button>
+              <div id="militaryTechnologyList" class="military-technology-list"><div class="loading-row">Загружаем технологические направления…</div></div>
+            </section>
+
+            <section class="military-subpanel">
+              <div class="military-card-heading"><div><span class="eyebrow">ОХРАНА ТЕРРИТОРИИ</span><h4>Патрулирование</h4></div></div>
+              <label for="militaryPatrolName">Название маршрута</label>
+              <input id="militaryPatrolName" maxlength="80" value="Пограничный патруль">
+              <label for="militaryPatrolType">Тип патруля</label>
+              <select id="militaryPatrolType"><option value="border">Пограничный</option><option value="air">Воздушный</option><option value="naval">Морской</option><option value="internal">Внутренний контроль</option></select>
+              <p class="military-explainer">Выберите режим «Проложить патруль» над картой и отметьте от двух до восьми точек маршрута. Затем сохраните его.</p>
+              <div id="militaryPatrolList" class="military-patrol-list"><div class="loading-row">Активные маршруты появятся здесь.</div></div>
+            </section>
+          </div>
+
+          <section class="military-subpanel military-units-panel">
+            <div class="military-card-heading"><div><span class="eyebrow">СОСТАВ И ГОТОВНОСТЬ</span><h4>Воинские подразделения</h4></div></div>
+            <div id="militaryUnits" class="unit-list"><div class="loading-row">Загружаем структуру вооружённых сил…</div></div>
+          </section>
         </section>
       </div>
 
