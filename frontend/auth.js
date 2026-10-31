@@ -79,7 +79,7 @@
     return data;
   }
   async function aiRequest(path, options = {}) {
-    const base = String(config.AI_API_BASE_URL || API).replace(/\\/$/, "");
+    const base = String(config.AI_API_BASE_URL || API).replace(/\/$/, "");
     if (!base) throw new Error("AI_API_BASE_URL не настроен.");
     const headers = { ...(options.headers || {}) };
     if (options.body != null && !headers["Content-Type"]) headers["Content-Type"] = "application/json";
