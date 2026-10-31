@@ -105,7 +105,7 @@ async function lockedSave(client, saveId, ownerId) {
 async function addEvent(client, game, type, headline, article, effects = {}, severity = 2) {
   await client.query(
     "INSERT INTO game_events(save_id,game_date,event_type,headline,article,severity,effects) VALUES($1,$2,$3,$4,$5,$6,$7::jsonb)",
-    [game.id, game.game_date, type, cleanText(headline, 220) || "Политическое событие", cleanText(article, 1800), clamp(severity, 1, 5), JSON.stringify(effects)]
+    [game.id, game.game_date, type, cleanText(headline, 220) || "Политическое событие", cleanText(article, 1800), Math.round(clamp(severity, 1, 5)), JSON.stringify(effects)]
   );
 }
 async function audit(client, userId, saveId, action, details) {
