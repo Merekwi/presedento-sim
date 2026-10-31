@@ -452,3 +452,79 @@ button:disabled{opacity:.48;cursor:not-allowed}
  #decreePreview{position:static!important;width:100%!important;margin:0!important}
  .official-document{min-height:0!important;border:0;box-shadow:none;padding:18mm 20mm}
 }
+
+
+/* Election campaign: clearly separated policy platform and campaign activity workspaces. */
+.campaign-tabs{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:7px;
+  padding:6px;
+  margin:0 0 18px;
+  border:1px solid #e1e7eb;
+  border-radius:11px;
+  background:#f3f6f7;
+}
+.campaign-tab-button{
+  min-height:42px;
+  border:1px solid transparent;
+  border-radius:8px;
+  padding:10px 14px;
+  background:transparent;
+  color:#647588;
+  font:800 10px Manrope,system-ui,sans-serif;
+  cursor:pointer;
+  transition:background .15s,border-color .15s,color .15s,box-shadow .15s;
+}
+.campaign-tab-button:hover{background:#fff;color:#344b61}
+.campaign-tab-button.active{
+  color:#183d53;
+  background:#fff;
+  border-color:#d8e1e6;
+  box-shadow:0 2px 7px #20364a0c;
+}
+.campaign-tab-panel{min-width:0}
+.campaign-tab-panel.hidden{display:none!important}
+.campaign-tab-panel>.campaign-freeform{margin:0}
+.campaign-tab-panel>.campaign-choice-description{max-width:760px}
+.campaign-action-history{display:grid;gap:10px;margin-top:13px}
+.campaign-action-card{
+  min-width:0;
+  padding:14px 15px;
+  border:1px solid #e1e7eb;
+  border-radius:10px;
+  background:#fbfcfd;
+}
+.campaign-action-card-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:7px;
+}
+.campaign-action-card-head b{font:800 10px Manrope;color:#30485d}
+.campaign-action-card-head small{flex:0 0 auto;font-size:8px;color:#8b98a5}
+.campaign-action-original{margin:0 0 7px;color:#364a5e;font-size:10px;line-height:1.55;font-weight:700}
+.campaign-action-analysis,.campaign-action-reaction{
+  margin:6px 0 0;
+  color:#687889;
+  font-size:9px;
+  line-height:1.65;
+}
+.campaign-action-reaction{color:#496a67}
+.campaign-action-effects{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px}
+.campaign-action-effects span{padding:4px 6px;border-radius:5px;font-size:8px;font-weight:800;background:#f0f4f5}
+.campaign-action-impact{display:block;margin-top:9px;color:#82909d;font-size:8px;line-height:1.5}
+.campaign-action-danger,.campaign-action-warning{
+  display:inline-block;
+  margin-top:9px;
+  font-size:9px;
+}
+.campaign-action-danger{color:#a84e4a}
+.campaign-action-warning{color:#927142}
+@media(max-width:620px){
+  .campaign-tabs{gap:5px;padding:4px}
+  .campaign-tab-button{min-height:40px;padding:9px 5px;font-size:9px}
+  .campaign-action-card{padding:12px}
+  .campaign-action-card-head{flex-direction:column;gap:3px}
+}
