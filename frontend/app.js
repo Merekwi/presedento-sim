@@ -563,7 +563,7 @@
     if(busy)return;
     busy=true;const previous=button?button.textContent:"";
     if(button){button.disabled=true;if(!button.classList.contains("action-card"))button.textContent="Обработка…";}
-    document.querySelectorAll("button[data-election-action],button[data-election-proposal],button[data-program-start],button[data-ai-diplomacy]").forEach(el=>el.disabled=true);
+    document.querySelectorAll("button[data-election-action],button[data-election-proposal],button[data-election-activity],button[data-program-start],button[data-ai-diplomacy]").forEach(el=>el.disabled=true);
     setText("saveStatus","Сохранение изменений…");
     try{
       const result=await work();
