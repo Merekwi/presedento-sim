@@ -1080,10 +1080,12 @@
     if(!confirm("Запустить долгосрочную программу? Потребуются первоначальный платёж, одно очко действий и ежемесячное финансирование. Результаты будут накапливаться постепенно."))return;
     try{await withBusy(button,()=>api()("/api/presidential/game/program",{method:"POST",body:JSON.stringify({action:"start",projectId})}),"Программа запущена. Результаты будут накапливаться по месяцам.");}catch(_){}
   });
+  let forceNewDecreeForProgram=false;
   $("createStateProgram").addEventListener("click",()=>{
     if(!currentGame||String(currentGame.state&&currentGame.state.phase||"")!=="government"){
       return toast("Собственные государственные программы доступны после вступления в должность.");
     }
+    forceNewDecreeForProgram=true;
     $("openDecree").click();
     const form=$("decreeForm");
     const eyebrow=form&&form.querySelector(".dialog-eyebrow");
@@ -1219,7 +1221,8 @@
   });
   $("openDecree").addEventListener("click",()=>{
     const savedDraft=getSavedDecreeDraft();
-    if(savedDraft){draftId=savedDraft.id;fillOfficialDocument(savedDraft,false);$("decreeDialog").showModal();return;}
+    if(savedDraft&&!forceNewDecreeForProgram){draftId=savedDraft.id;fillOfficialDocument(savedDraft,false);$("decreeDialog").showModal();return;}
+    forceNewDecreeForProgram=false;
     $("decreePreview").classList.add("hidden");$("generate").classList.remove("hidden");
     $("decreePreview").dataset.archived="false";
     $("decreeForm").reset();bindLocalDraft($("order"),"order");
