@@ -203,19 +203,9 @@
       const score=node("div","relation-score",(Number(relation.relation_score)>0?"+":"")+relation.relation_score);
       score.style.color=Number(relation.relation_score)>=0?"#328b77":"#ba6561";
       const actions=node("div","relation-actions");
-      const add=(action,label)=>{
-        const button=node("button","",label);button.type="button";button.dataset.relationAction=action;
-        button.dataset.relationId=relation.id;button.dataset.country=relation.other_country_name;button.disabled=busy;actions.append(button);
-      };
-      if(!pack.talks||pack.talks.status!=="open")add("consultations","Начать консультации");
-      else if(pack.proposal&&pack.proposal.status==="pending"){
-        const wait=Math.max(0,Number(pack.proposal.replyTurn||0)-Number(currentGame&&currentGame.turn_number||0));
-        if(wait>0)actions.append(node("small","diplomacy-wait","Ответ через "+wait+" мес."));
-        else add("resolve_proposal","Получить ответ");
-      } else {
-        add("propose_trade","Предложить торговый пакт");add("propose_security","Оборонный договор");
-      }
-      if(Number(relation.relation_score)<=-25)add("sanctions","Санкции");
+      const button=node("button","primary-button","Открыть переговоры →");
+      button.type="button";button.dataset.aiDiplomacy=relation.id;
+      button.dataset.country=relation.other_country_name;button.disabled=busy;actions.append(button);
       row.append(flag,info,score,actions);root.append(row);
     });
   }
@@ -380,21 +370,16 @@
         });
         if(metricRoot.childNodes.length)issueRoot.append(metricRoot);
 
-        const choices=node("div","campaign-choice-grid");
-        (current.choices||[]).forEach(choice=>{
-          const card=node("article","campaign-choice-card");
-          card.append(node("div","campaign-choice-kicker","ВАРИАНТ ПОЛИТИКИ"));
-          card.append(node("h4","",choice.title));
-          card.append(node("p","campaign-choice-description",choice.description));
-          const pros=node("div","campaign-tradeoff campaign-benefit");
-          pros.append(node("b","","Потенциальный выигрыш"),node("span","",choice.benefit||""));
-          const cons=node("div","campaign-tradeoff campaign-risk");
-          cons.append(node("b","","Цена решения"),node("span","",choice.risk||""));
-          const submit=node("button","campaign-choice-submit","Выбрать этот курс →");
-          submit.type="button";submit.dataset.electionChoice=choice.id;submit.dataset.issueId=current.id;submit.disabled=busy;
-          card.append(pros,cons,submit);choices.append(card);
-        });
-        issueRoot.append(choices);
+        const form=node("section","campaign-freeform");
+        form.append(node("div","campaign-choice-kicker","ВАША ПОЛИТИЧЕСКАЯ ПОЗИЦИЯ"));
+        form.append(node("p","campaign-choice-description","Не выбирайте готовый вариант. Опишите собственное решение: что именно вы предлагаете, кому это поможет, сколько будет стоить и как вы собираетесь провести реформу."));
+        const proposal=node("textarea","campaign-proposal-input");
+        proposal.id="campaignProposal";proposal.maxLength=4000;
+        proposal.placeholder="Например: предлагаю перенести часть налоговой нагрузки с фонда оплаты труда на сверхприбыль монополий, одновременно сократив льготы компаниям, не создающим рабочие места. Поступления направить на модернизацию региональных больниц...";
+        proposal.disabled=busy;form.append(proposal);
+        const submit=node("button","primary-button","Передать предложение на анализ →");
+        submit.type="button";submit.dataset.electionProposal="true";submit.disabled=busy;form.append(submit);
+        issueRoot.append(form);
       }else if(agenda.length){
         issueRoot.append(node("div","campaign-complete-title","Политическая программа сформирована"));
         issueRoot.append(node("p","campaign-complete-copy","Вы определили позицию партии по всем ключевым вопросам. Теперь избиратели оценят не лозунги, а последовательность и последствия предложенной программы."));
@@ -450,12 +435,100 @@
     });
   }
 
+
+  function ensureAiDialog(){
+    let dialog=$("aiDiplomacyDialog");if(dialog)return dialog;
+    const style=node("style");
+    style.textContent=".campaign-freeform,.political-action-panel{margin:22px 0;padding:22px;border:1px solid #dce3ec;border-radius:16px;background:#fff}.campaign-proposal-input,.political-action-input{display:block;width:100%;min-height:150px;margin:14px 0;padding:15px;border:1px solid #ccd6e2;border-radius:12px;font:inherit;line-height:1.5;resize:vertical}.ai-diplomacy-dialog{width:min(760px,calc(100vw - 28px));max-height:88vh;padding:0;border:1px solid #d9e0e8;border-radius:18px;background:#fff;color:#172235;box-shadow:0 22px 80px #14223833}.ai-diplomacy-dialog::backdrop{background:#14223899;backdrop-filter:blur(4px)}.ai-diplomacy-head{display:flex;justify-content:space-between;gap:16px;padding:20px 24px;border-bottom:1px solid #e4e9ef}.ai-diplomacy-messages{display:flex;flex-direction:column;gap:12px;overflow:auto;max-height:48vh;padding:20px 24px}.ai-message{max-width:88%;padding:12px 15px;border-radius:14px;white-space:pre-wrap;line-height:1.5}.ai-message.player{align-self:flex-end;background:#e8f0f8}.ai-message.leader{align-self:flex-start;background:#f1f3f6}.ai-diplomacy-form{padding:16px 24px 22px;border-top:1px solid #e4e9ef}.ai-diplomacy-form textarea{width:100%;min-height:94px;padding:13px;border:1px solid #ccd6e2;border-radius:12px;font:inherit;resize:vertical}.ai-diplomacy-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:10px}";
+    document.head.append(style);
+    dialog=node("dialog","ai-diplomacy-dialog");dialog.id="aiDiplomacyDialog";
+    dialog.innerHTML='<div class="ai-diplomacy-head"><div><div class="campaign-choice-kicker">ДИПЛОМАТИЧЕСКИЙ КАНАЛ</div><h2 id="aiDiplomacyCountry">Переговоры</h2><small id="aiDiplomacyScore">История контактов и позиция партнёра учитываются</small></div><button type="button" id="closeAiDiplomacy" class="secondary-button">Закрыть</button></div><div class="ai-diplomacy-messages" id="aiDiplomacyMessages"></div><form class="ai-diplomacy-form" id="aiDiplomacyForm"><textarea id="aiDiplomacyInput" maxlength="2500" placeholder="Ваше обращение к главе иностранного государства..." required></textarea><div class="ai-diplomacy-actions"><button type="submit" class="primary-button" id="sendAiDiplomacy">Отправить сообщение</button></div></form>';
+    document.body.append(dialog);
+    $("closeAiDiplomacy").addEventListener("click",()=>dialog.close());
+    $("aiDiplomacyForm").addEventListener("submit",async event=>{
+      event.preventDefault();const textValue=$("aiDiplomacyInput").value.trim();
+      if(!textValue||!activeDiplomacyRelation||busy)return;
+      const send=$("sendAiDiplomacy"),relationId=activeDiplomacyRelation;
+      try{
+        await withBusy(send,()=>aiApi()("/api/presidential/ai/diplomacy/message",{method:"POST",body:JSON.stringify({relationId,message:textValue})}),"Ответ главы государства получен.");
+        $("aiDiplomacyInput").value="";
+        await loadAiDiplomacyHistory(relationId);
+      }catch(_){}
+    });
+    return dialog;
+  }
+  let activeDiplomacyRelation=null;
+  function aiApi(){return window.PRESIDENTIAL_AUTH&&window.PRESIDENTIAL_AUTH.aiApi;}
+  function appendAiDiplomacyMessage(role,content){
+    const root=$("aiDiplomacyMessages");if(!root)return;
+    const bubble=node("div","ai-message "+(role==="leader"?"leader":"player"),content);
+    root.append(bubble);root.scrollTop=root.scrollHeight;
+  }
+  async function loadAiDiplomacyHistory(relationId){
+    const root=$("aiDiplomacyMessages");if(!root)return;root.replaceChildren(node("div","loading-row","Загружаем историю дипломатических контактов…"));
+    try{
+      const result=await aiApi()("/api/presidential/ai/diplomacy/history?relationId="+encodeURIComponent(relationId));
+      root.replaceChildren();
+      (result.messages||[]).forEach(item=>appendAiDiplomacyMessage(item.role,item.content));
+      if(!result.messages||!result.messages.length)root.append(node("div","loading-row","Начните переговоры. Иностранный лидер будет отвечать с учётом интересов своей страны и истории отношений."));
+      const relation=result.relation||{};
+      setText("aiDiplomacyScore","Отношения: "+(Number(relation.relation_score)>0?"+":"")+relation.relation_score+" · "+relationLabel(relation.relation_score,relation.status));
+    }catch(error){root.replaceChildren(node("div","loading-row","Не удалось загрузить переговоры: "+error.message));}
+  }
+  async function openAiDiplomacy(relationId,country){
+    activeDiplomacyRelation=relationId;const dialog=ensureAiDialog();
+    setText("aiDiplomacyCountry",country||"Иностранный лидер");
+    $("aiDiplomacyMessages").replaceChildren();$("aiDiplomacyInput").value="";
+    dialog.showModal();await loadAiDiplomacyHistory(relationId);
+  }
+  function renderPoliticalActionPanel(game){
+    const host=$("governmentView");if(!host)return;
+    let panel=$("politicalActionPanel");
+    if(!panel){
+      panel=node("section","political-action-panel");panel.id="politicalActionPanel";
+      panel.append(node("div","campaign-choice-kicker","ПОЛИТИЧЕСКИЕ ДЕЙСТВИЯ"));
+      panel.append(node("h3","","Президентские решения"));
+      panel.append(node("p","","Опишите действие своими словами: обращение к гражданам, решение социальной проблемы, политическую сделку, коррупционную схему или попытку захвата власти. ИИ оценит реакцию общества, а последствия будут применены игровым движком."));
+      const input=node("textarea","political-action-input");input.id="politicalActionInput";input.maxLength=3000;
+      input.placeholder="Опишите своё действие и его цель...";
+      const button=node("button","primary-button","Провести действие →");button.type="button";button.id="politicalActionSubmit";
+      panel.append(input,button);
+      const history=node("div","political-action-history");history.id="politicalActionHistory";panel.append(history);
+      host.prepend(panel);
+      button.addEventListener("click",async()=>{
+        const action=$("politicalActionInput").value.trim();if(action.length<8||busy)return toast("Опишите действие подробнее.");
+        try{
+          const result=await withBusy(button,()=>aiApi()("/api/presidential/ai/election/action",{method:"POST",body:JSON.stringify({action})}),r=>{
+            if(r&&r.coup)return r.coup.success?"Попытка переворота удалась. Власть захвачена; институты и общество понесли тяжёлые последствия.":"Попытка переворота провалилась. Страна переживает политический кризис.";
+            return r&&r.action&&r.action.analysis?r.action.analysis:"Политическое действие обработано.";
+          });
+          $("politicalActionInput").value="";
+        }catch(_){}
+      });
+    }
+    const actions=Array.isArray(game.state&&game.state.politicalActions)?game.state.politicalActions:[];
+    const history=$("politicalActionHistory");
+    if(history){
+      history.replaceChildren();
+      actions.slice(-4).reverse().forEach(item=>{
+        const card=node("article","campaign-history-row");
+        const copy=node("div","campaign-history-copy");
+        copy.append(node("b","",item.coup?(item.coup.success?"Попытка переворота — успех":"Попытка переворота — провал"):(item.kind||"Политическое действие").replaceAll("_"," ")));
+        copy.append(node("small","",item.text||""));
+        if(item.analysis)copy.append(node("p","",item.analysis));
+        card.append(copy);history.append(card);
+      });
+      if(!actions.length)history.append(node("small","campaign-history-empty","История президентских действий пока пуста."));
+    }
+    $("politicalActionSubmit").disabled=busy;
+    $("politicalActionInput").disabled=busy;
+  }
   function renderGame(payload){
     if(!payload||!payload.game){currentGame=null;return;}
     currentPayload=payload;currentGame=payload.game;
     renderIdentity(currentGame);renderMetrics(currentGame);renderElection(currentGame);
     renderMinisters(payload.ministers);renderEvents(payload.events);renderRelations(payload.relations);
-    renderUnits(payload.units);renderDecrees(payload.decrees);renderProjects(currentGame);renderInstitutions(currentGame);
+    renderUnits(payload.units);renderDecrees(payload.decrees);renderProjects(currentGame);renderInstitutions(currentGame);renderPoliticalActionPanel(currentGame);
     setText("saveStatus","Сохранение синхронизировано");
     const advance=$("advanceTurn"),newGame=$("newGame");
     if(advance)advance.disabled=busy||["election_campaign","election"].includes(currentGame.state&&currentGame.state.phase);
@@ -539,16 +612,15 @@
     if(!confirm("Остановить программу? Уже потраченные средства не возвращаются."))return;
     try{await withBusy(button,()=>api()("/api/presidential/game/program",{method:"POST",body:JSON.stringify({action:"cancel",projectId:button.dataset.programCancel})}),"Программа остановлена.");}catch(_){}
   });
-  $("electionIssue").addEventListener("click",event=>{
-    const button=event.target.closest("[data-election-choice]");
+  $("electionIssue").addEventListener("click",async event=>{
+    const button=event.target.closest("[data-election-proposal]");
     if(!button||busy)return;
-    const issueId=button.dataset.issueId,choiceId=button.dataset.electionChoice;
-    const issue=(currentGame&&currentGame.state&&currentGame.state.election&&currentGame.state.election.agenda||[]).find(item=>item.id===issueId);
-    const choice=(issue&&issue.choices||[]).find(item=>item.id===choiceId);
-    if(!issue||!choice)return;
-    const confirmation="Вы собираетесь выбрать курс «"+choice.title+"».\n\nПотенциальный выигрыш: "+(choice.benefit||"неизвестен")+"\n\nЦена решения: "+(choice.risk||"неизвестна")+"\n\nРешение станет частью программы партии и будет влиять на страну после победы.";
-    if(!confirm(confirmation))return;
-    electionRequest("/api/presidential/game/election/decision",{issueId,choiceId},button,"Политическое решение принято. Реакция разных групп избирателей отражена в опросах.");
+    const proposal=$("campaignProposal")&&$("campaignProposal").value.trim();
+    if(!proposal||proposal.length<10)return toast("Опишите политическое предложение подробнее.");
+    try{
+      await withBusy(button,()=>aiApi()("/api/presidential/ai/election/decision",{method:"POST",body:JSON.stringify({proposal})}),"ИИ оценил предложение и обновил поддержку избирателей, доверие к программе и последствия для экономики.");
+      if($("campaignProposal"))$("campaignProposal").value="";
+    }catch(_){}
   });
   $("electionVote").addEventListener("click",async()=>{
     if(!currentGame||busy)return;
@@ -585,18 +657,9 @@
     try{await withBusy($("holdReferendum"),()=>api()("/api/presidential/game/referendum/hold",{method:"POST",body:"{}"}),r=>r&&r.approved?"Предложение получило поддержку большинства.":"Предложение не получило большинства или не набрало кворум.");}catch(_){}
   });
 
-  $("relationsList").addEventListener("click",async event=>{
-    const button=event.target.closest("[data-relation-action]");if(!button||busy)return;
-    const action=button.dataset.relationAction,country=button.dataset.country||"страну";
-    const labels={consultations:"Открыть официальные консультации с ",propose_trade:"Передать торговое предложение стране ",propose_security:"Передать оборонное предложение стране ",resolve_proposal:"Получить официальный ответ от ",sanctions:"Ввести санкции против "};
-    if(!confirm((labels[action]||"Продолжить переговоры с ")+country+"?"+(action==="resolve_proposal"?" Ответ может быть положительным или отрицательным.":"")))return;
-    try{
-      await withBusy(button,()=>api()("/api/presidential/game/diplomacy",{method:"POST",body:JSON.stringify({action,relationId:button.dataset.relationId})}),result=>{
-        if(result&&result.accepted===true)return "Соглашение принято. Его экономический или политический эффект будет начисляться постепенно.";
-        if(result&&result.accepted===false)return "Партнёр отклонил предложение. Отношения ухудшились.";
-        return ({consultations:"Дипломатические консультации открыты.",propose_trade:"Торговое предложение передано. Ответ ожидается через два игровых месяца.",propose_security:"Предложение о сотрудничестве в сфере безопасности передано.",sanctions:"Санкции введены."})[action]||"Дипломатическое решение принято.";
-      });
-    }catch(_){}
+  $("relationsList").addEventListener("click",event=>{
+    const button=event.target.closest("[data-ai-diplomacy]");if(!button||busy)return;
+    openAiDiplomacy(button.dataset.aiDiplomacy,button.dataset.country||"Иностранное государство");
   });
 
   $("appoint").addEventListener("click",()=>$("ministerDialog").showModal());
@@ -648,7 +711,7 @@
     if(order.length<10)return toast("Опишите инициативу подробнее.");
     const button=$("generate");button.disabled=true;button.textContent="Подготовка документа…";
     try{
-      const result=await api()("/api/presidential/game/decree/draft",{method:"POST",body:JSON.stringify({order})});
+      const result=await aiApi()("/api/presidential/ai/decree/draft",{method:"POST",body:JSON.stringify({order})});
       const decree=result.decree;draftId=decree.id;
       fillOfficialDocument(decree,false);
       toast("Официальный проект подготовлен. Проверьте преамбулу, поручения и финансовое обеспечение.");
@@ -659,7 +722,7 @@
     if(!draftId||busy)return;
     if(!confirm("Опубликовать указ? Он создаст финансируемую программу, а показатели будут изменяться постепенно в течение срока исполнения."))return;
     try{
-      await withBusy($("publishDecree"),()=>api()("/api/presidential/game/decree/publish",{method:"POST",body:JSON.stringify({decreeId:draftId})}),result=>"Указ опубликован. Начато исполнение программы; проверьте её в разделе государственных программ.");
+      await withBusy($("publishDecree"),()=>aiApi()("/api/presidential/ai/decree/publish",{method:"POST",body:JSON.stringify({decreeId:draftId})}),result=>"Указ опубликован. Начато исполнение программы; проверьте её в разделе государственных программ.");
       draftId=null;$("decreeDialog").close();
     }catch(_){}
   });
