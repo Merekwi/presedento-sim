@@ -3,7 +3,8 @@ import { attachDatabasePool } from "@neon/functions";
 import { createHash, randomInt } from "node:crypto";
 import {
   applyStateDeltas, applyGroupDeltas, sanitizeDeltas,
-  sanitizeGroupDeltas, updateElection, resolveCoup, normalizeTreaties, clamp
+  sanitizeGroupDeltas, updateElection, resolveCoup, normalizeTreaties, clamp,
+  initializeElectionBaseline, isDuplicateCampaignAction
 } from "./engine.mjs";
 
 const { Pool } = pg;
@@ -33,6 +34,16 @@ function cleanText(value, max = 4000) {
 }
 function safeObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+function aiText(value, max = 1200) {
+  if (typeof value === "string") return cleanText(value, max);
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    for (const key of ["text", "summary", "message", "reaction", "description"]) {
+      if (typeof value[key] === "string" && value[key].trim()) return cleanText(value[key], max);
+    }
+  }
+  if (Array.isArray(value)) return value.filter(item => typeof item === "string").join(" · ").slice(0, max);
+  return "";
 }
 function parseJsonObject(raw) {
   if (typeof raw !== "string" || !raw.trim()) throw new Error("AI returned an empty response");
@@ -229,6 +240,26 @@ async function decreePublish(request, env, auth) {
   finally { client.release(); }
 }
 
+async function electionInitialize(request, env, auth) {
+  const client = await database(env).connect();
+  try {
+    await client.query("BEGIN");
+    const game = await lockedSave(client, auth.game.id, auth.user.owner_id);
+    const initialized = initializeElectionBaseline(safeObject(game.state), game.id);
+    if (initialized.changed) {
+      await client.query("UPDATE game_saves SET state=$1::jsonb,updated_at=NOW() WHERE id=$2",
+        [JSON.stringify(initialized.state), game.id]);
+      await audit(client, auth.user.user_id, game.id, "election_baseline_initialized", {
+        startingSupport: initialized.state.election.startingSupport,
+        candidateSupport: initialized.state.election.candidateSupport
+      });
+    }
+    await client.query("COMMIT");
+    return { changed: initialized.changed, election: initialized.state.election || null };
+  } catch (error) { await client.query("ROLLBACK"); throw error; }
+  finally { client.release(); }
+}
+
 async function electionDecision(request, env, auth) {
   const input = await bodyJson(request);
   const proposal = cleanText(input.proposal || input.text, 4000);
@@ -241,11 +272,13 @@ async function electionDecision(request, env, auth) {
   const issue = agenda[index];
   if (!issue) throw Object.assign(new Error("Все вопросы программы уже рассмотрены"), { status: 409 });
   const result = await askAI(env,
-    "Ты политический аналитик и руководитель штаба в реалистичном симуляторе выборов. Проанализируй свободное предложение кандидата по текущему вопросу. Оцени реакцию рабочих, бизнеса, сельских жителей, молодёжи, госслужащих и консервативных избирателей. Верни JSON: decisionTitle, analysis, publicReaction, voterEffects (числовые дельты только ключей workers,business,rural,youth,publicSector,conservative, каждая от -8 до 8), policyEffects (числовые дельты известных игровых метрик), credibilityDelta (-8..8), institutionalTrustDelta (-8..8), fiscalImpactPct (-3..3), feasibilityScore (0..100). Не делай всех групп одинаково довольными; учитывай компромиссы, стоимость, сроки и реализуемость.",
+    "Ты политический аналитик в реалистичном симуляторе выборов. Разбери предложение кандидата и его выполнимость, стоимость, сроки, институциональные ограничения и вероятные компромиссы. Оцени реакцию рабочих, бизнеса, сельских жителей, молодёжи, госслужащих и консервативных избирателей. Верни JSON: decisionTitle (короткий заголовок), analysis (строго строка с содержательным разбором), publicReaction (строго строка), voterEffects (числовые дельты ключей workers,business,rural,youth,publicSector,conservative, каждая от -4 до 4), policyEffects (числовые дельты известных игровых метрик), credibilityDelta (-4..4), institutionalTrustDelta (-4..4), fiscalImpactPct (-2..2), feasibilityScore (0..100). Не делай всех групп одинаково довольными. Слабые, расплывчатые или финансово не обеспеченные обещания должны снижать доверие или поддержку. Один вопрос программы меняет поддержку максимум примерно на один процентный пункт, а не на десятки пунктов. Не возвращай объект вместо текста в полях analysis и publicReaction.",
     { country: countryContext(auth.game), issue, existingProgram: election.decisions || [], proposal }, 1300);
   const applied = safeObject(result);
   const electionInput = {
     ...applied,
+    analysis: aiText(applied.analysis, 1200),
+    publicReaction: aiText(applied.publicReaction, 800),
     voterEffects: sanitizeGroupDeltas(applied.voterEffects),
     policyEffects: sanitizeDeltas(applied.policyEffects)
   };
@@ -253,16 +286,17 @@ async function electionDecision(request, env, auth) {
   try {
     await client.query("BEGIN");
     const game = await lockedSave(client, auth.game.id, auth.user.owner_id);
-    const liveState = safeObject(game.state);
+    let liveState = safeObject(game.state);
     if (Number(liveState?.election?.issueIndex || 0) !== index || liveState.phase !== current.phase ||
         new Date(game.updated_at).getTime() !== new Date(auth.game.updated_at).getTime()) {
       throw Object.assign(new Error("Состояние кампании изменилось во время анализа. Обновите страницу и повторите действие."), { status: 409 });
     }
+    liveState = initializeElectionBaseline(liveState, game.id).state;
     const stateResult = updateElection(liveState, electionInput, proposal, issue);
     await client.query("UPDATE game_saves SET state=$1::jsonb,updated_at=NOW() WHERE id=$2", [JSON.stringify(stateResult.state), game.id]);
     const impact = stateResult.decision.policyEffects;
     await addEvent(client, game, "campaign_proposal", "Программа: " + stateResult.decision.choiceTitle,
-      stateResult.decision.aiAnalysis + " Реакция избирателей: " + stateResult.decision.publicReaction,
+      stateResult.decision.aiAnalysis + (stateResult.decision.publicReaction ? " Реакция избирателей: " + stateResult.decision.publicReaction : ""),
       { policyEffects: impact, voterEffects: stateResult.decision.voterEffects }, 2);
     await audit(client, auth.user.user_id, game.id, "campaign_proposal", { issueId: issue.id, title: stateResult.decision.choiceTitle, effects: impact });
     await client.query("COMMIT");
@@ -278,28 +312,68 @@ async function electionAction(request, env, auth) {
   if (actionText.length < 8) throw Object.assign(new Error("Опишите действие подробнее"), { status: 400 });
   const initialState = safeObject(auth.game.state);
   const result = await askAI(env,
-    "Ты аналитик политической симуляции. Определи действие игрока и правдоподобные последствия. Классифицируй actionKind строго одним из: public_speech, public_service, campaigning, policy_promise, coalition, patronage, corruption, institutional_capture, coup_attempt, other. Верни JSON: actionKind, headline, analysis, publicReaction, changes (дельты метрик gdpGrowth,inflation,unemployment,budgetBalance,treasury,approval,stability,corruption,publicServices,education,healthcare,infrastructure,militaryPower,democracyIndex,institutionalTrust,taxRate,debt), voterEffects (workers,business,rural,youth,publicSector,conservative), credibilityDelta, institutionalTrustDelta, severity. Не увеличивай и не уменьшай показатели более чем на 8 за одно действие. Для коррупции всегда укажи рост коррупции и ухудшение институтов. Для попытки переворота не решай исход: его определит сервер.",
+    "Ты аналитик политической симуляции. Определи действие игрока и правдоподобные последствия. Классифицируй actionKind строго одним из: public_speech, public_service, campaigning, policy_promise, coalition, patronage, corruption, institutional_capture, coup_attempt, other. Верни JSON: actionKind, headline, analysis (строго строка), publicReaction (строго строка), changes (дельты игровых метрик), budgetCost (стоимость закупок в млрд долларов, только для public_service), voterEffects (workers,business,rural,youth,publicSector,conservative, каждая от -4 до 4), severity. Не превращай обычное выступление, встречу или агитацию в немедленный рост ВВП, госуслуг или одобрения. Для public_speech, campaigning, policy_promise и coalition не меняй макроэкономические показатели: учитывай только реакцию групп избирателей. Для public_service укажи умеренную стоимость, небольшое улучшение только относящихся к действию услуг и не повышай казначейство. Учитывай, что закупка оборудования увеличивает расходы и может немного повысить долг; не выдавай за неё бесплатные бюджетные улучшения. Для коррупции и патронажа всегда укажи рост коррупции и ухудшение институтов. Для институционального захвата ухудши демократию и доверие. Для попытки переворота не решай исход: его определит сервер. Один шаг кампании должен менять поддержку максимум примерно на один процентный пункт. Не возвращай объект вместо строк в analysis и publicReaction.",
     { country: countryContext(auth.game), phase: initialState.phase || "government", recentActions: initialState.politicalActions || [], existingElection: initialState.election || null, action: actionText }, 1200);
   const kind = ACTION_KINDS.has(result.actionKind) ? result.actionKind : "other";
-  const changes = sanitizeDeltas(result.changes);
-  const voterEffects = sanitizeGroupDeltas(result.voterEffects);
+  const requestedChanges = sanitizeDeltas(result.changes);
+  const requestedVoterEffects = sanitizeGroupDeltas(result.voterEffects);
+  const analysis = aiText(result.analysis, 1200);
+  const publicReaction = aiText(result.publicReaction, 800);
+  const aiHeadline = aiText(result.headline, 200);
   const client = await database(env).connect();
   try {
     await client.query("BEGIN");
     const game = await lockedSave(client, auth.game.id, auth.user.owner_id);
-    const liveState = safeObject(game.state);
+    let liveState = safeObject(game.state);
     if (Number(game.turn_number) !== Number(auth.game.turn_number) ||
         new Date(game.updated_at).getTime() !== new Date(auth.game.updated_at).getTime()) {
       throw Object.assign(new Error("Состояние страны изменилось во время анализа. Обновите страницу и повторите действие."), { status: 409 });
     }
+    const inElection = ["election_campaign", "election"].includes(String(liveState.phase || ""));
+    if (inElection && isDuplicateCampaignAction(liveState.politicalActions, actionText)) {
+      throw Object.assign(new Error("Это действие уже выполнялось. Опишите новый шаг кампании, а не повторяйте предыдущий."), { status: 409 });
+    }
+    if (inElection) liveState = initializeElectionBaseline(liveState, game.id).state;
+
     const actionPoints = Math.max(0, Number(liveState.actionPoints ?? 2));
     if (actionPoints < 1) throw Object.assign(new Error("На этот игровой месяц закончились очки действий"), { status: 409 });
-    let nextState, coup = null;
+    let nextState, coup = null, appliedChanges = {};
     if (kind === "coup_attempt") {
       coup = resolveCoup(liveState, randomInt(1, 101));
       nextState = coup.state;
+      appliedChanges = {
+        democracyIndex: Number(coup.state.democracyIndex) - Number(liveState.democracyIndex ?? 50),
+        stability: Number(coup.state.stability) - Number(liveState.stability ?? 50),
+        approval: Number(coup.state.approval) - Number(liveState.approval ?? 50),
+        corruption: Number(coup.state.corruption) - Number(liveState.corruption ?? 50),
+        institutionalTrust: Number(coup.state.institutionalTrust) - Number(liveState.institutionalTrust ?? 50)
+      };
     } else {
-      const bounded = { ...changes };
+      const bounded = { ...requestedChanges };
+      if (["public_speech", "campaigning", "policy_promise", "coalition"].includes(kind)) {
+        // Campaign appearances affect public opinion, not national accounts immediately.
+        Object.keys(bounded).forEach(key => delete bounded[key]);
+      } else if (kind === "public_service") {
+        const allowed = ["publicServices", "healthcare", "education", "infrastructure"];
+        Object.keys(bounded).forEach(key => { if (!allowed.includes(key)) delete bounded[key]; });
+        let improvementBudget = 1.4;
+        for (const key of allowed) {
+          const requested = Math.max(0, Number(bounded[key] || 0));
+          const applied = Math.min(1.0, requested, improvementBudget);
+          bounded[key] = Number(applied.toFixed(2));
+          improvementBudget -= applied;
+        }
+        const available = Math.max(0, Number(liveState.treasury || 0));
+        const defaultCost = Math.max(0.05, Number(liveState.gdp || 100) * 0.0001);
+        const cost = Math.min(available, clamp(Number(result.budgetCost ?? defaultCost), 0, 1.5));
+        bounded.treasury = -Number(cost.toFixed(2));
+        bounded.budgetBalance = -Number(clamp(cost / Math.max(1, Number(liveState.gdp || 1)) * 100, 0, 0.5).toFixed(3));
+        bounded.debt = Number(clamp(cost / Math.max(1, Number(liveState.gdp || 1)) * 100, 0, 0.05).toFixed(4));
+        if (cost <= 0) Object.keys(bounded).forEach(key => { if (allowed.includes(key)) bounded[key] = 0; });
+      } else {
+        // Other political manoeuvres can affect institutions, but their immediate impact remains small.
+        for (const key of Object.keys(bounded)) bounded[key] = clamp(bounded[key], -2, 2);
+      }
       if (kind === "corruption" || kind === "patronage") {
         bounded.corruption = Math.max(2, Number(bounded.corruption || 0));
         bounded.democracyIndex = Math.min(-1, Number(bounded.democracyIndex || 0));
@@ -310,31 +384,51 @@ async function electionAction(request, env, auth) {
         bounded.institutionalTrust = Math.min(-2, Number(bounded.institutionalTrust || 0));
         bounded.corruption = Math.max(1, Number(bounded.corruption || 0));
       }
-      nextState = applyStateDeltas(liveState, bounded).state;
+      const resultState = applyStateDeltas(liveState, bounded);
+      nextState = resultState.state;
+      appliedChanges = resultState.applied;
     }
-    if (nextState.election && Object.keys(voterEffects).length) {
-      const groups = applyGroupDeltas(nextState.election.voterGroups, voterEffects);
+
+    let appliedVoterEffects = {};
+    if (nextState.election && Object.keys(requestedVoterEffects).length) {
+      const groups = applyGroupDeltas(nextState.election.voterGroups, requestedVoterEffects);
       nextState.election.voterGroups = groups.groups;
-      const avg = Object.values(groups.applied).reduce((a,b)=>a+b,0) / Math.max(1,Object.keys(groups.applied).length);
-      const support = clamp(Number(nextState.election.candidateSupport || 50) + avg * 0.5, 1, 99);
+      appliedVoterEffects = groups.applied;
+      const values = Object.values(groups.applied);
+      const avg = values.length ? values.reduce((a,b)=>a+b,0) / values.length : 0;
+      const supportDelta = clamp(avg * 0.22, -0.8, 0.8);
+      const support = clamp(Number(nextState.election.candidateSupport ?? 22) + supportDelta, 5, 95);
       nextState.election.candidateSupport = Number(support.toFixed(1));
       nextState.election.oppositionSupport = Number((100-support).toFixed(1));
     }
     nextState.actionPoints = actionPoints - 1;
+    const headline = coup
+      ? (coup.success ? "Попытка переворота удалась" : "Попытка переворота провалилась")
+      : (aiHeadline || ({
+        public_speech: "Выступление перед гражданами",
+        public_service: "Программа общественных услуг",
+        campaigning: "Предвыборная работа",
+        policy_promise: "Политическое обещание",
+        coalition: "Коалиционные переговоры",
+        patronage: "Патронаж",
+        corruption: "Коррупционное действие",
+        institutional_capture: "Борьба за контроль над институтами",
+        other: "Политическое действие"
+      })[kind]);
     const actionRecord = {
-      id: "action-" + Date.now(), kind, text: actionText,
-      analysis: cleanText(result.analysis, 1200), publicReaction: cleanText(result.publicReaction, 800),
+      id: "action-" + Date.now(), kind, headline, text: actionText,
+      analysis, publicReaction, voterEffects: appliedVoterEffects,
+      changes: appliedChanges,
       coup: coup ? { success: coup.success, chance: coup.chance, roll: coup.roll } : null,
       createdAt: new Date().toISOString()
     };
     nextState.politicalActions = [...(Array.isArray(nextState.politicalActions) ? nextState.politicalActions : []), actionRecord].slice(-40);
     await client.query("UPDATE game_saves SET state=$1::jsonb,updated_at=NOW() WHERE id=$2", [JSON.stringify(nextState), game.id]);
-    const headline = coup ? (coup.success ? "Попытка переворота удалась" : "Попытка переворота провалилась") : (cleanText(result.headline, 200) || "Политическое решение");
     const article = coup
-      ? (coup.success ? "Вооружённые и политические структуры поддержали захват власти. Демократические институты резко ослаблены." : "Попытка захвата власти провалилась. Политический кризис обострился, а институты и общественная стабильность понесли ущерб.")
-      : cleanText(result.analysis, 1500) + " Реакция общества: " + cleanText(result.publicReaction, 800);
-    await addEvent(client, game, "political_action", headline, article, { kind, coup, changes }, coup ? 5 : clamp(Number(result.severity || 2), 1, 5));
-    await audit(client, auth.user.user_id, game.id, "political_action", { kind, text: actionText, coup, changes });
+      ? (coup.success ? "Попытка захвата власти удалась. Демократические институты резко ослаблены." : "Попытка захвата власти провалилась. Политический кризис обострился, а институты и общественная стабильность понесли ущерб.")
+      : analysis + (publicReaction ? " Общественная реакция: " + publicReaction : "");
+    await addEvent(client, game, "political_action", headline, article, { kind, coup, changes: appliedChanges, voterEffects: appliedVoterEffects }, coup ? 5 : clamp(Number(result.severity || 2), 1, 5));
+    await audit(client, auth.user.user_id, game.id, "political_action", { kind, text: actionText, coup, changes: appliedChanges, voterEffects: appliedVoterEffects });
     await client.query("COMMIT");
     return { action: actionRecord, state: nextState, coup };
   } catch (error) { await client.query("ROLLBACK"); throw error; }
@@ -433,6 +527,7 @@ export default {
       let result;
       if (url.pathname === "/api/presidential/ai/decree/draft" && request.method === "POST") result = await decreeDraft(request, env, auth);
       else if (url.pathname === "/api/presidential/ai/decree/publish" && request.method === "POST") result = await decreePublish(request, env, auth);
+      else if (url.pathname === "/api/presidential/ai/election/initialize" && request.method === "POST") result = await electionInitialize(request, env, auth);
       else if (url.pathname === "/api/presidential/ai/election/decision" && request.method === "POST") result = await electionDecision(request, env, auth);
       else if (url.pathname === "/api/presidential/ai/election/action" && request.method === "POST") result = await electionAction(request, env, auth);
       else if (url.pathname === "/api/presidential/ai/diplomacy/history" && request.method === "GET") result = await diplomacyHistory(request, env, auth);
