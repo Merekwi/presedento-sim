@@ -25,7 +25,13 @@
       const stored=JSON.parse(localStorage.getItem(outboxStorageKey())||"[]");
       outbox=Array.isArray(stored)?stored.filter(item=>item&&item.id&&item.route&&item.payload&&typeof item.payload==="object"):[];
       let changed=false;
-      outbox.forEach(item=>{if(item.status==="sending"){item.status="queued";item.recovered=true;changed=true;}});
+      outbox.forEach(item=>{
+        if(item.status==="sending"){
+          item.status="failed";item.recovered=true;
+          item.error="Предыдущая отправка прервалась. Проверьте историю: сервер мог уже принять запрос. Повторяйте только если результата нет.";
+          changed=true;
+        }
+      });
       if(changed)persistOutbox();
     }catch(error){console.warn("Local AI queue could not be restored:",error);outbox=[];}
     updateOutboxIndicator();return true;
@@ -112,7 +118,9 @@
       kind,client:"ai",route,payload,saveId:activeSaveId(),
       createdAt:new Date().toISOString(),status:"queued"
     };
-    outbox.push(item);persistOutbox();
+    outbox.push(item);
+    try{persistOutbox();}
+    catch(error){outbox=outbox.filter(entry=>entry.id!==item.id);throw error;}
     toast("Информация сохранена на устройстве. ИИ обработает её в фоновом режиме.");
     void startBackgroundQueue();return item.id;
   }
