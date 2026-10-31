@@ -79,7 +79,7 @@
       discard.addEventListener("click",discardBlockedBackgroundJobs);host.parentElement.append(discard);
     }
     if(discard){discard.hidden=!failed.length;discard.disabled=outboxRunning;}
-    const pending=active.length>0||failed.some(item=>item.status==="failed");
+    const pending=active.length>0;
     document.querySelectorAll("[data-campaign-event-start],[data-campaign-event-respond],[data-election-proposal],[data-election-activity]").forEach(button=>button.disabled=busy||pending);
     if(busy||pending){
       document.querySelectorAll("[data-program-start],[data-program-cancel],[data-dismiss-minister]").forEach(button=>button.disabled=true);
@@ -177,7 +177,6 @@
         const item=outbox.find(entry=>entry.status==="queued");
         if(!item)break;
         const itemIndex=outbox.findIndex(entry=>entry.id===item.id);
-        if(outbox.slice(0,itemIndex).some(entry=>entry.status==="failed"))break;
         const saveId=activeSaveId();
         if((item.route!=="/api/presidential/game/new"&&item.saveId&&item.saveId!==saveId)||(!currentGame&&item.route!=="/api/presidential/game/new")){
           item.status="blocked";item.error="Кампания уже изменилась или завершилась. Запрос сохранён, но не отправлен в другое сохранение.";
