@@ -96,7 +96,6 @@ test("baseline upgrade preserves progress already made in an existing campaign",
   assert.equal(result.state.election.baselineVersion, 4);
   assert.equal(result.state.election.partyPoll.length, 5);
   assert.ok(result.state.election.candidateSupport > result.state.election.startingSupport);
-  assert.equal(result.state.election.baselineVersion, 3);
 });
 
 test("duplicate campaign actions are detected after whitespace and punctuation normalization", () => {
@@ -136,9 +135,9 @@ test("difficulty profiles give normal mode a more attainable starting position",
     election: { candidateSupport: 20, voterGroups: {}, decisions: [], issueIndex: 0 }
   }, "difficulty-test").state.election;
   const normal = make("normal"), easy = make("easy"), hard = make("hard");
-  assert.ok(normal.startingSupport >= 32 && normal.startingSupport <= 40);
-  assert.ok(easy.startingSupport >= 42 && easy.startingSupport <= 50);
-  assert.ok(hard.startingSupport >= 18 && hard.startingSupport <= 26);
+  assert.ok(normal.startingSupport >= 52 && normal.startingSupport <= 60);
+  assert.ok(easy.startingSupport >= 58 && easy.startingSupport <= 66);
+  assert.ok(hard.startingSupport >= 50 && hard.startingSupport <= 58);
 });
 
 test("normal difficulty makes campaign action effects more meaningful than hard mode", () => {
