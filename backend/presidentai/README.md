@@ -1,20 +1,33 @@
 # Presidential AI Engine
 
-Additional AI endpoints for the existing Presidential Simulator. This is deployed as a separate Neon Function so the current `nettleapi` function and Telegram authentication flow remain untouched.
+Дополнительные AI-маршруты для Presidential Simulator. API развёрнут как отдельная Neon Function; существующая функция `nettleapi`, Telegram-авторизация и обычные игровые маршруты остаются без изменений.
 
-## Routes
+Функция использует отдельную ветку Neon для размещения runtime, но `PRESIDENTIAL_DATABASE_URL` подключает её к **основной ветке действующей игровой базы** через ограниченную роль `presidentapi`. Поэтому AI-механики работают с тем же активным сохранением и теми же действующими сессиями, что и основной игровой API.
 
-- `GET /api/presidential/ai/health` — database readiness, no credentials exposed.
-- `POST /api/presidential/ai/decree/draft` and `/publish` — AI legal drafting plus validated, server-applied state deltas.
-- `POST /api/presidential/ai/election/decision` — free-text policy proposals for the current campaign issue.
-- `POST /api/presidential/ai/election/action` — interpret free-form campaign/political actions, including corruption and attempted institutional seizure/coup. Coup outcomes are resolved by server-side odds, not by the model.
-- `GET /api/presidential/ai/diplomacy/history?relationId=...` and `POST /api/presidential/ai/diplomacy/message` — persistent free-text negotiations with a foreign leader.
+## Маршруты
 
-All mutating routes require the existing bearer session. The session is SHA-256 hashed and joined to the user and their active save in the existing database. The model never receives credentials and cannot run SQL. The server validates all proposed metrics against whitelists and clamps them before writing.
+- `GET /api/presidential/ai/health` — доступность базы, количество стран и активных сохранений, наличие настройки AI; секреты не возвращаются.
+- `POST /api/presidential/ai/decree/draft` и `/publish` — проект юридически оформленного указа, оценка бюджета, рисков и последствий; публикация отдельным действием.
+- `POST /api/presidential/ai/election/decision` — свободные текстовые предложения к программе кампании.
+- `POST /api/presidential/ai/election/action` — свободные политические действия, включая работу с гражданами, коррупцию, захват институтов и попытку переворота.
+- `GET /api/presidential/ai/diplomacy/history?relationId=...` и `POST /api/presidential/ai/diplomacy/message` — сохранённые свободные переговоры с иностранным лидером.
 
-## Environment
+Все изменяющие маршруты требуют существующую bearer-сессию. SHA-256-хэш токена сверяется с `game_sessions`, затем проверяется владелец и активное сохранение. Долгие AI-вызовы выполняются до транзакции; перед записью сервер блокирует строку сохранения и проверяет, что состояние не изменилось за время генерации.
 
-- `PRESIDENTIAL_DATABASE_URL` — restricted `presidentapi` role connection to the game database.
-- `OPENROUTER_API_KEY`
-- `OPENROUTER_MODEL` (optional; defaults to `openai/gpt-4o-mini`)
-- `PRESIDENTIAL_GAME_ORIGIN=https://merekwi.github.io`
+## Безопасность игрового состояния
+
+- Модель не получает секреты, не выполняет SQL и не пишет в БД напрямую.
+- Числовые эффекты проходят по белому списку игровых метрик; неизвестные поля игнорируются, диапазоны ограничены.
+- Результат переворота вычисляется на сервере и не выбирается моделью.
+- Изменение сохранения, запись события и аудит выполняются в одной SQL-транзакции.
+- Ответ модели разбирается как JSON, пользовательский текст ограничен по длине.
+- Все маршруты AI отделены от существующих игровых API, поэтому их можно развёртывать независимо.
+
+## Переменные окружения
+
+- `PRESIDENTIAL_DATABASE_URL` — строка подключения роли `presidentapi` к основной игровой базе.
+- `OPENROUTER_API_KEY` — серверный ключ провайдера.
+- `OPENROUTER_MODEL` — необязательный идентификатор модели; по умолчанию `openai/gpt-4o-mini`.
+- `PRESIDENTIAL_GAME_ORIGIN=https://merekwi.github.io`.
+
+Никогда не храните секреты в `frontend/` и не коммитьте их в репозиторий.
