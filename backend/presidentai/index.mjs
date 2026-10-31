@@ -435,6 +435,228 @@ async function electionAction(request, env, auth) {
   finally { client.release(); }
 }
 
+
+const CAMPAIGN_EVENT_TYPES = Object.freeze({
+  debate: { label: "Публичные дебаты", maxRounds: 2, mode: "теледебаты" },
+  press: { label: "Пресс-конференция", maxRounds: 3, mode: "пресс-конференция" },
+  meeting: { label: "Встреча с избирателями", maxRounds: 2, mode: "открытая встреча с гражданами" }
+});
+const CAMPAIGN_GROUPS = new Set(["workers", "business", "rural", "youth", "publicSector", "conservative"]);
+
+async function electionEventStart(request, env, auth) {
+  const input = await bodyJson(request);
+  const eventType = cleanText(input.eventType, 20);
+  const config = CAMPAIGN_EVENT_TYPES[eventType];
+  if (!config) throw Object.assign(new Error("Выберите формат мероприятия"), { status: 400 });
+  const targetGroup = CAMPAIGN_GROUPS.has(input.targetGroup) ? input.targetGroup : "workers";
+  const location = cleanText(input.location, 140);
+  const state = safeObject(auth.game.state);
+  if (!["election_campaign", "election"].includes(String(state.phase || ""))) {
+    throw Object.assign(new Error("Мероприятия доступны только во время избирательной кампании"), { status: 409 });
+  }
+  if (state.campaignEvent?.status === "active") {
+    throw Object.assign(new Error("Сначала завершите текущее мероприятие"), { status: 409 });
+  }
+  const actionPoints = Math.max(0, Number(state.actionPoints ?? 2));
+  if (actionPoints < 1) throw Object.assign(new Error("На этот игровой месяц закончились очки действий"), { status: 409 });
+
+  const election = safeObject(state.election);
+  const groupNames = {
+    workers: "работающие и профсоюзы", business: "предприниматели и работодатели",
+    rural: "жители сельских районов", youth: "молодые избиратели",
+    publicSector: "учителя, врачи и государственные служащие",
+    conservative: "консервативные и религиозные избиратели"
+  };
+  const result = await askAI(env,
+    "Ты организатор реалистичной предвыборной кампании и редактор политического эфира. Создай начало интерактивного политического мероприятия. Не предлагай игроку варианты ответа и не отвечай за него: задай один острый, конкретный, содержательный вопрос, на который кандидат должен ответить своими словами. Вопрос должен опираться на реальные показатели и противоречия страны, недавние решения кампании и интересы аудитории. Не используй универсальные фразы. Для дебатов говори от лица сильного соперника и укажи его аргумент; для пресс-конференции — от лица конкретного журналиста и редакции, задавай неприятные уточняющие вопросы; для встречи — от лица гражданина/представителя аудитории, с конкретной местной проблемой. Верни JSON: title, venue, opening, moderator, questioner, question, topic, audience, rivalName, stakes. Все текстовые поля должны быть строками. Вопрос не должен содержать готового ответа президента.",
+    {
+      country: countryContext(auth.game),
+      realIndicators: {
+        gdpGrowth: state.gdpGrowth, inflation: state.inflation, unemployment: state.unemployment,
+        debt: state.debt, budgetBalance: state.budgetBalance, healthcare: state.healthcare,
+        education: state.education, publicServices: state.publicServices,
+        corruption: state.corruption, stability: state.stability
+      },
+      currentPolls: election.voterGroups || {},
+      candidateSupport: election.candidateSupport,
+      previousProgram: election.decisions || [],
+      recentCampaignActions: Array.isArray(state.politicalActions) ? state.politicalActions.slice(-6) : [],
+      event: {
+        type: eventType, format: config.mode, location,
+        targetAudience: eventType === "meeting" ? groupNames[targetGroup] : "широкая аудитория",
+        targetGroup
+      }
+    }, 1000);
+
+  const event = {
+    id: "event-" + Date.now() + "-" + randomInt(10000, 99999),
+    type: eventType,
+    label: config.label,
+    title: validateTitle(result.title, config.label),
+    venue: cleanText(result.venue, 180) || location || "Национальный эфир",
+    opening: cleanText(result.opening, 700),
+    moderator: cleanText(result.moderator, 100),
+    questioner: cleanText(result.questioner, 140) || cleanText(result.rivalName, 120) || "Участник мероприятия",
+    question: cleanText(result.question, 1200),
+    topic: cleanText(result.topic, 220),
+    audience: cleanText(result.audience, 220) || (eventType === "meeting" ? groupNames[targetGroup] : "Избиратели и пресса"),
+    targetGroup,
+    stakes: cleanText(result.stakes, 500),
+    maxRounds: config.maxRounds,
+    round: 1,
+    status: "active",
+    transcript: [],
+    createdAt: new Date().toISOString()
+  };
+  if (event.question.length < 20) throw new Error("Не удалось сформировать содержательный вопрос мероприятия. Попробуйте ещё раз.");
+
+  const client = await database(env).connect();
+  try {
+    await client.query("BEGIN");
+    const game = await lockedSave(client, auth.game.id, auth.user.owner_id);
+    if (new Date(game.updated_at).getTime() !== new Date(auth.game.updated_at).getTime()) {
+      throw Object.assign(new Error("Кампания изменилась. Обновите страницу и повторите попытку."), { status: 409 });
+    }
+    const live = safeObject(game.state);
+    if (!["election_campaign", "election"].includes(String(live.phase || ""))) {
+      throw Object.assign(new Error("Избирательная кампания уже завершилась"), { status: 409 });
+    }
+    if (live.campaignEvent?.status === "active") throw Object.assign(new Error("Уже идёт другое мероприятие"), { status: 409 });
+    if (Number(live.actionPoints ?? 2) < 1) throw Object.assign(new Error("Недостаточно очков действий"), { status: 409 });
+    live.campaignEvent = event;
+    await client.query("UPDATE game_saves SET state=$1::jsonb,updated_at=NOW() WHERE id=$2", [JSON.stringify(live), game.id]);
+    await audit(client, auth.user.user_id, game.id, "campaign_event_started", {
+      eventId: event.id, type: event.type, topic: event.topic, targetGroup
+    });
+    await client.query("COMMIT");
+    return { event, actionPoints: Number(live.actionPoints ?? 2) };
+  } catch (error) { await client.query("ROLLBACK"); throw error; }
+  finally { client.release(); }
+}
+
+async function electionEventRespond(request, env, auth) {
+  const input = await bodyJson(request);
+  const eventId = cleanText(input.eventId, 80);
+  const responseText = cleanText(input.response || input.answer, 3000);
+  if (eventId.length < 8 || responseText.length < 12) {
+    throw Object.assign(new Error("Дайте развёрнутый ответ на вопрос"), { status: 400 });
+  }
+  const currentState = safeObject(auth.game.state);
+  const event = safeObject(currentState.campaignEvent);
+  if (!event.id || event.id !== eventId || event.status !== "active") {
+    throw Object.assign(new Error("Это мероприятие уже завершено или больше не активно"), { status: 409 });
+  }
+  const config = CAMPAIGN_EVENT_TYPES[event.type] || CAMPAIGN_EVENT_TYPES.meeting;
+  const result = await askAI(env,
+    "Ты политический аналитик, ведущий дебатов, журналист и исследователь общественного мнения. Оцени ответ кандидата на конкретный вопрос в реалистичной предвыборной кампании. Не будь доброжелательным по умолчанию: замечай уклонение от вопроса, противоречия предыдущим обещаниям, неподкреплённые цифры, популизм, реалистичность сроков и источников денег. Сильный конкретный ответ с механизмом исполнения может убедить часть аудитории; лозунги, нападение на вопрос и обещания без финансирования вызывают скепсис. Не делай все группы одинаково довольными. Верни JSON: analysis (содержательный разбор ответа, строка), publicReaction (реакция зала/избирателей, строка), voterEffects (числовые дельты workers,business,rural,youth,publicSector,conservative от -4 до 4), headline (заголовок прессы, строка), pressCoverage (как это подадут СМИ, строка), eventComplete (boolean), nextQuestioner (строка), nextQuestion (строка), nextTopic (строка). Если раундов ещё достаточно, задай новый конкретный уточняющий вопрос — не повторяй исходный. Не выдавай результат выборов и не меняй государственные показатели напрямую. Финансово нереалистичные ответы должны получать отрицательную реакцию тех групп, которые понесут издержки.",
+    {
+      country: countryContext(auth.game),
+      currentIndicators: {
+        gdpGrowth: currentState.gdpGrowth, inflation: currentState.inflation,
+        unemployment: currentState.unemployment, debt: currentState.debt,
+        treasury: currentState.treasury, budgetBalance: currentState.budgetBalance,
+        healthcare: currentState.healthcare, education: currentState.education,
+        publicServices: currentState.publicServices, corruption: currentState.corruption
+      },
+      voterPolls: safeObject(currentState.election).voterGroups || {},
+      event: {
+        ...event,
+        transcript: Array.isArray(event.transcript) ? event.transcript : [],
+        format: config.mode
+      },
+      candidateAnswer: responseText
+    }, 1200);
+
+  const analysis = aiText(result.analysis, 1300);
+  const publicReaction = aiText(result.publicReaction, 800);
+  const voterEffects = sanitizeGroupDeltas(result.voterEffects);
+  const headline = aiText(result.headline, 220) || (event.label + ": ответ кандидата");
+  const pressCoverage = aiText(result.pressCoverage, 600);
+  const client = await database(env).connect();
+  try {
+    await client.query("BEGIN");
+    const game = await lockedSave(client, auth.game.id, auth.user.owner_id);
+    if (new Date(game.updated_at).getTime() !== new Date(auth.game.updated_at).getTime()) {
+      throw Object.assign(new Error("Кампания изменилась во время ответа. Обновите страницу и повторите."), { status: 409 });
+    }
+    const live = safeObject(game.state);
+    const liveEvent = safeObject(live.campaignEvent);
+    if (liveEvent.id !== eventId || liveEvent.status !== "active" || Number(liveEvent.round) !== Number(event.round)) {
+      throw Object.assign(new Error("Раунд мероприятия уже изменился. Обновите страницу."), { status: 409 });
+    }
+    const groupResult = applyGroupDeltas(safeObject(live.election).voterGroups, voterEffects);
+    const values = Object.values(groupResult.applied);
+    const average = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+    const supportDelta = clamp(average * 0.18, -0.45, 0.45);
+    const election = safeObject(live.election);
+    const support = clamp(Number(election.candidateSupport ?? 20) + supportDelta, 5, 95);
+    live.election = {
+      ...election,
+      voterGroups: groupResult.groups,
+      candidateSupport: Number(support.toFixed(1)),
+      oppositionSupport: Number((100 - support).toFixed(1))
+    };
+
+    const transcript = Array.isArray(liveEvent.transcript) ? [...liveEvent.transcript] : [];
+    transcript.push({
+      round: Number(liveEvent.round),
+      questioner: cleanText(liveEvent.questioner, 140),
+      question: cleanText(liveEvent.question, 1200),
+      response: responseText,
+      analysis,
+      publicReaction,
+      headline,
+      pressCoverage,
+      voterEffects: groupResult.applied,
+      createdAt: new Date().toISOString()
+    });
+    const complete = Number(liveEvent.round) >= Number(liveEvent.maxRounds || config.maxRounds) || result.eventComplete === true;
+    const nextEvent = {
+      ...liveEvent,
+      transcript,
+      lastAnalysis: analysis,
+      lastPublicReaction: publicReaction,
+      lastPressCoverage: pressCoverage
+    };
+    if (complete) {
+      nextEvent.status = "completed";
+      nextEvent.completedAt = new Date().toISOString();
+      nextEvent.resultHeadline = headline;
+      nextEvent.resultSummary = analysis + (publicReaction ? " Реакция аудитории: " + publicReaction : "") +
+        (pressCoverage ? " Освещение в СМИ: " + pressCoverage : "");
+      live.campaignEvent = null;
+      const history = Array.isArray(live.campaignEventHistory) ? [...live.campaignEventHistory] : [];
+      history.push(nextEvent);
+      live.campaignEventHistory = history.slice(-12);
+      live.actionPoints = Math.max(0, Number(live.actionPoints ?? 2) - 1);
+      await addEvent(client, game, "campaign_event", nextEvent.title,
+        nextEvent.resultSummary, { eventId, eventType: nextEvent.type, voterEffects: groupResult.applied }, 3);
+    } else {
+      nextEvent.round = Number(liveEvent.round) + 1;
+      nextEvent.questioner = aiText(result.nextQuestioner, 140) || "Журналист";
+      nextEvent.question = aiText(result.nextQuestion, 1200) ||
+        "Уточните, какие конкретные действия и источники финансирования обеспечат исполнение вашего ответа?";
+      nextEvent.topic = aiText(result.nextTopic, 220) || liveEvent.topic;
+      live.campaignEvent = nextEvent;
+    }
+    await client.query("UPDATE game_saves SET state=$1::jsonb,updated_at=NOW() WHERE id=$2", [JSON.stringify(live), game.id]);
+    await audit(client, auth.user.user_id, game.id, "campaign_event_response", {
+      eventId, round: event.round, complete, supportDelta: Number(supportDelta.toFixed(2)),
+      voterEffects: groupResult.applied
+    });
+    await client.query("COMMIT");
+    return {
+      complete,
+      event: complete ? nextEvent : live.campaignEvent,
+      analysis, publicReaction, pressCoverage,
+      voterEffects: groupResult.applied,
+      candidateSupport: live.election.candidateSupport,
+      actionPoints: Number(live.actionPoints ?? 2)
+    };
+  } catch (error) { await client.query("ROLLBACK"); throw error; }
+  finally { client.release(); }
+}
+
 async function diplomacyHistory(request, env, auth) {
   const relationId = cleanText(new URL(request.url).searchParams.get("relationId"), 64);
   const relation = await database(env).query(
@@ -530,6 +752,8 @@ export default {
       else if (url.pathname === "/api/presidential/ai/election/initialize" && request.method === "POST") result = await electionInitialize(request, env, auth);
       else if (url.pathname === "/api/presidential/ai/election/decision" && request.method === "POST") result = await electionDecision(request, env, auth);
       else if (url.pathname === "/api/presidential/ai/election/action" && request.method === "POST") result = await electionAction(request, env, auth);
+      else if (url.pathname === "/api/presidential/ai/election/event/start" && request.method === "POST") result = await electionEventStart(request, env, auth);
+      else if (url.pathname === "/api/presidential/ai/election/event/respond" && request.method === "POST") result = await electionEventRespond(request, env, auth);
       else if (url.pathname === "/api/presidential/ai/diplomacy/history" && request.method === "GET") result = await diplomacyHistory(request, env, auth);
       else if (url.pathname === "/api/presidential/ai/diplomacy/message" && request.method === "POST") result = await diplomacyMessage(request, env, auth);
       else return json({ error: "Not found" }, 404, allowed || "*");
