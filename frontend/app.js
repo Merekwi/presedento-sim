@@ -389,6 +389,20 @@
       }
     }
 
+    const activityPanel=node("section","campaign-freeform");
+    activityPanel.append(node("div","campaign-choice-kicker","РАБОТА С ИЗБИРАТЕЛЯМИ"));
+    activityPanel.append(node("h3","","Что вы делаете во время кампании?"));
+    activityPanel.append(node("p","","Выступайте перед гражданами, помогайте пострадавшим, договаривайтесь с профсоюзами и бизнесом, создавайте коалиции или используйте незаконные методы. Общественная реакция и последствия будут рассчитаны отдельно от текста вашей программы."));
+    const activityInput=node("textarea","campaign-proposal-input");
+    activityInput.id="campaignActivityInput";activityInput.maxLength=3000;activityInput.placeholder="Например: провожу открытые встречи в промышленных регионах, обещаю лично контролировать задержки зарплат и организую фонд экстренной помощи семьям шахтёров...";
+    activityInput.disabled=busy;
+    const activityButton=node("button","primary-button","Провести кампанию →");
+    activityButton.type="button";activityButton.dataset.electionActivity="true";activityButton.disabled=busy;
+    activityPanel.append(activityInput,activityButton);
+    const actionHistory=Array.isArray(state.politicalActions)?state.politicalActions:[];
+    actionHistory.slice(-3).reverse().forEach(item=>activityPanel.append(node("small","campaign-history-empty",(item.kind||"Действие").replaceAll("_"," ")+": "+(item.analysis||item.text||""))));
+    if(issueRoot)issueRoot.append(activityPanel);
+
     const history=$("electionDecisionHistory");
     if(history){
       history.replaceChildren();
@@ -620,6 +634,19 @@
     try{
       await withBusy(button,()=>aiApi()("/api/presidential/ai/election/decision",{method:"POST",body:JSON.stringify({proposal})}),"ИИ оценил предложение и обновил поддержку избирателей, доверие к программе и последствия для экономики.");
       if($("campaignProposal"))$("campaignProposal").value="";
+    }catch(_){}
+  });
+  $("electionIssue").addEventListener("click",async event=>{
+    const button=event.target.closest("[data-election-activity]");
+    if(!button||busy)return;
+    const action=$("campaignActivityInput")&&$("campaignActivityInput").value.trim();
+    if(!action||action.length<8)return toast("Опишите действие в кампании подробнее.");
+    try{
+      const result=await withBusy(button,()=>aiApi()("/api/presidential/ai/election/action",{method:"POST",body:JSON.stringify({action})}),r=>{
+        if(r&&r.coup)return r.coup.success?"Попытка захвата власти удалась.":"Попытка захвата власти провалилась.";
+        return r&&r.action&&r.action.analysis?r.action.analysis:"Действие кампании обработано.";
+      });
+      if($("campaignActivityInput"))$("campaignActivityInput").value="";
     }catch(_){}
   });
   $("electionVote").addEventListener("click",async()=>{
