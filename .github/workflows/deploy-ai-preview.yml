@@ -1,4 +1,4 @@
-name: Deploy isolated AI engine preview
+name: Deploy supplemental AI API
 
 on:
   push:
@@ -15,7 +15,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: presidential-ai-preview
+  group: presidential-ai-api
   cancel-in-progress: true
 
 jobs:
@@ -55,11 +55,11 @@ jobs:
           case "$DB_URI" in postgresql://*|postgres://*) ;; *) echo "Neon did not return a valid database URI"; exit 1;; esac
           echo "::add-mask::$DB_URI"
           echo "PRESIDENTIAL_DATABASE_URL=$DB_URI" >> "$GITHUB_ENV"
-      - name: Link Neon preview branch
+      - name: Link dedicated Neon Function branch
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
         run: neon link --project-id dry-shape-51006688 --branch ai-engine-preview --no-env-pull -y
-      - name: Deploy separate preview function
+      - name: Deploy the separate AI API function
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
@@ -70,7 +70,7 @@ jobs:
             --env "PRESIDENTIAL_DATABASE_URL=$PRESIDENTIAL_DATABASE_URL" \
             --env "PRESIDENTIAL_GAME_ORIGIN=https://merekwi.github.io" \
             --env "OPENROUTER_API_KEY=$OPENROUTER_API_KEY"
-      - name: Verify preview API and database
+      - name: Verify AI API against the live game database
         run: |
           set -euo pipefail
           URL="https://br-nameless-term-b9ex7292-presidaidev.compute.c-7.eu-central-1.aws.neon.tech/api/presidential/ai/health"
