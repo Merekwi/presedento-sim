@@ -154,9 +154,12 @@ jobs:
             throw new Error("Published frontend is not configured to use the supplemental AI API.");
           }
 
-          const gameScript = await fetchWithRetry(gameAssetBase + "app.js?fresh=" + Date.now(), { headers: { "Cache-Control": "no-cache" } });
-          const appJs = await gameScript.text();
-          if (!gameScript.ok || !appJs.length) throw new Error("Published game JavaScript asset is unavailable.");
+          const appJs = await fetchHtmlUntil(
+            gameAssetBase + "app.js",
+            ["/api/presidential/ai/election/initialize", "data-election-tab-panel", "data-election-tab"],
+            "Published election campaign JavaScript",
+            30
+          );
           const gameRoutes = [
             "/api/presidential/game/program",
             "/api/presidential/game/advance",
