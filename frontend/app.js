@@ -613,6 +613,7 @@
     const support=Number(election.candidateSupport||0),opposition=Math.max(0,100-support);
     const completed=index>=agenda.length&&agenda.length>0;
     const activeCampaignEvent=state.campaignEvent&&state.campaignEvent.status==="active"?state.campaignEvent:null;
+    if(activeCampaignEvent)electionTab="actions";
 
     setText("electionTitle",election.type||"Национальная избирательная кампания");
     setText("electionRound",election.firstElection?"ПЕРВЫЕ ВЫБОРЫ":"ПЕРЕИЗБРАНИЕ · ТУР "+(election.round||2));
@@ -722,6 +723,19 @@
         stage.append(head);
         if(activeEvent.opening)stage.append(node("p","campaign-event-opening",activeEvent.opening));
         if(activeEvent.topic)stage.append(node("div","campaign-event-topic","ТЕМА · "+activeEvent.topic));
+        const previousTurns=Array.isArray(activeEvent.transcript)?activeEvent.transcript:[];
+        if(previousTurns.length){
+          const previousRoot=node("div","campaign-event-prior-rounds");
+          previousTurns.forEach(turn=>{
+            const exchange=node("article","campaign-event-history-turn");
+            exchange.append(node("small","",turn.questioner||"Вопрос"),node("p","",turn.question||""));
+            exchange.append(node("small","","Ваш предыдущий ответ"),node("p","",turn.response||""));
+            if(turn.analysis)exchange.append(node("p","campaign-event-history-analysis",turn.analysis));
+            if(turn.publicReaction)exchange.append(node("p","campaign-event-history-reaction","Реакция аудитории: "+turn.publicReaction));
+            previousRoot.append(exchange);
+          });
+          stage.append(previousRoot);
+        }
         const question=node("article","campaign-event-question");
         question.append(node("small","",activeEvent.questioner||"Вопрос"),node("p","",activeEvent.question||"Вопрос мероприятия"));
         stage.append(question);
