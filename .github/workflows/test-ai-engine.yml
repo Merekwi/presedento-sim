@@ -1,0 +1,33 @@
+name: Test AI political engine
+
+on:
+  push:
+    branches:
+      - feature/ai-political-engine
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Check frontend and server syntax
+        run: |
+          node --check frontend/app.js
+          node --check frontend/auth.js
+          node --check backend/presidentai/index.mjs
+          node --check backend/presidentai/engine.mjs
+      - name: Install backend dependencies
+        working-directory: backend/presidentai
+        run: npm install --no-audit --no-fund
+      - name: Run deterministic engine tests
+        working-directory: backend/presidentai
+        run: npm test

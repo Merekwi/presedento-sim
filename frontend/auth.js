@@ -78,6 +78,25 @@
     }
     return data;
   }
+  async function aiRequest(path, options = {}) {
+    const base = String(config.AI_API_BASE_URL || API).replace(/\/$/, "");
+    if (!base) throw new Error("AI_API_BASE_URL не настроен.");
+    const headers = { ...(options.headers || {}) };
+    if (options.body != null && !headers["Content-Type"]) headers["Content-Type"] = "application/json";
+    if (token && !options.noAuth) headers.Authorization = "Bearer " + token;
+    const response = await fetch(base + path, { ...options, headers, credentials: "omit", cache: "no-store" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      if (response.status === 401 && options.noAuth !== true) {
+        token = "";
+        sessionStorage.removeItem(TOKEN_KEY);
+        showGate("Сессия истекла. Войдите через Telegram повторно.");
+      }
+      throw new Error(data.error || ("HTTP " + response.status));
+    }
+    return data;
+  }
+
   async function exchangeFromHash() {
     const params = new URLSearchParams(location.hash.replace(/^#/,""));
     const code = params.get("ps_login_code");
@@ -133,6 +152,7 @@
       createUserBar();
       window.PRESIDENTIAL_AUTH = {
         api: request,
+        aiApi: aiRequest,
         get user() { return currentUser; },
         logout: logoutUser,
         setUser: value => { currentUser = value; }
@@ -145,6 +165,7 @@
   }
   window.PRESIDENTIAL_AUTH = {
     api: request,
+    aiApi: aiRequest,
     get user() { return currentUser; },
     logout: logoutUser
   };
