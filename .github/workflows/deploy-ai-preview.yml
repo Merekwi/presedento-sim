@@ -1,0 +1,82 @@
+name: Deploy isolated AI engine preview
+
+on:
+  push:
+    branches:
+      - feature/ai-political-engine
+    paths:
+      - "backend/presidentai/**"
+      - "frontend/**"
+      - ".github/workflows/deploy-ai-preview.yml"
+      - ".github/workflows/test-ai-engine.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: presidential-ai-preview
+  cancel-in-progress: true
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Check source syntax
+        run: |
+          node --check frontend/app.js
+          node --check frontend/auth.js
+          node --check backend/presidentai/index.mjs
+          node --check backend/presidentai/engine.mjs
+      - name: Install dependencies and run deterministic tests
+        working-directory: backend/presidentai
+        run: |
+          npm install --no-audit --no-fund
+          npm test
+      - name: Install Neon CLI
+        run: npm install --global neon
+      - name: Retrieve isolated preview database connection
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$NEON_API_KEY"
+          RESPONSE=$(curl --fail --silent --show-error --get \
+            "https://console.neon.tech/api/v2/projects/wandering-pine-73026188/connection_uri" \
+            --header "Authorization: Bearer $NEON_API_KEY" \
+            --data-urlencode "branch_id=br-late-wave-aksabx8j" \
+            --data-urlencode "database_name=neondb" \
+            --data-urlencode "role_name=presidentapi")
+          DB_URI=$(printf '%s' "$RESPONSE" | jq -er '.uri')
+          case "$DB_URI" in postgresql://*|postgres://*) ;; *) echo "Neon did not return a valid database URI"; exit 1;; esac
+          echo "::add-mask::$DB_URI"
+          echo "PRESIDENTIAL_DATABASE_URL=$DB_URI" >> "$GITHUB_ENV"
+      - name: Link Neon preview branch
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: neon link --project-id dry-shape-51006688 --branch ai-engine-preview --no-env-pull -y
+      - name: Deploy separate preview function
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$OPENROUTER_API_KEY"
+          neon functions deploy presidaidev --src backend/presidentai/index.mjs --runtime nodejs24 \
+            --env "PRESIDENTIAL_DATABASE_URL=$PRESIDENTIAL_DATABASE_URL" \
+            --env "PRESIDENTIAL_GAME_ORIGIN=https://merekwi.github.io" \
+            --env "OPENROUTER_API_KEY=$OPENROUTER_API_KEY"
+      - name: Verify preview API and database
+        run: |
+          set -euo pipefail
+          URL="https://br-nameless-term-b9ex7292-presidaidev.compute.c-7.eu-central-1.aws.neon.tech/api/presidential/ai/health"
+          for attempt in $(seq 1 12); do
+            if RESPONSE=$(curl --fail --silent --show-error "$URL"); then break; fi
+            sleep 5
+          done
+          echo "$RESPONSE" | jq '{ok,database,countryCount,activeSaves,aiConfigured}'
+          echo "$RESPONSE" | jq -e '.ok == true and .database == true and .countryCount >= 20 and .activeSaves >= 1 and .aiConfigured == true' >/dev/null
