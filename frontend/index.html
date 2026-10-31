@@ -62,7 +62,7 @@
     <div class="election-panel-card election-polls">
       <div class="election-card-head"><div><span class="eyebrow">ПРЕДВЫБОРНЫЕ ОПРОСЫ</span><h3>Поддержка кандидата</h3></div><span class="panel-tag">ПРОГНОЗ</span></div>
       <div class="poll-row"><div><span>Ваша партия</span><b id="candidateSupport">—</b></div><div class="poll-track"><i id="candidateSupportBar"></i></div></div>
-      <div class="poll-row opposition"><div><span>Оппозиция и другие партии</span><b id="oppositionSupport">—</b></div><div class="poll-track"><i id="oppositionSupportBar"></i></div></div>
+      <div class="party-poll-list" id="partyPollList" aria-label="Поддержка конкурирующих партий"></div>
       <div id="campaignGroupPolls" class="campaign-group-polls"></div>
       <div id="electionConsequences" class="election-consequences">Опросы обновляются после каждого политического решения.</div>
       <div class="campaign-history-heading"><span class="eyebrow">ПРИНЯТЫЕ РЕШЕНИЯ</span><h4>Предвыборная программа</h4></div>
@@ -315,6 +315,6 @@
 </dialog>
 <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
-<script src="./config.js"></script><script src="./auth.js"></script><script src="./app.js?v=normalbalance3"></script>
+<script src="./config.js"></script><script src="./auth.js"></script><script src="./app.js?v=partybalance4"></script>
 </body>
 </html>
