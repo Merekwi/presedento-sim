@@ -421,7 +421,7 @@ export default {
       "access-control-max-age": "86400",
       "vary": "Origin"
     }});
-    if (allowed && origin !== allowed) return json({ error: "Origin not allowed" }, 403, allowed || "null");
+    if (allowed && origin && origin !== allowed) return json({ error: "Origin not allowed" }, 403, allowed || "null");
     if (!allowed && origin) return json({ error: "Server origin is not configured" }, 503, "null");
     const url = new URL(request.url);
     try {
@@ -442,6 +442,7 @@ export default {
     } catch (error) {
       const status = Number(error?.status || 0);
       const message = cleanText(error?.message || "Ошибка серверной обработки", 300);
+      console.error("[presidential-ai]", request.method, url.pathname, status || 500, message);
       const code = status >= 400 && status <= 599 ? status : (message.includes("OpenRouter") || message.includes("AI returned") ? 502 : 500);
       return json({ error: message }, code, allowed || "*");
     }
