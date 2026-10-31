@@ -608,7 +608,7 @@
     const actions=Array.isArray(state.politicalActions)?state.politicalActions:[];
     const index=Math.max(0,Number(election.issueIndex||0));
     const current=agenda[index]||null;
-    const support=Number(election.candidateSupport||0),opposition=Math.max(0,100-support);
+    const support=Number(election.candidateSupport||0);
     const completed=index>=agenda.length&&agenda.length>0;
     const activeCampaignEvent=state.campaignEvent&&state.campaignEvent.status==="active"?state.campaignEvent:null;
     if(activeCampaignEvent)electionTab="actions";
@@ -622,10 +622,29 @@
     const photo=$("electionPortrait");
     if(photo)photo.replaceChildren(portraitNode(state.presidentPortrait||"p01"));
     setText("candidateSupport",support.toFixed(1)+"%");
-    setText("oppositionSupport",opposition.toFixed(1)+"%");
-    const candidateBar=$("candidateSupportBar"),oppositionBar=$("oppositionSupportBar");
+    const candidateBar=$("candidateSupportBar");
     if(candidateBar)candidateBar.style.width=Math.min(100,support)+"%";
-    if(oppositionBar)oppositionBar.style.width=Math.min(100,opposition)+"%";
+    const partyPollRoot=$("partyPollList");
+    if(partyPollRoot){
+      partyPollRoot.replaceChildren();
+      const fallbackOpposition=[
+        {name:"Социал-демократическая партия",support:(100-support)*0.36},
+        {name:"Либеральный союз",support:(100-support)*0.27},
+        {name:"Консервативный блок",support:(100-support)*0.21},
+        {name:"Партия зелёных и регионов",support:(100-support)*0.16}
+      ];
+      const opponents=Array.isArray(election.partyPoll)
+        ? election.partyPoll.filter(party=>!party.isPlayer)
+        : fallbackOpposition;
+      opponents.forEach(party=>{
+        const row=node("div","poll-row opposition");
+        const head=node("div","");
+        head.append(node("span","",String(party.name||"Другая партия")),node("b","",Number(party.support||0).toFixed(1)+"%"));
+        const track=node("div","poll-track"),bar=node("i");
+        bar.style.width=clamp(party.support||0,0,100)+"%";
+        track.append(bar);row.append(head,track);partyPollRoot.append(row);
+      });
+    }
     setText("campaignActionsRemaining",agenda.length?Math.min(index,agenda.length)+" / "+agenda.length:"—");
     setText("electionConsequences",
       "Доверие к программе: "+number(election.policyCredibility??50,0)+"/100 · Институциональное доверие: "+number(election.institutionalTrust??50,0)+"/100 · Бюджетные обязательства: "+number(election.fiscalImpactPct??0,2)+"% ВВП");
@@ -977,7 +996,7 @@
       if(!result.game){currentGame=null;if(busy)needsSetupAfterBusy=true;else await openSetup();return;}
       const election=result.game.state&&result.game.state.election||{};
       const inElection=["election_campaign","election"].includes(String(result.game.state&&result.game.state.phase||""));
-      if(inElection&&Number(election.baselineVersion||0)<3&&window.PRESIDENTIAL_AUTH.aiApi){
+      if(inElection&&Number(election.baselineVersion||0)<4&&window.PRESIDENTIAL_AUTH.aiApi){
         try{
           await window.PRESIDENTIAL_AUTH.aiApi("/api/presidential/ai/election/initialize",{method:"POST",body:"{}"});
           result=await api()("/api/presidential/game/current");
