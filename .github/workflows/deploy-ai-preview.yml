@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: presidential-ai-api
+  group: presidential-ai-api-main
   cancel-in-progress: true
 
 jobs:
