@@ -4,7 +4,7 @@ import { createHash, randomInt } from "node:crypto";
 import {
   applyStateDeltas, applyGroupDeltas, sanitizeDeltas,
   sanitizeGroupDeltas, updateElection, resolveCoup, normalizeTreaties, clamp,
-  initializeElectionBaseline, isDuplicateCampaignAction
+  initializeElectionBaseline, isDuplicateCampaignAction, applyCampaignEventEffects
 } from "./engine.mjs";
 
 const { Pool } = pg;
@@ -584,18 +584,10 @@ async function electionEventRespond(request, env, auth) {
     if (liveEvent.id !== eventId || liveEvent.status !== "active" || Number(liveEvent.round) !== Number(event.round)) {
       throw Object.assign(new Error("Раунд мероприятия уже изменился. Обновите страницу."), { status: 409 });
     }
-    const groupResult = applyGroupDeltas(safeObject(live.election).voterGroups, voterEffects);
-    const values = Object.values(groupResult.applied);
-    const average = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
-    const supportDelta = clamp(average * 0.18, -0.45, 0.45);
-    const election = safeObject(live.election);
-    const support = clamp(Number(election.candidateSupport ?? 20) + supportDelta, 5, 95);
-    live.election = {
-      ...election,
-      voterGroups: groupResult.groups,
-      candidateSupport: Number(support.toFixed(1)),
-      oppositionSupport: Number((100 - support).toFixed(1))
-    };
+    const campaignEffects = applyCampaignEventEffects(safeObject(live.election), voterEffects);
+    const groupResult = { applied: campaignEffects.applied };
+    const supportDelta = campaignEffects.supportDelta;
+    live.election = campaignEffects.election;
 
     const transcript = Array.isArray(liveEvent.transcript) ? [...liveEvent.transcript] : [];
     transcript.push({
