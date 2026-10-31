@@ -604,6 +604,7 @@
     const current=agenda[index]||null;
     const support=Number(election.candidateSupport||0),opposition=Math.max(0,100-support);
     const completed=index>=agenda.length&&agenda.length>0;
+    const activeCampaignEvent=state.campaignEvent&&state.campaignEvent.status==="active"?state.campaignEvent:null;
 
     setText("electionTitle",election.type||"Национальная избирательная кампания");
     setText("electionRound",election.firstElection?"ПЕРВЫЕ ВЫБОРЫ":"ПЕРЕИЗБРАНИЕ · ТУР "+(election.round||2));
@@ -701,7 +702,7 @@
       const pointsLine=node("div","campaign-event-points","Доступно очков действий: "+eventPoints+" · одно мероприятие расходует 1 очко после завершения");
       actionPanel.append(pointsLine);
 
-      const activeEvent=state.campaignEvent&&state.campaignEvent.status==="active"?state.campaignEvent:null;
+      const activeEvent=activeCampaignEvent;
       if(activeEvent){
         const stage=node("section","campaign-event-live");
         const head=node("div","campaign-event-live-head");
@@ -746,7 +747,7 @@
         actionPanel.append(eventGrid);
         const meetingDetails=node("div","campaign-event-settings");
         const groupWrap=node("label","campaign-event-setting");
-        groupWrap.append(node("span","","С кем встретиться"));
+        groupWrap.append(node("span","","Целевая аудитория для встречи"));
         const groupSelect=node("select");groupSelect.id="campaignMeetingGroup";
         [["workers","Работающие и профсоюзы"],["business","Предприниматели"],["rural","Сельские жители"],["youth","Молодёжь"],["publicSector","Врачи, учителя и госслужащие"],["conservative","Консервативные избиратели"]].forEach(([value,label])=>{
           const option=node("option","",label);option.value=value;groupSelect.append(option);
@@ -771,7 +772,7 @@
       const activityButton=node("button","secondary-button","Отправить действие на анализ →");
       activityButton.type="button";activityButton.dataset.electionActivity="true";activityButton.disabled=busy||hasPendingBackgroundJobs();
       freeform.append(activityInput,activityButton);
-      actionPanel.append(freeform);
+      if(!activeEvent)actionPanel.append(freeform);
 
       const completedEvents=Array.isArray(state.campaignEventHistory)?state.campaignEventHistory:[];
       if(completedEvents.length){
@@ -821,7 +822,7 @@
     const vote=$("electionVote");
     if(vote){
       vote.classList.toggle("hidden",!completed);
-      vote.disabled=!completed||busy||hasPendingBackgroundJobs();
+      vote.disabled=!completed||busy||hasPendingBackgroundJobs()||Boolean(activeCampaignEvent);
       vote.textContent=completed?"Провести национальные выборы →":"Сначала завершите программу";
     }
     document.querySelectorAll("[data-election-proposal],[data-election-activity]").forEach(button=>button.disabled=busy);
