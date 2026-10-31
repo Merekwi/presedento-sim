@@ -520,6 +520,279 @@
       row.append(icon,info,stat);root.append(row);
     });
   }
+  const MILITARY_TECH_LABELS={
+    reconnaissance:"Разведка и наблюдение",communications:"Связь и командование",logistics:"Военная логистика",
+    air_defense:"Противовоздушная оборона",armor:"Бронетехника",precision:"Точность вооружений",
+    military_medicine:"Военная медицина",naval:"Морские системы",cyber_defense:"Киберзащита"
+  };
+  const MILITARY_TECH_HINTS={
+    reconnaissance:"Обнаружение угроз и качество разведданных",
+    communications:"Согласованность штаба и скорость выполнения приказов",
+    logistics:"Снабжение, ремонт и устойчивость подразделений",
+    air_defense:"Защита войск и государственных объектов",
+    armor:"Защищённость и мобильность сухопутных частей",
+    precision:"Эффективность операций и снижение потерь",
+    military_medicine:"Восстановление и снижение безвозвратных потерь",
+    naval:"Готовность флота и морские коммуникации",
+    cyber_defense:"Устойчивость военных сетей и инфраструктуры"
+  };
+  function renderMilitary(payload){
+    const military=payload.military||((payload.game&&payload.game.state)||{}).military||{};
+    const manpower=military.manpower||{},contracts=military.contracts||{},budget=military.budget||{},research=military.research||{};
+    setText("militaryActivePersonnel",number(manpower.activePersonnel||0,0));
+    setText("militaryReservePersonnel",number(manpower.trainedReserve||0,0));
+    setText("militaryAvailablePersonnel",number(manpower.availablePool||0,0));
+    setText("militaryApplicants",number(contracts.monthlyApplicants||0,0));
+    const law=$("militaryServiceLaw");if(law)law.value=(military.laws&&military.laws.service)||"volunteer";
+    const salary=$("militaryContractSalary");if(salary){salary.value=String(Number(contracts.salaryIndex||1));setText("militarySalaryValue",Number(contracts.salaryIndex||1).toFixed(2).replace(".",",")+"×");}
+    const budgetControl=$("militaryBudgetShare");if(budgetControl){budgetControl.value=String(Number(budget.shareOfGdp||1.6));setText("militaryBudgetValue",Number(budget.shareOfGdp||1.6).toFixed(1).replace(".",",")+"%");}
+    const researchControl=$("militaryResearchShare");if(researchControl){researchControl.value=String(Math.round(Number(budget.researchShare||0.12)*100));setText("militaryResearchShareValue",Math.round(Number(budget.researchShare||0.12)*100)+"%");}
+    const technologies=Array.isArray(payload.technologies)?payload.technologies:[];
+    const researchSelect=$("militaryResearchSelect");
+    if(researchSelect){
+      const previous=research.selectedTech||"logistics";
+      researchSelect.replaceChildren();
+      technologies.forEach(tech=>{
+        const option=document.createElement("option");option.value=tech.tech_id;
+        option.textContent=(MILITARY_TECH_LABELS[tech.tech_id]||tech.tech_id)+" · уровень "+Number(tech.level||0);
+        researchSelect.append(option);
+      });
+      if(technologies.some(tech=>tech.tech_id===previous))researchSelect.value=previous;
+    }
+    const technologyRoot=$("militaryTechnologyList");
+    if(technologyRoot){
+      technologyRoot.replaceChildren();
+      if(!technologies.length)technologyRoot.append(node("div","loading-row","Технологические направления не найдены."));
+      technologies.forEach(tech=>{
+        const level=Number(tech.level||0),points=Number(tech.research_points||0),target=(level+1)*100;
+        const progress=level>=5?100:Math.min(100,points/Math.max(1,target)*100);
+        const card=node("article","military-technology-card"),head=node("div","military-technology-head");
+        head.append(node("span","",MILITARY_TECH_LABELS[tech.tech_id]||tech.tech_id),node("small","",level>=5?"МАКС. УРОВЕНЬ":"Уровень "+level));
+        const detail=node("p","",MILITARY_TECH_HINTS[tech.tech_id]||"Военно-техническое развитие страны");
+        const track=node("div","military-tech-track"),fill=node("i");fill.style.width=progress+"%";track.append(fill);
+        card.append(head,detail,track);
+        if(tech.is_researching)card.append(node("small","minister-reliability","Текущий приоритет · "+points+" / "+target+" очков"));
+        technologyRoot.append(card);
+      });
+    }
+    const programsRoot=$("activeMilitaryPrograms");
+    if(programsRoot){
+      programsRoot.replaceChildren();
+      const programs=Array.isArray(military.programs)?military.programs:[];
+      const active=programs.filter(program=>program.status==="active");
+      if(!active.length)programsRoot.append(node("small","military-explainer","Активных военных программ нет."));
+      active.forEach(program=>{
+        const row=node("div","active-military-program");
+        row.append(node("span","",program.title+" · "+program.monthsCompleted+"/"+program.durationMonths+" мес."));
+        const cancel=node("button","secondary-button","Остановить");cancel.type="button";cancel.dataset.cancelMilitaryProgram=program.programId;cancel.disabled=busy;row.append(cancel);
+        programsRoot.append(row);
+      });
+    }
+    const unitRoot=$("militaryMapUnit");
+    if(unitRoot){
+      const previous=unitRoot.value;unitRoot.replaceChildren();
+      (payload.units||[]).forEach(unit=>{
+        const option=document.createElement("option");option.value=unit.id;option.textContent=unit.unit_type;unitRoot.append(option);
+      });
+      if((payload.units||[]).some(unit=>unit.id===previous))unitRoot.value=previous;
+    }
+    const relations=Array.isArray(payload.relations)?payload.relations:[];
+    const wars=Array.isArray(payload.wars)?payload.wars:[];
+    const activeWar=wars.find(war=>war.status==="active")||null;
+    const opponentSelect=$("warOpponentSelect");
+    if(opponentSelect){
+      const previous=opponentSelect.value;opponentSelect.replaceChildren();
+      relations.forEach(relation=>{
+        const option=document.createElement("option");option.value=relation.other_country_id;
+        option.textContent=relation.other_country_name;opponentSelect.append(option);
+      });
+      if(relations.some(relation=>String(relation.other_country_id)===previous))opponentSelect.value=previous;
+      opponentSelect.disabled=Boolean(activeWar);
+    }
+    const noWar=$("militaryNoWar"),warPanel=$("militaryActiveWar");
+    if(noWar)noWar.classList.toggle("hidden",Boolean(activeWar));
+    if(warPanel)warPanel.classList.toggle("hidden",!activeWar);
+    const status=$("militaryWarStatus");
+    if(status){status.textContent=activeWar?"ВОЙНА":"МИР";status.classList.toggle("war",Boolean(activeWar));}
+    if(activeWar){
+      const front=activeWar.front_state||{},control=Number(front.territoryControl??50);
+      setText("militaryOpponentName",activeWar.opponent_country_name);
+      setText("militaryFrontValue",control.toFixed(1)+"%");
+      const fill=$("militaryFrontControl");if(fill)fill.style.width=clamp(control,0,100)+"%";
+      setText("militaryFriendlyLosses",number(front.friendlyLosses||0,0));
+      setText("militaryEnemyLosses",number(front.enemyLosses||0,0));
+      setText("militaryBattleTurn",String(front.battleTurn||activeWar.turn_number||0));
+      const mode=$("militaryCommandMode");if(mode)mode.value=activeWar.command_mode||"ai";
+      const posture=$("militaryPosture");if(posture)posture.value=activeWar.strategic_posture||"balanced";
+      const report=activeWar.last_report||{};
+      setText("militaryWarReport",report.result
+        ?"Последний ход: "+report.result+". Потери сторон: "+number(report.friendlyLosses||0,0)+" / "+number(report.enemyLosses||0,0)+"."
+        :(activeWar.command_mode==="ai"?"Операциями руководит штаб ИИ. Его действия будут разрешаться по ходу игры.":"Вы управляете войсками вручную. Выберите подразделение и поставьте приказ на карте."));
+      const advance=$("advanceMilitaryWar");if(advance)advance.textContent=activeWar.command_mode==="ai"?"Запросить ход штаба ИИ":"Выполнить оперативный ход";
+    }
+    const patrolRoot=$("militaryPatrolList");
+    if(patrolRoot){
+      patrolRoot.replaceChildren();
+      const patrols=Array.isArray(payload.patrols)?payload.patrols:[];
+      if(!patrols.length)patrolRoot.append(node("div","loading-row","Патрульные маршруты ещё не созданы."));
+      patrols.forEach(patrol=>{
+        const row=node("div","military-patrol-row"),info=node("div","");
+        info.append(node("b","",patrol.patrol_name),node("small","",(patrol.unit_type||"Подразделение")+" · "+(patrol.status==="active"?"Активен":"Приостановлен")+" · "+(Array.isArray(patrol.route)?patrol.route.length:0)+" точек"));
+        row.append(info);
+        if(patrol.status==="active"){const button=node("button","","Пауза");button.type="button";button.dataset.pausePatrol=patrol.id;button.disabled=busy;row.append(button);}
+        patrolRoot.append(row);
+      });
+    }
+    renderMilitaryMap(payload);
+  }
+  function inverseMollweidePoint(x,y,width,height){
+    const theta=Math.asin(clamp(1-2*y/height,-1,1));
+    const sinLatitude=clamp((2*theta+Math.sin(2*theta))/Math.PI,-1,1);
+    const latitude=Math.asin(sinLatitude)*180/Math.PI;
+    const cosine=Math.max(0.0001,Math.cos(theta));
+    const longitude=(x-width/2)*2*Math.PI/(width*cosine)*180/Math.PI;
+    return {lat:clamp(latitude,-90,90),lon:clamp(longitude,-180,180)};
+  }
+  function svgNode(tag,attrs){
+    const element=document.createElementNS("http://www.w3.org/2000/svg",tag);
+    Object.entries(attrs||{}).forEach(([key,value])=>element.setAttribute(key,String(value)));
+    return element;
+  }
+  function mapFeatureCenter(feature,width,height){
+    const geometry=feature&&feature.geometry;if(!geometry)return null;
+    const polygons=geometry.type==="Polygon"?[geometry.coordinates]:geometry.type==="MultiPolygon"?geometry.coordinates:[];
+    let sx=0,sy=0,count=0;
+    polygons.forEach(polygon=>(polygon||[]).forEach((ring,ringIndex)=>{
+      if(ringIndex!==0)return;
+      const stride=Math.max(1,Math.floor(ring.length/90));
+      for(let i=0;i<ring.length;i+=stride){
+        const point=ring[i];if(!Array.isArray(point)||point.length<2)continue;
+        const p=mollweidePoint(point,width,height);sx+=p[0];sy+=p[1];count++;
+      }
+    }));
+    return count?{x:sx/count,y:sy/count}:null;
+  }
+  function renderMilitaryMap(payload){
+    const root=$("militaryMap");if(!root)return;
+    const saveKey=String(payload.game&&payload.game.id||"");
+    if(militaryMapState.saveKey!==saveKey){
+      militaryMapState={mode:"view",draft:[],justDragged:false,saveKey};
+      militaryMapView={scale:1,x:0,y:0};
+      const mode=$("militaryMapMode");if(mode)mode.value="view";
+      setText("militaryMapDraftStatus","Выберите режим патруля или ручного управления.");
+    }
+    root.replaceChildren(node("div","map-loading","Обновляем военную карту…"));
+    loadWorldGeoJSON().then(data=>{
+      if(!root.isConnected)return;
+      const width=1000,height=500,svg=svgNode("svg",{viewBox:"0 0 "+width+" "+height,role:"application","aria-label":"Интерактивная стратегическая карта"});
+      const ocean=svgNode("rect",{class:"military-ocean",width,height});svg.append(ocean);
+      const grid=svgNode("g",{class:"military-graticule"});
+      for(const lat of [-60,-30,0,30,60]){
+        let d="";
+        for(let lon=-180;lon<=180;lon+=4){const p=mollweidePoint([lon,lat],width,height);d+=(lon===-180?"M":"L")+p[0].toFixed(1)+","+p[1].toFixed(1);}
+        grid.append(svgNode("path",{d}));
+      }
+      svg.append(grid);
+      const layer=svgNode("g",{class:"military-map-layer"}),centers=new Map();
+      const war=(payload.wars||[]).find(item=>item.status==="active")||null;
+      const homeIso=String(payload.game&&payload.game.iso2||"").toUpperCase();
+      const enemyIso=String(war&&war.opponent_iso2||"").toUpperCase();
+      data.features.forEach(feature=>{
+        const props=feature.properties||{},eh=String(props.ISO_A2_EH||"").toUpperCase();
+        const code=(eh&&eh!=="-99"?eh:String(props.ISO_A2||"")).toUpperCase();
+        const path=svgNode("path",{d:geometryPath(feature.geometry,width,height),class:"military-country"+(code===homeIso?" home":"")+(code===enemyIso?" enemy":"")});
+        path.dataset.iso2=code;
+        const name=props.NAME_RU||props.NAME_EN||props.ADMIN||props.NAME||"Государство";
+        path.append(svgNode("title",{}));path.lastChild.textContent=name;
+        layer.append(path);
+        const center=mapFeatureCenter(feature,width,height);if(center)centers.set(code,center);
+      });
+      function label(x,y,text){const t=svgNode("text",{x,y,class:"map-label","text-anchor":"middle"});t.textContent=text;layer.append(t);}
+      function marker(x,y,type,name){
+        layer.append(svgNode("circle",{cx:x,cy:y,r:type==="home"?7:6,class:type==="home"?"military-home-marker":"military-enemy-marker"}));
+        label(x,y-12,name||"");
+      }
+      const home=centers.get(homeIso);
+      const enemy=centers.get(enemyIso);
+      if(home)marker(home.x,home.y,"home",payload.game.name_local||payload.game.name_en||"Ваше государство");
+      if(war&&enemy){
+        marker(enemy.x,enemy.y,"enemy",war.opponent_country_name);
+        if(home){
+          layer.append(svgNode("path",{d:"M"+home.x+","+home.y+" L"+enemy.x+","+enemy.y,class:"military-front-line"}));
+          const control=clamp(war.front_state&&war.front_state.territoryControl||50,0,100);
+          const ratio=1-control/100,fx=home.x+(enemy.x-home.x)*ratio,fy=home.y+(enemy.y-home.y)*ratio;
+          layer.append(svgNode("circle",{cx:fx,cy:fy,r:9,class:"military-front-marker"}));
+          label(fx,fy+23,"ФРОНТ · "+control.toFixed(0)+"%");
+        }
+      }
+      (payload.patrols||[]).filter(item=>item.status==="active").forEach(patrol=>{
+        const route=Array.isArray(patrol.route)?patrol.route:[];
+        if(route.length<2)return;
+        const points=route.map(point=>mollweidePoint([Number(point.lon),Number(point.lat)],width,height));
+        layer.append(svgNode("polyline",{points:points.map(p=>p[0]+","+p[1]).join(" "),class:"military-route-line"}));
+        points.forEach(point=>layer.append(svgNode("circle",{cx:point[0],cy:point[1],r:3.5,class:"military-route-dot"})));
+      });
+      if(militaryMapState.draft.length){
+        const points=militaryMapState.draft.map(point=>mollweidePoint([point.lon,point.lat],width,height));
+        if(points.length>1)layer.append(svgNode("polyline",{points:points.map(p=>p[0]+","+p[1]).join(" "),class:"military-route-line"}));
+        points.forEach(point=>layer.append(svgNode("circle",{cx:point[0],cy:point[1],r:4.5,class:"military-route-dot"}));
+      }
+      svg.append(layer);root.replaceChildren(svg);
+      function applyTransform(){
+        layer.setAttribute("transform","translate("+militaryMapView.x+" "+militaryMapView.y+") translate(500 250) scale("+militaryMapView.scale+") translate(-500 -250)");
+        setText("militaryZoomReset",Math.round(militaryMapView.scale*100)+"%");
+      }
+      applyTransform();
+      svg.addEventListener("wheel",event=>{
+        event.preventDefault();
+        const factor=event.deltaY<0?1.18:1/1.18;
+        militaryMapView.scale=clamp(militaryMapView.scale*factor,1,6);
+        applyTransform();
+      },{passive:false});
+      let drag=null;
+      svg.addEventListener("pointerdown",event=>{
+        if(event.button!==0)return;
+        drag={x:event.clientX,y:event.clientY,baseX:militaryMapView.x,baseY:militaryMapView.y,moved:false};
+        try{svg.setPointerCapture(event.pointerId);}catch(_){}
+      });
+      svg.addEventListener("pointermove",event=>{
+        if(!drag)return;
+        const rect=svg.getBoundingClientRect(),dx=(event.clientX-drag.x)*width/Math.max(1,rect.width),dy=(event.clientY-drag.y)*height/Math.max(1,rect.height);
+        if(Math.abs(dx)+Math.abs(dy)>4)drag.moved=true;
+        if(drag.moved){militaryMapView.x=drag.baseX+dx;militaryMapView.y=drag.baseY+dy;applyTransform();}
+      });
+      svg.addEventListener("pointerup",()=>{
+        if(drag&&drag.moved){militaryMapState.justDragged=true;setTimeout(()=>{militaryMapState.justDragged=false;},180);}
+        drag=null;
+      });
+      svg.addEventListener("pointercancel",()=>{drag=null;});
+      svg.addEventListener("click",event=>{
+        if(militaryMapState.justDragged||militaryMapState.mode==="view")return;
+        const point=svg.createSVGPoint();point.x=event.clientX;point.y=event.clientY;
+        const local=point.matrixTransform(layer.getScreenCTM().inverse());
+        const geo=inverseMollweidePoint(local.x,local.y,width,height);
+        if(militaryMapState.mode==="patrol"){
+          if(militaryMapState.draft.length>=8)return toast("В маршруте патруля уже восемь точек.");
+          militaryMapState.draft.push(geo);
+          setText("militaryMapDraftStatus","Точек маршрута: "+militaryMapState.draft.length+" · требуется минимум две.");
+          const save=$("saveMilitaryPatrol");if(save)save.disabled=militaryMapState.draft.length<2;
+          renderMilitaryMap(currentPayload||payload);
+          return;
+        }
+        if(militaryMapState.mode==="order"){
+          if(!war)return toast("Сначала начните военный конфликт.");
+          const unitId=$("militaryMapUnit").value,orderType=$("militaryMapOrder").value;
+          const objective=orderType==="advance"?"Достичь указанного района":orderType==="defend"?"Защитить указанный район":"Выполнить приказ в отмеченной точке";
+          void runMilitaryAction({action:"issue_order",warId:war.id,unitId,orderType,targetLat:geo.lat,targetLon:geo.lon,objective},null,"Приказ передан подразделению.");
+        }
+      });
+    }).catch(error=>root.replaceChildren(node("div","map-loading","Не удалось загрузить оперативную карту: "+(error.message||"ошибка данных"))));
+  }
+  function runMilitaryAction(payload,button,message){
+    if(!currentGame||busy)return Promise.resolve();
+    return withBusy(button,()=>api()("/api/presidential/game/military",{method:"POST",body:JSON.stringify(payload)}),message).catch(()=>{});
+  }
+
   const DEFAULT_CONSTITUTION_ARTICLES=[
     {id:"executive",title:"Исполнительная власть",text:"Полномочия главы государства ограничены Конституцией, законом и механизмами парламентского и судебного контроля."},
     {id:"legislature",title:"Законодательная власть",text:"Законодательная власть осуществляется парламентом, избираемым на основе всеобщего и равного избирательного права."},
