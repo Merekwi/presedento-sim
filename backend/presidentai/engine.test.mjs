@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import {
   sanitizeDeltas, applyStateDeltas, applyGroupDeltas,
   coupProbability, resolveCoup, updateElection, normalizeTreaties,
-  initializeElectionBaseline, isDuplicateCampaignAction, applyCampaignEventEffects
+  initializeElectionBaseline, isDuplicateCampaignAction, applyCampaignEventEffects,
+  applyCampaignActionEffects
 } from "./engine.mjs";
 
 test("AI deltas accept only known numeric metrics and enforce limits", () => {
@@ -64,29 +65,30 @@ test("new election baseline starts well below a 50 percent majority and is idemp
   const first = initializeElectionBaseline(current, "save-123");
   const support = first.state.election.candidateSupport;
   assert.equal(first.changed, true);
-  assert.ok(support >= 18 && support <= 26);
+  assert.ok(support >= 32 && support <= 40);
   assert.equal(first.state.election.oppositionSupport, 100 - support);
-  assert.ok(first.state.election.voterGroups.workers < 30);
-  assert.ok(first.state.election.voterGroups.business < 35);
+  assert.ok(first.state.election.voterGroups.workers >= 8);
+  assert.ok(first.state.election.voterGroups.business <= 70);
   const second = initializeElectionBaseline(first.state, "save-123");
   assert.equal(second.changed, false);
   assert.equal(second.state.election.candidateSupport, support);
 });
 
-test("baseline normalization preserves a small amount of early campaign progress", () => {
+test("baseline upgrade preserves progress already made in an existing campaign", () => {
   const current = {
     phase: "election_campaign",
+    difficulty: "normal",
     election: {
-      candidateSupport: 48,
-      voterGroups: { workers: 54, business: 43 },
-      issueIndex: 1,
+      baselineVersion: 2, startingSupport: 24, candidateSupport: 28,
+      voterGroups: { workers: 31, business: 27 }, issueIndex: 1,
       decisions: [{ playerProposal: "proposal" }]
     },
     politicalActions: [{ text: "town hall meeting" }]
   };
   const result = initializeElectionBaseline(current, "existing-save");
-  assert.ok(result.state.election.candidateSupport < 30);
+  assert.ok(result.state.election.candidateSupport >= 36);
   assert.ok(result.state.election.candidateSupport > result.state.election.startingSupport);
+  assert.equal(result.state.election.baselineVersion, 3);
 });
 
 test("duplicate campaign actions are detected after whitespace and punctuation normalization", () => {
@@ -103,7 +105,7 @@ test("debate and press event effects shift polls gradually and retain realistic 
   };
   const result = applyCampaignEventEffects(current, {
     workers: 4, business: 4, rural: 4, youth: 4, publicSector: 4, conservative: 4
-  });
+  }, "hard");
   assert.equal(result.election.candidateSupport, 24.4);
   assert.equal(result.election.oppositionSupport, 75.6);
   assert.equal(result.supportDelta, 0.45);
@@ -115,7 +117,27 @@ test("a poor debate answer can reduce support, but never by more than 0.45 per r
   const result = applyCampaignEventEffects({
     candidateSupport: 24,
     voterGroups: { workers: 20, business: 20, rural: 20, youth: 20, publicSector: 20, conservative: 20 }
-  }, { workers: -4, business: -4, rural: -4, youth: -4, publicSector: -4, conservative: -4 });
+  }, { workers: -4, business: -4, rural: -4, youth: -4, publicSector: -4, conservative: -4 }, "hard");
   assert.equal(result.supportDelta, -0.45);
   assert.equal(result.election.candidateSupport, 23.6);
+});
+
+test("difficulty profiles give normal mode a more attainable starting position", () => {
+  const make = difficulty => initializeElectionBaseline({
+    phase: "election_campaign", difficulty,
+    election: { candidateSupport: 20, voterGroups: {}, decisions: [], issueIndex: 0 }
+  }, "difficulty-test").state.election;
+  const normal = make("normal"), easy = make("easy"), hard = make("hard");
+  assert.ok(normal.startingSupport >= 32 && normal.startingSupport <= 40);
+  assert.ok(easy.startingSupport >= 42 && easy.startingSupport <= 50);
+  assert.ok(hard.startingSupport >= 18 && hard.startingSupport <= 26);
+});
+
+test("normal difficulty makes campaign action effects more meaningful than hard mode", () => {
+  const current = { candidateSupport: 30, voterGroups: { workers: 30, business: 30, rural: 30, youth: 30, publicSector: 30, conservative: 30 } };
+  const input = { workers: 2, business: 2, rural: 2, youth: 2, publicSector: 2, conservative: 2 };
+  const normal = applyCampaignActionEffects(current, input, "normal");
+  const hard = applyCampaignActionEffects(current, input, "hard");
+  assert.ok(normal.supportDelta > hard.supportDelta);
+  assert.equal(current.candidateSupport, 30);
 });
