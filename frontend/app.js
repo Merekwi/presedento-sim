@@ -1541,17 +1541,25 @@
     openAiDiplomacy(button.dataset.aiDiplomacy,button.dataset.country||"Иностранное государство");
   });
 
-  $("appoint").addEventListener("click",()=>$("ministerDialog").showModal());
+  $("appoint").addEventListener("click",()=>{
+    const reserve=$("ministerCandidates");
+    if(reserve)reserve.scrollIntoView({behavior:"smooth",block:"center"});
+    toast("Выберите кандидата из кадрового резерва и изучите его характеристики.");
+  });
   $("cancelMinister").addEventListener("click",()=>$("ministerDialog").close());
+  $("ministerCandidates").addEventListener("click",event=>{
+    const button=event.target.closest("[data-select-minister-candidate]");if(!button||busy)return;
+    const candidate=(currentPayload&&currentPayload.ministers||[]).find(item=>item.id===button.dataset.selectMinisterCandidate&&item.is_candidate);
+    if(!candidate)return;
+    openMinisterAssignment(candidate);
+  });
   $("ministerForm").addEventListener("submit",async event=>{
     event.preventDefault();
-    const payload={
-      action:"appoint",name:$("ministerName").value.trim(),portfolio:$("ministerPortfolio").value,
-      age:Number($("ministerAge").value),portraitId:$("ministerPortrait").value
-    };
+    const candidateId=$("ministerCandidateId").value,portfolio=$("ministerPortfolio").value;
+    if(!candidateId)return toast("Сначала выберите кандидата.");
     try{
-      await withBusy(event.submitter,()=>api()("/api/presidential/game/minister",{method:"POST",body:JSON.stringify(payload)}),"Министр назначен: качества и специализация определены.");
-      $("ministerDialog").close();$("ministerForm").reset();$("ministerAge").value=45;
+      await withBusy(event.submitter,()=>api()("/api/presidential/game/minister",{method:"POST",body:JSON.stringify({action:"appoint",candidateId,portfolio})}),"Кандидат назначен на выбранный мандат.");
+      $("ministerDialog").close();selectedMinisterCandidate=null;
     }catch(_){}
   });
   $("ministers").addEventListener("click",async event=>{
@@ -1561,6 +1569,89 @@
     try{await withBusy(button,()=>api()("/api/presidential/game/minister",{method:"POST",body:JSON.stringify({action:"dismiss",ministerId:button.dataset.dismissMinister})}),name+" отправлен в отставку.");}catch(_){}
   });
 
+  $("militaryServiceLaw").addEventListener("change",()=>{});
+  $("saveMilitaryService").addEventListener("click",()=>runMilitaryAction({action:"service_law",service:$("militaryServiceLaw").value},$("saveMilitaryService"),"Закон о военной службе утверждён."));
+  $("saveMilitaryContracts").addEventListener("click",()=>runMilitaryAction({action:"contract_terms",salaryIndex:Number($("militaryContractSalary").value)},$("saveMilitaryContracts"),"Обновлены условия контрактной службы."));
+  $("militaryContractSalary").addEventListener("input",()=>setText("militarySalaryValue",Number($("militaryContractSalary").value).toFixed(2).replace(".",",")+"×"));
+  $("militaryBudgetShare").addEventListener("input",()=>setText("militaryBudgetValue",Number($("militaryBudgetShare").value).toFixed(1).replace(".",",")+"%"));
+  $("militaryResearchShare").addEventListener("input",()=>setText("militaryResearchShareValue",Number($("militaryResearchShare").value)+"%"));
+  $("saveMilitaryBudget").addEventListener("click",()=>runMilitaryAction({
+    action:"budget",shareOfGdp:Number($("militaryBudgetShare").value),researchShare:Number($("militaryResearchShare").value)/100
+  },$("saveMilitaryBudget"),"Военный бюджет и доля исследований обновлены."));
+  $("startMilitaryResearch").addEventListener("click",()=>runMilitaryAction({action:"research",techId:$("militaryResearchSelect").value},$("startMilitaryResearch"),"Новое направление стало приоритетом военных исследований."));
+  $("mobilizeMilitaryReserve").addEventListener("click",()=>{
+    const amount=Number($("militaryMobilizeCount").value||0);
+    if(!Number.isFinite(amount)||amount<1)return toast("Укажите численность резервистов для мобилизации.");
+    if(!confirm("Призвать до "+number(amount,0)+" подготовленных резервистов? Это решение повлияет на общество и рынок труда."))return;
+    runMilitaryAction({action:"mobilize",personnel:amount},$("mobilizeMilitaryReserve"),"Распоряжение о мобилизации исполнено в пределах закона и доступного резерва.");
+  });
+  $("defense").addEventListener("click",event=>{
+    const program=event.target.closest("[data-military-program]");
+    if(program&&!busy){
+      const labels={modernization:"модернизацию армии",reserve_training:"подготовку резерва",contract_recruitment:"развитие контрактной службы"};
+      if(!confirm("Запустить государственную программу: "+(labels[program.dataset.militaryProgram]||"военную программу")+"? Она потребует первоначального и ежемесячного финансирования."))return;
+      runMilitaryAction({action:"start_program",programId:program.dataset.militaryProgram},program,"Государственная военная программа запущена.");
+      return;
+    }
+    const cancelProgram=event.target.closest("[data-cancel-military-program]");
+    if(cancelProgram&&!busy){
+      if(!confirm("Остановить эту военную государственную программу? Уже потраченные средства не возвращаются."))return;
+      runMilitaryAction({action:"cancel_program",programId:cancelProgram.dataset.cancelMilitaryProgram},cancelProgram,"Военная программа остановлена.");
+      return;
+    }
+    const pausePatrol=event.target.closest("[data-pause-patrol]");
+    if(pausePatrol&&!busy)runMilitaryAction({action:"cancel_patrol",patrolId:pausePatrol.dataset.pausePatrol},pausePatrol,"Патрульный маршрут приостановлен.");
+  });
+  $("startMilitaryWar").addEventListener("click",()=>{
+    const opponentCountryId=Number($("warOpponentSelect").value),warGoal=$("warGoalInput").value.trim();
+    if(!opponentCountryId)return toast("Выберите государство-противника.");
+    if(!confirm("Начать военный конфликт? После подтверждения штаб ИИ начнёт оперативные действия, пока вы не измените режим управления."))return;
+    runMilitaryAction({action:"start_war",opponentCountryId,warGoal},$("startMilitaryWar"),"Военный конфликт начат. Управление передано штабу ИИ.");
+  });
+  $("saveMilitaryDirective").addEventListener("click",()=>{
+    const war=(currentPayload&&currentPayload.wars||[]).find(item=>item.status==="active");if(!war)return;
+    runMilitaryAction({action:"war_command",warId:war.id,commandMode:$("militaryCommandMode").value,posture:$("militaryPosture").value},$("saveMilitaryDirective"),"Военная директива передана штабу.");
+  });
+  $("advanceMilitaryWar").addEventListener("click",()=>{
+    const war=(currentPayload&&currentPayload.wars||[]).find(item=>item.status==="active");if(!war)return;
+    if(!confirm(war.command_mode==="ai"?"Запросить следующий оперативный ход штаба ИИ?":"Выполнить оперативный ход по вашим приказам?"))return;
+    runMilitaryAction({action:"advance_war_turn",warId:war.id},$("advanceMilitaryWar"),"Оперативный ход завершён. Сводка обновлена.");
+  });
+  $("ceaseMilitaryWar").addEventListener("click",()=>{
+    const war=(currentPayload&&currentPayload.wars||[]).find(item=>item.status==="active");if(!war)return;
+    if(!confirm("Запросить прекращение огня и завершить активную фазу конфликта?"))return;
+    runMilitaryAction({action:"ceasefire",warId:war.id},$("ceaseMilitaryWar"),"Активные боевые действия прекращены.");
+  });
+  $("militaryMapMode").addEventListener("change",()=>{
+    militaryMapState.mode=$("militaryMapMode").value;
+    if(militaryMapState.mode==="patrol"){
+      militaryMapState.draft=[];
+      setText("militaryMapDraftStatus","Отметьте на карте от двух до восьми точек патрульного маршрута.");
+      $("saveMilitaryPatrol").disabled=true;
+    }else if(militaryMapState.mode==="order"){
+      setText("militaryMapDraftStatus","Выберите подразделение и отметьте целевую точку приказа.");
+    }else setText("militaryMapDraftStatus","Режим обзора: карта не принимает приказы.");
+  });
+  $("saveMilitaryPatrol").addEventListener("click",()=>{
+    if(militaryMapState.draft.length<2)return toast("Для маршрута нужно отметить минимум две точки.");
+    const unitId=$("militaryMapUnit").value;
+    if(!unitId)return toast("Выберите подразделение для патруля.");
+    runMilitaryAction({
+      action:"create_patrol",unitId,name:$("militaryPatrolName").value.trim(),
+      patrolType:$("militaryPatrolType").value,route:militaryMapState.draft
+    },$("saveMilitaryPatrol"),"Патрульный маршрут сохранён.");
+    militaryMapState.draft=[];
+    militaryMapState.mode="view";$("militaryMapMode").value="view";
+    $("saveMilitaryPatrol").disabled=true;
+  });
+  $("clearMilitaryMapDraft").addEventListener("click",()=>{
+    militaryMapState.draft=[];setText("militaryMapDraftStatus","Точки карты очищены.");
+    $("saveMilitaryPatrol").disabled=true;
+    if(currentPayload)renderMilitaryMap(currentPayload);
+  });
+  $("militaryZoomIn").addEventListener("click",()=>changeMilitaryMapZoom(1.2));
+  $("militaryZoomOut").addEventListener("click",()=>changeMilitaryMapZoom(1/1.2));
+  $("militaryZoomReset").addEventListener("click",()=>{militaryMapView={scale:1,x:0,y:0};applyMilitaryMapTransform();});
   $("decreeHistory").addEventListener("click",event=>{
     const button=event.target.closest("[data-open-decree]");if(!button)return;
     const decree=decreeCache.get(String(button.dataset.openDecree));if(!decree)return;
