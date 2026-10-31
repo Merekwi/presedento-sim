@@ -3,6 +3,7 @@ name: Test AI political engine
 on:
   push:
     branches:
+      - main
       - feature/ai-political-engine
   pull_request:
     branches:
