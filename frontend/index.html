@@ -259,8 +259,10 @@
                   </div>
                   <label for="militaryCommandMode">Кто управляет войсками</label>
                   <select id="militaryCommandMode"><option value="ai">Военный штаб ИИ</option><option value="manual">Президент · ручное управление</option></select>
-                  <label for="militaryPosture">Стратегическая директива</label>
+                  <label for="militaryPosture">Стратегическая позиция</label>
                   <select id="militaryPosture"><option value="defensive">Оборона и удержание позиций</option><option value="balanced">Сбалансированные действия</option><option value="offensive">Наступательная операция</option></select>
+                  <label for="militaryAiDirective">Личный приказ президента штабу</label>
+                  <textarea id="militaryAiDirective" rows="3" maxlength="1200" placeholder="Например: удерживать оборонительные рубежи, избегать неоправданных потерь, обеспечить снабжение и подготовить разведданные перед следующим наступлением."></textarea>
                   <div class="military-war-buttons">
                     <button type="button" id="saveMilitaryDirective" class="secondary-button">Передать директиву</button>
                     <button type="button" id="advanceMilitaryWar" class="primary-button">Следующий оперативный ход</button>
