@@ -183,6 +183,8 @@
       while(true){
         const item=outbox.find(entry=>entry.status==="queued");
         if(!item)break;
+        const itemIndex=outbox.findIndex(entry=>entry.id===item.id);
+        if(outbox.slice(0,itemIndex).some(entry=>entry.status==="failed"))break;
         const saveId=activeSaveId();
         if((item.saveId&&item.saveId!==saveId)||(!currentGame&&item.route!=="/api/presidential/game/new")){
           item.status="blocked";item.error="Кампания уже изменилась или завершилась. Запрос сохранён, но не отправлен в другое сохранение.";
