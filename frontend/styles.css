@@ -777,3 +777,178 @@ button:disabled{opacity:.48;cursor:not-allowed}
 .minister-fixed-ratings p{margin:8px 0 0;color:#7b8996;font-size:9px;line-height:1.55}
 @media(max-width:950px){.program-catalog{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:620px){.program-catalog,.active-programs{grid-template-columns:1fr}.program-section-actions{align-items:flex-start;flex-direction:column}.program-card p{min-height:0}}
+
+
+/* Strong, self-contained panels for the Government Programs workspace. */
+#programs{
+  position:relative;
+  margin:34px 0 42px;
+  padding:26px;
+  border:1px solid #dce5eb;
+  border-radius:20px;
+  background:linear-gradient(145deg,#f8fbfd 0%,#eef3f7 100%);
+  box-shadow:0 14px 38px rgba(24,48,72,.08);
+}
+#programs .section-title{
+  align-items:center;
+  margin:0 0 22px;
+  padding:0 0 19px;
+  border-bottom:1px solid #dfe7ed;
+}
+#programs .section-title h2{
+  font-size:25px;
+  letter-spacing:-.8px;
+  color:#1e3449;
+}
+#programs .section-title p{
+  max-width:660px;
+  margin-top:6px;
+  font-size:12px;
+  line-height:1.65;
+  color:#64788b;
+}
+#programs .program-section-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:12px;
+}
+#programs .program-section-actions .secondary-button{
+  min-height:42px;
+  padding:10px 15px;
+  border:1px solid #b9cec9;
+  border-radius:9px;
+  background:#fff;
+  color:#276f64;
+  box-shadow:0 3px 10px rgba(33,91,79,.07);
+  font-size:11px;
+  font-weight:800;
+}
+#programs .active-programs{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:14px;
+  margin:0 0 20px;
+}
+#programs .programs-empty{
+  min-height:72px;
+  display:flex;
+  align-items:center;
+  padding:19px 21px;
+  border:1px dashed #c5d2dc;
+  border-radius:13px;
+  background:rgba(255,255,255,.78);
+  color:#65798c;
+  font-size:12px;
+}
+#programs .active-program-card{
+  padding:19px;
+  border:1px solid #d9e3e9;
+  border-radius:14px;
+  background:#fff;
+  box-shadow:0 5px 18px rgba(28,52,74,.055);
+}
+#programs .active-program-head b{font-size:13px;color:#233c52}
+#programs .active-program-head small{font-size:10px}
+#programs .program-catalog{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:15px;
+  padding:19px;
+  border:1px solid #dce5eb;
+  border-radius:16px;
+  background:rgba(255,255,255,.72);
+}
+#programs .program-card{
+  display:flex;
+  flex-direction:column;
+  min-height:218px;
+  padding:19px;
+  border:1px solid #dce4e9;
+  border-radius:13px;
+  background:#fff;
+  box-shadow:0 4px 14px rgba(26,49,70,.055);
+  transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease;
+}
+#programs .program-card:hover{
+  transform:translateY(-2px);
+  border-color:#b4cbc5;
+  box-shadow:0 10px 24px rgba(26,70,62,.10);
+}
+#programs .program-card-top{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:9px;
+}
+#programs .program-card-top span:first-child{
+  color:#507a76;
+  font-size:9px;
+  font-weight:900;
+  letter-spacing:.09em;
+}
+#programs .program-card-top span:last-child{
+  padding:5px 7px;
+  border-radius:6px;
+  background:#f0f4f7;
+  color:#687d90;
+  font-size:9px;
+  font-weight:800;
+  white-space:nowrap;
+}
+#programs .program-card h3{
+  margin:17px 0 9px;
+  color:#20384e;
+  font:800 16px/1.35 Manrope,system-ui,sans-serif;
+  letter-spacing:-.3px;
+}
+#programs .program-card p{
+  min-height:52px;
+  margin:0;
+  color:#6b7d8e;
+  font-size:11px;
+  line-height:1.65;
+}
+#programs .program-foot{
+  align-items:center;
+  margin-top:auto;
+  padding-top:15px;
+}
+#programs .program-foot>span{
+  max-width:58%;
+  color:#82909d;
+  font-size:9px;
+  line-height:1.45;
+}
+#programs .program-foot button{
+  min-width:94px;
+  min-height:36px;
+  padding:8px 13px;
+  border:1px solid #c8dcd6;
+  border-radius:8px;
+  background:#eaf3f0;
+  color:#246f63;
+  font-size:10px;
+  font-weight:900;
+  transition:background .15s,border-color .15s;
+}
+#programs .program-foot button:not(:disabled):hover{
+  border-color:#8db5a9;
+  background:#dcece6;
+}
+#programs .program-foot button:disabled{
+  opacity:.52;
+  cursor:not-allowed;
+}
+@media(max-width:980px){
+  #programs .program-catalog{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:680px){
+  #programs{padding:17px;border-radius:14px}
+  #programs .section-title{align-items:flex-start;flex-direction:column}
+  #programs .program-section-actions{justify-content:flex-start;flex-wrap:wrap}
+  #programs .active-programs,#programs .program-catalog{grid-template-columns:1fr}
+  #programs .program-catalog{padding:11px}
+  #programs .program-card{min-height:0}
+  #programs .program-card p{min-height:0}
+}
