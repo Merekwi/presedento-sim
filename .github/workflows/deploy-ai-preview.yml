@@ -39,7 +39,7 @@ jobs:
           npm test
       - name: Install Neon CLI
         run: npm install --global neon
-      - name: Retrieve isolated preview database connection
+      - name: Retrieve the current game database connection
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
         run: |
@@ -48,7 +48,7 @@ jobs:
           RESPONSE=$(curl --fail --silent --show-error --get \
             "https://console.neon.tech/api/v2/projects/wandering-pine-73026188/connection_uri" \
             --header "Authorization: Bearer $NEON_API_KEY" \
-            --data-urlencode "branch_id=br-late-wave-aksabx8j" \
+            --data-urlencode "branch_id=br-sweet-glitter-aklm9gv8" \
             --data-urlencode "database_name=neondb" \
             --data-urlencode "role_name=presidentapi")
           DB_URI=$(printf '%s' "$RESPONSE" | jq -er '.uri')
