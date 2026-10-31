@@ -275,7 +275,7 @@ export function initializeElectionBaseline(currentState, seed = "") {
     const existing = Number(currentGroups[key]);
     const spread = ((hash >>> (index * 3)) % 9) - 4;
     const baseline = Number.isFinite(existing) ? existing : currentSupport + spread;
-    voterGroups[key] = Number(clamp(baseline - adjustment, 5, 55).toFixed(1));
+    voterGroups[key] = Number(clamp(baseline + adjustment, 8, 70).toFixed(1));
   });
 
   state.election = {
