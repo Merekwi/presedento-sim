@@ -75,8 +75,8 @@ jobs:
           }
 
           const sourceApp = await readFile("frontend/app.js", "utf8");
-          for (const marker of ["async function electionRequest", "/api/presidential/game/election/decision", "function renderWorldMap", "./assets/portraits/"]) {
-            if (!sourceApp.includes(marker)) throw new Error("Committed frontend source is missing strategic game logic: " + marker);
+          for (const marker of ["function renderWorldMap", "./assets/portraits/", "data-election-proposal", "data-ai-diplomacy", "/api/presidential/ai/decree/draft", "/api/presidential/ai/election/action"]) {
+            if (!sourceApp.includes(marker)) throw new Error("Committed frontend source is missing AI-powered political game logic: " + marker);
           }
 
           const publishedGameHtml = await fetchHtmlUntil(
@@ -109,6 +109,17 @@ jobs:
             throw new Error("Presidential database health check failed: " + JSON.stringify(healthData));
           }
 
+          const aiApi = "https://br-nameless-term-b9ex7292-presidaidev.compute.c-7.eu-central-1.aws.neon.tech";
+          const aiHealthResponse = await fetch(aiApi + "/api/presidential/ai/health", { headers: { Origin: gameOrigin } });
+          const aiHealth = await aiHealthResponse.json();
+          if (!aiHealthResponse.ok || aiHealth.database !== true || Number(aiHealth.countryCount) < 20 ||
+              Number(aiHealth.activeSaves) < 1 || aiHealth.aiConfigured !== true) {
+            throw new Error("Presidential AI API health check failed: " + JSON.stringify(aiHealth));
+          }
+          if (aiHealthResponse.headers.get("access-control-allow-origin") !== gameOrigin) {
+            throw new Error("Presidential AI API CORS origin is incorrect.");
+          }
+
           const me = await fetch(api + "/api/presidential/me", { headers: { Origin: gameOrigin } });
           if (me.status !== 401) throw new Error("Unauthenticated /me should return 401, received " + me.status);
           if (me.headers.get("access-control-allow-origin") !== gameOrigin) throw new Error("Authenticated API route does not return game CORS headers.");
@@ -132,16 +143,18 @@ jobs:
             "/api/presidential/game/program",
             "/api/presidential/game/advance",
             "/api/presidential/game/minister",
-            "/api/presidential/game/diplomacy",
-            "/api/presidential/game/election/decision",
             "/api/presidential/game/election/vote",
             "/api/presidential/game/constitution/propose",
             "/api/presidential/game/constitution/parliament",
             "/api/presidential/game/constitution/referendum",
             "/api/presidential/game/referendum/propose",
             "/api/presidential/game/referendum/hold",
-            "/api/presidential/game/decree/draft",
-            "/api/presidential/game/decree/publish"
+            "/api/presidential/ai/decree/draft",
+            "/api/presidential/ai/decree/publish",
+            "/api/presidential/ai/election/decision",
+            "/api/presidential/ai/election/action",
+            "/api/presidential/ai/diplomacy/history?relationId=",
+            "/api/presidential/ai/diplomacy/message"
           ];
           for (const route of gameRoutes) {
             if (!appJs.includes(route)) throw new Error("Frontend is not wired to route " + route);
@@ -177,5 +190,22 @@ jobs:
             if (response.status !== 401) throw new Error(route + " must require authentication (401), received " + response.status);
           }
 
-          console.log("Passed: strategic election UI, randomized campaign setup, map and portraits assets, programmes, diplomacy, decrees, Telegram bridge, Neon health, CORS and signature rejection.");
+          const protectedAiRoutes = [
+            ["/api/presidential/ai/decree/draft", "POST", { order: "Подготовить проект закона о модернизации больниц." }],
+            ["/api/presidential/ai/decree/publish", "POST", { decreeId: "00000000-0000-0000-0000-000000000000" }],
+            ["/api/presidential/ai/election/decision", "POST", { proposal: "Увеличить доступность медицинской помощи в регионах." }],
+            ["/api/presidential/ai/election/action", "POST", { action: "Выступить перед работниками промышленных регионов и обсудить задержки зарплат." }],
+            ["/api/presidential/ai/diplomacy/message", "POST", { relationId: "00000000-0000-0000-0000-000000000000", message: "Предлагаю начать переговоры о торговом соглашении." }],
+            ["/api/presidential/ai/diplomacy/history?relationId=00000000-0000-0000-0000-000000000000", "GET", null]
+          ];
+          for (const [route, method, body] of protectedAiRoutes) {
+            const response = await fetch(aiApi + route, {
+              method,
+              headers: { Origin: gameOrigin, ...(body ? { "Content-Type": "application/json" } : {}) },
+              ...(body ? { body: JSON.stringify(body) } : {})
+            });
+            if (response.status !== 401) throw new Error("AI route " + route + " must require authentication (401), received " + response.status);
+          }
+
+          console.log("Passed: free-text election UI, AI decree and diplomacy routes, server authorization, randomized campaign setup, map and portrait assets, programmes, Telegram bridge, Neon health, CORS and signature rejection.");
           NODE
