@@ -746,3 +746,34 @@ button:disabled{opacity:.48;cursor:not-allowed}
   .campaign-event-live{padding:13px}
   .campaign-event-live-head{flex-direction:column}
 }
+
+
+/* Government programs and fixed minister profile. */
+.program-section-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.program-section-actions .secondary-button{white-space:nowrap}
+.program-catalog{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;margin-top:14px}
+.program-card,.active-program-card{min-width:0;padding:16px;border:1px solid #e1e7eb;border-radius:12px;background:#fff;box-shadow:0 3px 12px #20364a08}
+.program-card-top,.active-program-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.program-card-top span{font:800 8px Manrope,sans-serif;letter-spacing:.08em;color:#718397}
+.program-card h3{margin:10px 0 7px;color:#253b50;font:800 14px Manrope,sans-serif}
+.program-card p{min-height:46px;margin:0;color:#718091;font-size:10px;line-height:1.55}
+.program-foot,.active-program-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:14px;padding-top:11px;border-top:1px solid #edf0f2}
+.program-foot>span,.active-program-foot small{color:#778697;font-size:9px;line-height:1.45}
+.program-foot button,.active-program-foot button{flex:0 0 auto;border:1px solid #d5e2e0;border-radius:7px;padding:7px 10px;background:#edf5f3;color:#287568;font-size:9px;font-weight:800;cursor:pointer}
+.program-foot button:disabled,.program-section-actions button:disabled,.active-program-foot button:disabled{opacity:.48;cursor:not-allowed}
+.active-programs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.programs-empty{grid-column:1/-1;padding:15px 17px;border:1px dashed #d5dee5;border-radius:10px;background:#fafcfd;color:#718091;font-size:11px;line-height:1.6}
+.active-program-card{padding:14px}
+.active-program-head b{display:block;color:#2a4055;font-size:11px}
+.active-program-head small{display:block;margin-top:4px;color:#8491a0;font-size:9px}
+.program-running,.program-paused{flex:0 0 auto;padding:5px 7px;border-radius:5px;background:#edf5f3;color:#397c70;font-size:8px;font-weight:800}
+.program-paused{background:#f8f1e8;color:#9a713e}
+.program-progress{height:6px;margin-top:12px;overflow:hidden;border-radius:8px;background:#edf1f3}
+.program-progress i{display:block;height:100%;border-radius:8px;background:#6fa99b}
+.active-program-foot{margin-top:11px;padding-top:10px}
+.minister-fixed-ratings{margin:14px 0;padding:13px 14px;border:1px solid #dfe8e7;border-radius:10px;background:#f7faf9}
+.minister-fixed-ratings>div{display:flex;justify-content:space-between;gap:12px;padding:4px 0;color:#5f7181;font-size:11px}
+.minister-fixed-ratings strong{color:#27796b;font:800 12px Manrope,sans-serif}
+.minister-fixed-ratings p{margin:8px 0 0;color:#7b8996;font-size:9px;line-height:1.55}
+@media(max-width:950px){.program-catalog{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.program-catalog,.active-programs{grid-template-columns:1fr}.program-section-actions{align-items:flex-start;flex-direction:column}.program-card p{min-height:0}}
