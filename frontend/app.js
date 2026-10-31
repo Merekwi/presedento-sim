@@ -5,6 +5,7 @@
   let currentPayload = null, currentGame = null, draftId = null, busy = false;
   let selectedMinisterCandidate = null;
   let militaryMapView = { scale: 1, x: 0, y: 0 };
+  let militaryMapLayer = null;
   let militaryMapState = { mode: "view", draft: [], justDragged: false };
   const decreeCache = new Map();
 
@@ -672,6 +673,15 @@
     }));
     return count?{x:sx/count,y:sy/count}:null;
   }
+  function applyMilitaryMapTransform(){
+    if(!militaryMapLayer)return;
+    militaryMapLayer.setAttribute("transform","translate("+militaryMapView.x+" "+militaryMapView.y+") translate(500 250) scale("+militaryMapView.scale+") translate(-500 -250)");
+    setText("militaryZoomReset",Math.round(militaryMapView.scale*100)+"%");
+  }
+  function changeMilitaryMapZoom(factor){
+    militaryMapView.scale=clamp(militaryMapView.scale*Number(factor||1),1,6);
+    applyMilitaryMapTransform();
+  }
   function renderMilitaryMap(payload){
     const root=$("militaryMap");if(!root)return;
     const saveKey=String(payload.game&&payload.game.id||"");
@@ -693,7 +703,7 @@
         grid.append(svgNode("path",{d}));
       }
       svg.append(grid);
-      const layer=svgNode("g",{class:"military-map-layer"}),centers=new Map();
+      const layer=svgNode("g",{class:"military-map-layer"}),centers=new Map();militaryMapLayer=layer;
       const war=(payload.wars||[]).find(item=>item.status==="active")||null;
       const homeIso=String(payload.game&&payload.game.iso2||"").toUpperCase();
       const enemyIso=String(war&&war.opponent_iso2||"").toUpperCase();
@@ -738,10 +748,7 @@
         points.forEach(point=>layer.append(svgNode("circle",{cx:point[0],cy:point[1],r:4.5,class:"military-route-dot"})));
       }
       svg.append(layer);root.replaceChildren(svg);
-      function applyTransform(){
-        layer.setAttribute("transform","translate("+militaryMapView.x+" "+militaryMapView.y+") translate(500 250) scale("+militaryMapView.scale+") translate(-500 -250)");
-        setText("militaryZoomReset",Math.round(militaryMapView.scale*100)+"%");
-      }
+      function applyTransform(){applyMilitaryMapTransform();}
       applyTransform();
       svg.addEventListener("wheel",event=>{
         event.preventDefault();
