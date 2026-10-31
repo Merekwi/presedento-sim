@@ -3,6 +3,9 @@
   const $ = id => document.getElementById(id);
   const api = () => window.PRESIDENTIAL_AUTH && window.PRESIDENTIAL_AUTH.api;
   let currentPayload = null, currentGame = null, draftId = null, busy = false;
+  let selectedMinisterCandidate = null;
+  let militaryMapView = { scale: 1, x: 0, y: 0 };
+  let militaryMapState = { mode: "view", draft: [], justDragged: false };
   const decreeCache = new Map();
 
   const OUTBOX_PREFIX="presidential.ai.outbox.v1.";
@@ -375,27 +378,92 @@
     renderWorldMap(game.iso2);
   }
 
-  function renderMinisters(items){
-    const root=$("ministers");if(!root)return;root.replaceChildren();
-    if(!items||!items.length){root.append(node("div","loading-row","Состав правительства не сформирован."));return;}
-    items.forEach(minister=>{
-      const row=node("div","minister-row"),traits=minister.traits&&typeof minister.traits==="object"?minister.traits:{};
-      const avatar=node("div","minister-avatar");avatar.append(portraitNode(traits.portraitId||portraitIdFromName(minister.full_name),"portrait-svg"));
-      const info=node("div","minister-info");
-      info.append(node("b","",minister.full_name));
-      info.append(node("small","",minister.portfolio+" · "+minister.age+" лет"));
-      info.append(node("small","minister-reliability","Компетентность "+Number(minister.competence??50)+"/100 · Лояльность "+Number(minister.loyalty??50)+"/100"));
-      const score=node("div","minister-score","★ "+Number(minister.competence??50));
-      const dismiss=node("button","dismiss-button","×");dismiss.type="button";dismiss.title="Отправить министра в отставку";
-      dismiss.dataset.dismissMinister=minister.id;dismiss.dataset.ministerName=minister.full_name;dismiss.disabled=busy;
-      row.append(avatar,info,score,dismiss);root.append(row);
+  const MINISTER_SKILLS=[
+    ["finance","Финансы"],["foreignAffairs","Дипломатия"],["defense","Оборона"],
+    ["economy","Экономика"],["healthcare","Здравоохранение"],["education","Образование"],
+    ["internalAffairs","Внутренние дела"]
+  ];
+  const MINISTER_PORTFOLIO_SKILLS={
+    "Финансы":"finance","Иностранные дела":"foreignAffairs","Оборона":"defense",
+    "Экономика":"economy","Здравоохранение":"healthcare","Образование":"education","Внутренние дела":"internalAffairs"
+  };
+  function ministerSkillBars(skills,compact=false){
+    const root=node("div",compact?"minister-skill-grid compact":"minister-skill-grid");
+    MINISTER_SKILLS.forEach(([key,label])=>{
+      const value=clamp(Number(skills&&skills[key]||0),0,100);
+      const item=node("div","minister-skill-item"),head=node("div","minister-skill-head");
+      head.append(node("span","",label),node("b","",Math.round(value)+"/100"));
+      const track=node("div","minister-skill-track"),fill=node("i");
+      fill.style.width=value+"%";track.append(fill);item.append(head,track);root.append(item);
     });
+    return root;
+  }
+  function renderMinisters(items){
+    const all=Array.isArray(items)?items:[];
+    const appointed=all.filter(item=>!item.is_candidate);
+    const candidates=all.filter(item=>item.is_candidate);
+    const root=$("ministers");
+    if(root){
+      root.replaceChildren();
+      if(!appointed.length)root.append(node("div","loading-row","Кабинет пока не сформирован. Выберите министров из кадрового резерва."));
+      appointed.forEach(minister=>{
+        const row=node("article","minister-row minister-appointed-row"),traits=minister.traits&&typeof minister.traits==="object"?minister.traits:{};
+        const avatar=node("div","minister-avatar");avatar.append(portraitNode(traits.portraitId||portraitIdFromName(minister.full_name),"portrait-svg"));
+        const info=node("div","minister-info"),skillKey=MINISTER_PORTFOLIO_SKILLS[minister.portfolio],skill=Number(traits.skills&&traits.skills[skillKey]||minister.competence||50);
+        info.append(node("b","",minister.full_name));
+        info.append(node("small","",minister.portfolio+" · "+minister.age+" лет"));
+        info.append(node("small","minister-reliability","Навык по мандату "+skill+"/100 · Компетентность "+Number(minister.competence||0)+"/100 · Лояльность "+Number(minister.loyalty||0)+"/100"));
+        const score=node("div","minister-score","★ "+skill);
+        const dismiss=node("button","dismiss-button","×");dismiss.type="button";dismiss.title="Отправить министра в отставку";
+        dismiss.dataset.dismissMinister=minister.id;dismiss.dataset.ministerName=minister.full_name;dismiss.disabled=busy;
+        row.append(avatar,info,score,dismiss);root.append(row);
+      });
+    }
+    const reserve=$("ministerCandidates");
+    if(reserve){
+      reserve.replaceChildren();
+      if(!candidates.length)reserve.append(node("div","loading-row","Свободных кандидатов нет."));
+      candidates.forEach(candidate=>{
+        const card=node("article","minister-candidate-card"),traits=candidate.traits&&typeof candidate.traits==="object"?candidate.traits:{};
+        const top=node("div","minister-candidate-top"),avatar=node("div","minister-avatar");
+        avatar.append(portraitNode(traits.portraitId||portraitIdFromName(candidate.full_name),"portrait-svg"));
+        const identity=node("div","minister-candidate-identity");
+        identity.append(node("b","",candidate.full_name),node("small","",candidate.age+" лет · "+(traits.archetypeLabel||"Политический кандидат")));
+        top.append(avatar,identity);
+        const metrics=node("div","minister-candidate-metrics");
+        metrics.append(node("span","","Компетентность "+Number(candidate.competence||0)+"/100"),node("span","","Лояльность "+Number(candidate.loyalty||0)+"/100"));
+        const strengths=Array.isArray(traits.specializations)?traits.specializations:[];
+        if(strengths.length)card.append(top,node("div","minister-candidate-strengths","Сильные стороны: "+strengths.map(key=>MINISTER_SKILLS.find(item=>item[0]===key)?.[1]||key).join(" · ")),metrics);
+        else card.append(top,metrics);
+        card.append(ministerSkillBars(traits.skills,true));
+        const select=node("button","minister-select-button","Изучить кандидата и выбрать мандат →");
+        select.type="button";select.dataset.selectMinisterCandidate=candidate.id;select.disabled=busy;card.append(select);
+        reserve.append(card);
+      });
+    }
     const select=$("ministerPortfolio");
     if(select){
-      const occupied=new Set(items.map(item=>item.portfolio));
+      const occupied=new Set(appointed.map(item=>item.portfolio));
       Array.from(select.options).forEach(option=>option.disabled=occupied.has(option.value));
-      const free=Array.from(select.options).find(option=>!option.disabled);if(free)select.value=free.value;
+      const free=Array.from(select.options).find(option=>!option.disabled);
+      if(free)select.value=free.value;
     }
+  }
+  function openMinisterAssignment(candidate){
+    if(!candidate)return;
+    selectedMinisterCandidate=candidate;
+    $("ministerCandidateId").value=candidate.id;
+    const root=$("ministerCandidateSummary"),traits=candidate.traits&&typeof candidate.traits==="object"?candidate.traits:{};
+    root.replaceChildren();
+    const top=node("div","minister-selected-top"),avatar=node("div","minister-avatar");
+    avatar.append(portraitNode(traits.portraitId||portraitIdFromName(candidate.full_name),"portrait-svg"));
+    const info=node("div","");info.append(node("b","",candidate.full_name),node("small","",candidate.age+" лет · "+(traits.archetypeLabel||"Кандидат")));
+    top.append(avatar,info);root.append(top);
+    root.append(node("p","minister-selected-rating","Компетентность "+candidate.competence+"/100 · Лояльность "+candidate.loyalty+"/100"));
+    root.append(ministerSkillBars(traits.skills,false));
+    const free=Array.from($("ministerPortfolio").options).find(option=>!option.disabled);
+    if(free)$("ministerPortfolio").value=free.value;
+    $("ministerDialog").showModal();
   }
 
   function renderEvents(items){
