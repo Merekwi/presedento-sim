@@ -266,6 +266,9 @@ async function electionDecision(request, env, auth) {
   if (proposal.length < 10) throw Object.assign(new Error("Сформулируйте своё предложение подробнее"), { status: 400 });
   const current = safeObject(auth.game.state);
   const election = safeObject(current.election);
+  if (current.campaignEvent?.status === "active") {
+    throw Object.assign(new Error("Завершите текущее мероприятие, прежде чем менять позицию партии"), { status: 409 });
+  }
   if (!["election_campaign", "election"].includes(current.phase)) throw Object.assign(new Error("Сейчас нет активной избирательной кампании"), { status: 409 });
   const agenda = Array.isArray(election.agenda) ? election.agenda : [];
   const index = Math.max(0, Number(election.issueIndex || 0));
@@ -336,6 +339,9 @@ async function electionAction(request, env, auth) {
     if (inElection) liveState = initializeElectionBaseline(liveState, game.id).state;
 
     const actionPoints = Math.max(0, Number(liveState.actionPoints ?? 2));
+    if (inElection && liveState.campaignEvent?.status === "active") {
+      throw Object.assign(new Error("Сначала завершите начатое мероприятие кампании"), { status: 409 });
+    }
     if (actionPoints < 1) throw Object.assign(new Error("На этот игровой месяц закончились очки действий"), { status: 409 });
     let nextState, coup = null, appliedChanges = {};
     if (kind === "coup_attempt") {
@@ -602,7 +608,8 @@ async function electionEventRespond(request, env, auth) {
       voterEffects: groupResult.applied,
       createdAt: new Date().toISOString()
     });
-    const complete = Number(liveEvent.round) >= Number(liveEvent.maxRounds || config.maxRounds) || result.eventComplete === true;
+    const complete = Number(liveEvent.round) >= Number(liveEvent.maxRounds || config.maxRounds) ||
+      (Number(liveEvent.round) >= 2 && result.eventComplete === true);
     const nextEvent = {
       ...liveEvent,
       transcript,
