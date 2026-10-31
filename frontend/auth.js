@@ -152,6 +152,7 @@
       createUserBar();
       window.PRESIDENTIAL_AUTH = {
         api: request,
+        aiApi: aiRequest,
         get user() { return currentUser; },
         logout: logoutUser,
         setUser: value => { currentUser = value; }
@@ -164,6 +165,7 @@
   }
   window.PRESIDENTIAL_AUTH = {
     api: request,
+    aiApi: aiRequest,
     get user() { return currentUser; },
     logout: logoutUser
   };
