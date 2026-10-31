@@ -1,4 +1,5 @@
 import pg from "pg";
+import { attachDatabasePool } from "@neon/functions";
 import { createHash, randomInt } from "node:crypto";
 import {
   applyStateDeltas, applyGroupDeltas, sanitizeDeltas,
@@ -9,7 +10,10 @@ const { Pool } = pg;
 let pool;
 function database(env) {
   if (!env.PRESIDENTIAL_DATABASE_URL) throw new Error("PRESIDENTIAL_DATABASE_URL is not configured");
-  if (!pool) pool = new Pool({ connectionString: env.PRESIDENTIAL_DATABASE_URL, max: 5, idleTimeoutMillis: 10000, connectionTimeoutMillis: 10000 });
+  if (!pool) {
+    pool = new Pool({ connectionString: env.PRESIDENTIAL_DATABASE_URL, max: 5, idleTimeoutMillis: 10000, connectionTimeoutMillis: 10000 });
+    attachDatabasePool(pool);
+  }
   return pool;
 }
 function json(data, status, origin, extra = {}) {
