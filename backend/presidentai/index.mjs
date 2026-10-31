@@ -4,7 +4,8 @@ import { createHash, randomInt } from "node:crypto";
 import {
   applyStateDeltas, applyGroupDeltas, sanitizeDeltas,
   sanitizeGroupDeltas, updateElection, resolveCoup, normalizeTreaties, clamp,
-  initializeElectionBaseline, isDuplicateCampaignAction, applyCampaignEventEffects
+  initializeElectionBaseline, isDuplicateCampaignAction,
+  applyCampaignEventEffects, applyCampaignActionEffects
 } from "./engine.mjs";
 
 const { Pool } = pg;
@@ -135,6 +136,17 @@ function countryContext(game) {
     turn: game.turn_number,
     state: safeObject(game.state)
   };
+}
+
+function campaignDifficultyGuidance(value) {
+  const difficulty = String(value || "normal").toLowerCase();
+  if (difficulty === "easy") {
+    return "УРОВЕНЬ СЛОЖНОСТИ: ОБЛЕГЧЁННЫЙ. Будь поддерживающим наставником: доступно объясняй последствия, замечай сильные стороны и предлагай реалистичные улучшения. Разумные предложения должны получать заметную поддержку, но серьёзные противоречия и вредные решения всё равно имеют последствия. ";
+  }
+  if (difficulty === "hard") {
+    return "УРОВЕНЬ СЛОЖНОСТИ: СЛОЖНЫЙ. Сохраняй строгую оценку реалистичности, общественных компромиссов, бюджета и институтов; серьёзные ошибки должны ощутимо влиять на поддержку. ";
+  }
+  return "УРОВЕНЬ СЛОЖНОСТИ: ОБЫЧНЫЙ. Игрок не обязан быть экспертом в политике и экономике. Оценивай здравый смысл и основную идею, а не профессиональный жаргон, точные юридические статьи, сложные экономические модели или идеально расписанные бюджеты. Если цель понятна и способ действий в целом правдоподобен, не наказывай за недостающие технические детали: дай конкретный совет, как улучшить план, и оцени его нейтрально или умеренно положительно. Отрицательно оценивай прежде всего явные противоречия, заведомо невыполнимые обещания, коррупцию, насилие и отказ от демократических правил. Не делай все группы избирателей недовольными одной разумной инициативой. ";
 }
 function relationStatus(score) {
   if (score >= 65) return "allied";
@@ -275,7 +287,7 @@ async function electionDecision(request, env, auth) {
   const issue = agenda[index];
   if (!issue) throw Object.assign(new Error("Все вопросы программы уже рассмотрены"), { status: 409 });
   const result = await askAI(env,
-    "Ты политический аналитик в реалистичном симуляторе выборов. Разбери предложение кандидата и его выполнимость, стоимость, сроки, институциональные ограничения и вероятные компромиссы. Оцени реакцию рабочих, бизнеса, сельских жителей, молодёжи, госслужащих и консервативных избирателей. Верни JSON: decisionTitle (короткий заголовок), analysis (строго строка с содержательным разбором), publicReaction (строго строка), voterEffects (числовые дельты ключей workers,business,rural,youth,publicSector,conservative, каждая от -4 до 4), policyEffects (числовые дельты известных игровых метрик), credibilityDelta (-4..4), institutionalTrustDelta (-4..4), fiscalImpactPct (-2..2), feasibilityScore (0..100). Не делай всех групп одинаково довольными. Слабые, расплывчатые или финансово не обеспеченные обещания должны снижать доверие или поддержку. Один вопрос программы меняет поддержку максимум примерно на один процентный пункт, а не на десятки пунктов. Не возвращай объект вместо текста в полях analysis и publicReaction.",
+    "Ты политический аналитик в реалистичном симуляторе выборов. " + campaignDifficultyGuidance(current.difficulty) + "Разбери предложение кандидата и его выполнимость, стоимость, сроки, институциональные ограничения и вероятные компромиссы. Оцени реакцию рабочих, бизнеса, сельских жителей, молодёжи, госслужащих и консервативных избирателей. Верни JSON: decisionTitle (короткий заголовок), analysis (строго строка с содержательным разбором), publicReaction (строго строка), voterEffects (числовые дельты ключей workers,business,rural,youth,publicSector,conservative, каждая от -4 до 4), policyEffects (числовые дельты известных игровых метрик), credibilityDelta (-4..4), institutionalTrustDelta (-4..4), fiscalImpactPct (-2..2), feasibilityScore (0..100). Не делай всех групп одинаково довольными. На обычном уровне не считай отсутствие экспертной детализации достаточной причиной для снижения поддержки; различай сырой, но разумный план и заведомо невыполнимое обещание. Один вопрос программы меняет поддержку максимум примерно на один процентный пункт, а не на десятки пунктов. Не возвращай объект вместо текста в полях analysis и publicReaction.",
     { country: countryContext(auth.game), issue, existingProgram: election.decisions || [], proposal }, 1300);
   const applied = safeObject(result);
   const electionInput = {
@@ -315,7 +327,7 @@ async function electionAction(request, env, auth) {
   if (actionText.length < 8) throw Object.assign(new Error("Опишите действие подробнее"), { status: 400 });
   const initialState = safeObject(auth.game.state);
   const result = await askAI(env,
-    "Ты аналитик политической симуляции. Определи действие игрока и правдоподобные последствия. Классифицируй actionKind строго одним из: public_speech, public_service, campaigning, policy_promise, coalition, patronage, corruption, institutional_capture, coup_attempt, other. Верни JSON: actionKind, headline, analysis (строго строка), publicReaction (строго строка), changes (дельты игровых метрик), budgetCost (стоимость закупок в млрд долларов, только для public_service), voterEffects (workers,business,rural,youth,publicSector,conservative, каждая от -4 до 4), severity. Не превращай обычное выступление, встречу или агитацию в немедленный рост ВВП, госуслуг или одобрения. Для public_speech, campaigning, policy_promise и coalition не меняй макроэкономические показатели: учитывай только реакцию групп избирателей. Для public_service укажи умеренную стоимость, небольшое улучшение только относящихся к действию услуг и не повышай казначейство. Учитывай, что закупка оборудования увеличивает расходы и может немного повысить долг; не выдавай за неё бесплатные бюджетные улучшения. Для коррупции и патронажа всегда укажи рост коррупции и ухудшение институтов. Для институционального захвата ухудши демократию и доверие. Для попытки переворота не решай исход: его определит сервер. Один шаг кампании должен менять поддержку максимум примерно на один процентный пункт. Не возвращай объект вместо строк в analysis и publicReaction.",
+    "Ты аналитик политической симуляции. " + campaignDifficultyGuidance(initialState.difficulty) + "Определи действие игрока и правдоподобные последствия. Классифицируй actionKind строго одним из: public_speech, public_service, campaigning, policy_promise, coalition, patronage, corruption, institutional_capture, coup_attempt, other. Верни JSON: actionKind, headline, analysis (строго строка), publicReaction (строго строка), changes (дельты игровых метрик), budgetCost (стоимость закупок в млрд долларов, только для public_service), voterEffects (workers,business,rural,youth,publicSector,conservative, каждая от -4 до 4), severity. Не превращай обычное выступление, встречу или агитацию в немедленный рост ВВП, госуслуг или одобрения. Для public_speech, campaigning, policy_promise и coalition не меняй макроэкономические показатели: учитывай только реакцию групп избирателей. Для public_service укажи умеренную стоимость, небольшое улучшение только относящихся к действию услуг и не повышай казначейство. Учитывай, что закупка оборудования увеличивает расходы и может немного повысить долг; не выдавай за неё бесплатные бюджетные улучшения. Для коррупции и патронажа всегда укажи рост коррупции и ухудшение институтов. Для институционального захвата ухудши демократию и доверие. Для попытки переворота не решай исход: его определит сервер. Один шаг кампании должен менять поддержку максимум примерно на один процентный пункт. Не возвращай объект вместо строк в analysis и publicReaction.",
     { country: countryContext(auth.game), phase: initialState.phase || "government", recentActions: initialState.politicalActions || [], existingElection: initialState.election || null, action: actionText }, 1200);
   const kind = ACTION_KINDS.has(result.actionKind) ? result.actionKind : "other";
   const requestedChanges = sanitizeDeltas(result.changes);
@@ -397,15 +409,9 @@ async function electionAction(request, env, auth) {
 
     let appliedVoterEffects = {};
     if (nextState.election && Object.keys(requestedVoterEffects).length) {
-      const groups = applyGroupDeltas(nextState.election.voterGroups, requestedVoterEffects);
-      nextState.election.voterGroups = groups.groups;
-      appliedVoterEffects = groups.applied;
-      const values = Object.values(groups.applied);
-      const avg = values.length ? values.reduce((a,b)=>a+b,0) / values.length : 0;
-      const supportDelta = clamp(avg * 0.22, -0.8, 0.8);
-      const support = clamp(Number(nextState.election.candidateSupport ?? 22) + supportDelta, 5, 95);
-      nextState.election.candidateSupport = Number(support.toFixed(1));
-      nextState.election.oppositionSupport = Number((100-support).toFixed(1));
+      const campaignEffects = applyCampaignActionEffects(nextState.election, requestedVoterEffects, liveState.difficulty);
+      nextState.election = campaignEffects.election;
+      appliedVoterEffects = campaignEffects.applied;
     }
     nextState.actionPoints = actionPoints - 1;
     const headline = coup
@@ -554,7 +560,7 @@ async function electionEventRespond(request, env, auth) {
   }
   const config = CAMPAIGN_EVENT_TYPES[event.type] || CAMPAIGN_EVENT_TYPES.meeting;
   const result = await askAI(env,
-    "Ты политический аналитик, ведущий дебатов, журналист и исследователь общественного мнения. Оцени ответ кандидата на конкретный вопрос в реалистичной предвыборной кампании. Не будь доброжелательным по умолчанию: замечай уклонение от вопроса, противоречия предыдущим обещаниям, неподкреплённые цифры, популизм, реалистичность сроков и источников денег. Сильный конкретный ответ с механизмом исполнения может убедить часть аудитории; лозунги, нападение на вопрос и обещания без финансирования вызывают скепсис. Не делай все группы одинаково довольными. Верни JSON: analysis (содержательный разбор ответа, строка), publicReaction (реакция зала/избирателей, строка), voterEffects (числовые дельты workers,business,rural,youth,publicSector,conservative от -4 до 4), headline (заголовок прессы, строка), pressCoverage (как это подадут СМИ, строка), eventComplete (boolean), nextQuestioner (строка), nextQuestion (строка), nextTopic (строка). Если раундов ещё достаточно, задай новый конкретный уточняющий вопрос — не повторяй исходный. Не выдавай результат выборов и не меняй государственные показатели напрямую. Финансово нереалистичные ответы должны получать отрицательную реакцию тех групп, которые понесут издержки.",
+    "Ты политический аналитик, ведущий дебатов, журналист и исследователь общественного мнения. " + campaignDifficultyGuidance(currentState.difficulty) + " Оцени ответ кандидата на конкретный вопрос в реалистичной предвыборной кампании. Не будь доброжелательным по умолчанию: замечай уклонение от вопроса, противоречия предыдущим обещаниям, неподкреплённые цифры, популизм, реалистичность сроков и источников денег. Сильный конкретный ответ с механизмом исполнения может убедить часть аудитории; лозунги, нападение на вопрос и обещания без финансирования вызывают скепсис. Не делай все группы одинаково довольными. Верни JSON: analysis (содержательный разбор ответа, строка), publicReaction (реакция зала/избирателей, строка), voterEffects (числовые дельты workers,business,rural,youth,publicSector,conservative от -4 до 4), headline (заголовок прессы, строка), pressCoverage (как это подадут СМИ, строка), eventComplete (boolean), nextQuestioner (строка), nextQuestion (строка), nextTopic (строка). Если раундов ещё достаточно, задай новый конкретный уточняющий вопрос — не повторяй исходный. Не выдавай результат выборов и не меняй государственные показатели напрямую. Финансово нереалистичные ответы должны получать отрицательную реакцию тех групп, которые понесут издержки.",
     {
       country: countryContext(auth.game),
       currentIndicators: {
@@ -590,7 +596,7 @@ async function electionEventRespond(request, env, auth) {
     if (liveEvent.id !== eventId || liveEvent.status !== "active" || Number(liveEvent.round) !== Number(event.round)) {
       throw Object.assign(new Error("Раунд мероприятия уже изменился. Обновите страницу."), { status: 409 });
     }
-    const campaignEffects = applyCampaignEventEffects(safeObject(live.election), voterEffects);
+    const campaignEffects = applyCampaignEventEffects(safeObject(live.election), voterEffects, live.difficulty);
     const groupResult = { applied: campaignEffects.applied };
     const supportDelta = campaignEffects.supportDelta;
     live.election = campaignEffects.election;
