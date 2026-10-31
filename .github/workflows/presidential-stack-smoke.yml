@@ -23,6 +23,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+      - name: Validate frontend JavaScript
+        run: node --check frontend/app.js && node --check frontend/auth.js
       - name: Verify published pages, CORS and Telegram signature gate
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
@@ -77,7 +79,7 @@ jobs:
           }
 
           const sourceApp = await readFile("frontend/app.js", "utf8");
-          for (const marker of ["function renderWorldMap", "./assets/portraits/", "data-election-proposal", "data-election-tab-panel", "data-election-tab", "data-ai-diplomacy", "/api/presidential/ai/decree/draft", "/api/presidential/ai/election/action", "/api/presidential/ai/election/initialize"]) {
+          for (const marker of ["function renderWorldMap", "function renderMilitaryMap", "data-select-minister-candidate", "./assets/portraits/", "data-election-proposal", "data-election-tab-panel", "data-election-tab", "data-ai-diplomacy", "/api/presidential/game/military", "/api/presidential/ai/decree/draft", "/api/presidential/ai/election/action", "/api/presidential/ai/election/initialize"]) {
             if (!sourceApp.includes(marker)) throw new Error("Committed frontend source is missing AI-powered political game logic: " + marker);
           }
 
