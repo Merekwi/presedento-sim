@@ -977,7 +977,7 @@
       if(!result.game){currentGame=null;if(busy)needsSetupAfterBusy=true;else await openSetup();return;}
       const election=result.game.state&&result.game.state.election||{};
       const inElection=["election_campaign","election"].includes(String(result.game.state&&result.game.state.phase||""));
-      if(inElection&&Number(election.baselineVersion||0)<2&&window.PRESIDENTIAL_AUTH.aiApi){
+      if(inElection&&Number(election.baselineVersion||0)<3&&window.PRESIDENTIAL_AUTH.aiApi){
         try{
           await window.PRESIDENTIAL_AUTH.aiApi("/api/presidential/ai/election/initialize",{method:"POST",body:"{}"});
           result=await api()("/api/presidential/game/current");
