@@ -644,8 +644,12 @@
       const election=result.game.state&&result.game.state.election||{};
       const inElection=["election_campaign","election"].includes(String(result.game.state&&result.game.state.phase||""));
       if(inElection&&Number(election.baselineVersion||0)<2&&window.PRESIDENTIAL_AUTH.aiApi){
-        await window.PRESIDENTIAL_AUTH.aiApi("/api/presidential/ai/election/initialize",{method:"POST",body:"{}"});
-        result=await api()("/api/presidential/game/current");
+        try{
+          await window.PRESIDENTIAL_AUTH.aiApi("/api/presidential/ai/election/initialize",{method:"POST",body:"{}"});
+          result=await api()("/api/presidential/game/current");
+        }catch(baselineError){
+          console.warn("Election polling baseline was not normalized yet:",baselineError);
+        }
       }
       renderGame(result);
     }catch(error){setText("saveStatus","Ошибка сохранения");toast("Не удалось загрузить кампанию: "+error.message);}
