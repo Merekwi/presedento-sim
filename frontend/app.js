@@ -735,7 +735,7 @@
       if(militaryMapState.draft.length){
         const points=militaryMapState.draft.map(point=>mollweidePoint([point.lon,point.lat],width,height));
         if(points.length>1)layer.append(svgNode("polyline",{points:points.map(p=>p[0]+","+p[1]).join(" "),class:"military-route-line"}));
-        points.forEach(point=>layer.append(svgNode("circle",{cx:point[0],cy:point[1],r:4.5,class:"military-route-dot"}));
+        points.forEach(point=>layer.append(svgNode("circle",{cx:point[0],cy:point[1],r:4.5,class:"military-route-dot"})));
       }
       svg.append(layer);root.replaceChildren(svg);
       function applyTransform(){
@@ -1336,7 +1336,7 @@
     currentPayload=payload;currentGame=payload.game;
     renderIdentity(currentGame);renderMetrics(currentGame);renderElection(currentGame);
     renderMinisters(payload.ministers);renderEvents(payload.events);renderRelations(payload.relations);
-    renderUnits(payload.units);renderDecrees(payload.decrees);renderProjects(currentGame);renderInstitutions(currentGame);renderPoliticalActionPanel(currentGame);
+    renderUnits(payload.units);renderMilitary(payload);renderDecrees(payload.decrees);renderProjects(currentGame);renderInstitutions(currentGame);renderPoliticalActionPanel(currentGame);
     setText("saveStatus","Сохранение синхронизировано");
     const advance=$("advanceTurn"),newGame=$("newGame");
     if(advance)advance.disabled=busy||hasPendingBackgroundJobs()||["election_campaign","election"].includes(currentGame.state&&currentGame.state.phase);
