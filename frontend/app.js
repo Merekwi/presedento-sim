@@ -86,18 +86,24 @@
     if(retry){retry.hidden=!failed.some(item=>item.status==="failed");retry.disabled=outboxRunning;retry.textContent=failed.filter(item=>item.status==="failed").length>1?"Повторить запросы ("+failed.filter(item=>item.status==="failed").length+")":"Повторить запрос";}
     let discard=$("backgroundQueueDiscard");
     if(!discard&&host&&host.parentElement){
-      discard=node("button","background-queue-discard","Удалить запросы прошлой кампании");
+      discard=node("button","background-queue-discard","Удалить сохранённые запросы");
       discard.type="button";discard.id="backgroundQueueDiscard";
       discard.style.cssText="margin:4px 0 0 6px;padding:3px 7px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;color:#64748b;font-size:11px;cursor:pointer";
       discard.addEventListener("click",discardBlockedBackgroundJobs);host.parentElement.append(discard);
     }
-    if(discard){discard.hidden=!failed.some(item=>item.status==="blocked");discard.disabled=outboxRunning;}
+    if(discard){discard.hidden=!failed.length;discard.disabled=outboxRunning;}
     const pending=active.length>0;
     document.querySelectorAll("[data-campaign-event-start],[data-campaign-event-respond],[data-election-proposal],[data-election-activity]").forEach(button=>button.disabled=busy||pending);
+    if(busy||pending){
+      document.querySelectorAll("[data-program-start],[data-program-cancel],[data-dismiss-minister]").forEach(button=>button.disabled=true);
+      const politicalSubmit=$("politicalActionSubmit"),politicalInput=$("politicalActionInput");
+      if(politicalSubmit)politicalSubmit.disabled=true;
+      if(politicalInput)politicalInput.disabled=true;
+    }
     const advance=$("advanceTurn"),newGame=$("newGame"),vote=$("electionVote");
     if(advance&&currentGame)advance.disabled=busy||pending||["election_campaign","election"].includes(currentGame.state&&currentGame.state.phase);
     if(newGame)newGame.disabled=busy||pending;
-    if(vote)vote.disabled=busy||pending||vote.classList.contains("hidden")||vote.textContent.includes("Сначала");
+    if(vote)vote.disabled=busy||pending||vote.classList.contains("hidden")||vote.textContent.includes("Сначала")||Boolean(currentGame&&currentGame.state&&currentGame.state.campaignEvent&&currentGame.state.campaignEvent.status==="active");
   }
   function bindLocalDraft(element,field){
     if(!element||element.dataset.localDraftBound==="true")return;
@@ -219,11 +225,11 @@
   }
   function discardBlockedBackgroundJobs(){
     if(outboxRunning)return;
-    const count=outbox.filter(item=>item.status==="blocked").length;
+    const count=outbox.filter(item=>item.status==="blocked"||item.status==="failed").length;
     if(!count)return;
-    if(!confirm("Удалить "+count+" сохранённых запрос(ов), относящихся к предыдущей кампании? Они не будут отправлены."))return;
-    outbox=outbox.filter(item=>item.status!=="blocked");
-    try{persistOutbox();toast("Устаревшие запросы удалены с этого устройства.");}catch(error){toast(error.message);}
+    if(!confirm("Удалить "+count+" сохранённых запрос(ов) с ошибкой? Это удалит только локальные копии. Уже принятый сервером запрос отменить таким способом нельзя."))return;
+    outbox=outbox.filter(item=>item.status!=="blocked"&&item.status!=="failed");
+    try{persistOutbox();toast("Локальные копии запросов удалены.");}catch(error){toast(error.message);}
   }
   function attachStaticLocalDrafts(){
     ["order","amendmentText","amendmentReason","referendumQuestion"].forEach(id=>bindLocalDraft($(id),id));
@@ -915,6 +921,7 @@
       host.prepend(panel);
       button.addEventListener("click",()=>{
         const action=$("politicalActionInput").value.trim();if(action.length<8||busy)return toast("Опишите действие подробнее.");
+        if(hasPendingBackgroundJobs())return toast("Сначала дождитесь выполнения предыдущего действия.");
         try{
           enqueueBackgroundTask({kind:"presidential-action",route:"/api/presidential/ai/election/action",payload:{action}});
           $("politicalActionInput").value="";clearLocalDraft("politicalActionInput");
@@ -935,8 +942,8 @@
       });
       if(!actions.length)history.append(node("small","campaign-history-empty","История президентских действий пока пуста."));
     }
-    $("politicalActionSubmit").disabled=busy;
-    $("politicalActionInput").disabled=busy;
+    $("politicalActionSubmit").disabled=busy||hasPendingBackgroundJobs();
+    $("politicalActionInput").disabled=busy||hasPendingBackgroundJobs();
   }
   function renderGame(payload){
     if(!payload||!payload.game){currentGame=null;return;}
