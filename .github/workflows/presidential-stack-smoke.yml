@@ -24,6 +24,8 @@ jobs:
         with:
           node-version: 24
       - name: Verify published pages, CORS and Telegram signature gate
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
           node --input-type=module <<'NODE'
           import { readFile } from "node:fs/promises";
@@ -120,6 +122,15 @@ jobs:
             throw new Error("Presidential AI API CORS origin is incorrect.");
           }
 
+          if (!process.env.OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY GitHub secret is missing.");
+          const providerKeyResponse = await fetch("https://openrouter.ai/api/v1/key", {
+            headers: { Authorization: "Bearer " + process.env.OPENROUTER_API_KEY }
+          });
+          const providerKey = await providerKeyResponse.json();
+          if (!providerKeyResponse.ok || !providerKey.data) {
+            throw new Error("OpenRouter rejected the configured API key (HTTP " + providerKeyResponse.status + ").");
+          }
+
           const me = await fetch(api + "/api/presidential/me", { headers: { Origin: gameOrigin } });
           if (me.status !== 401) throw new Error("Unauthenticated /me should return 401, received " + me.status);
           if (me.headers.get("access-control-allow-origin") !== gameOrigin) throw new Error("Authenticated API route does not return game CORS headers.");
@@ -135,6 +146,13 @@ jobs:
             }),
           });
           if (invalidTelegram.status !== 401) throw new Error("Invalid Telegram signature must be rejected with 401, received " + invalidTelegram.status);
+
+          const configScript = await fetchWithRetry(gameAssetBase + "config.js?fresh=" + Date.now(), { headers: { "Cache-Control": "no-cache" } });
+          const configJs = await configScript.text();
+          if (!configScript.ok || !configJs.includes("AI_API_BASE_URL") ||
+              !configJs.includes("br-nameless-term-b9ex7292-presidaidev.compute.c-7.eu-central-1.aws.neon.tech")) {
+            throw new Error("Published frontend is not configured to use the supplemental AI API.");
+          }
 
           const gameScript = await fetchWithRetry(gameAssetBase + "app.js?fresh=" + Date.now(), { headers: { "Cache-Control": "no-cache" } });
           const appJs = await gameScript.text();
