@@ -61,7 +61,7 @@ export function sanitizeGroupDeltas(input) {
   if (!input || typeof input !== "object" || Array.isArray(input)) return result;
   for (const key of GROUP_KEYS) {
     const value = input[key];
-    if (typeof value === "number" && Number.isFinite(value)) result[key] = clamp(value, -8, 8);
+    if (typeof value === "number" && Number.isFinite(value)) result[key] = clamp(value, -4, 4);
   }
   return result;
 }
@@ -140,7 +140,9 @@ export function updateElection(currentState, aiResult, playerText, issue) {
   const credibility = clamp(Number(election.policyCredibility ?? 50) + credibilityDelta, 0, 100);
   const trust = clamp(Number(election.institutionalTrust ?? state.democracyIndex ?? 50) + trustDelta, 0, 100);
   const feasibilityPenalty = Math.max(0, Math.abs(fiscalImpact) - 1.2) * 0.45;
-  const support = clamp(oldSupport + groupAverage * 0.62 + credibilityDelta * 0.1 - feasibilityPenalty, 1, 99);
+  // Campaign support moves gradually. A single proposal must never swing the poll by several points.
+  const supportDelta = clamp(groupAverage * 0.3 + credibilityDelta * 0.04 - feasibilityPenalty, -1.25, 1.25);
+  const support = clamp(oldSupport + supportDelta, 5, 95);
   const decisions = Array.isArray(election.decisions) ? [...election.decisions] : [];
   const issueTitle = issue?.title || aiResult?.issueTitle || "Политическая программа";
   const proposalTitle = String(aiResult?.decisionTitle || "Предложение партии").slice(0, 160);
@@ -150,8 +152,8 @@ export function updateElection(currentState, aiResult, playerText, issue) {
     issueTitle,
     choiceTitle: proposalTitle,
     playerProposal: String(playerText).slice(0, 4000),
-    aiAnalysis: String(aiResult?.analysis || "").slice(0, 1200),
-    publicReaction: String(aiResult?.publicReaction || "").slice(0, 800),
+    aiAnalysis: asText(aiResult?.analysis, 1200),
+    publicReaction: asText(aiResult?.publicReaction, 800),
     policyEffects: effects,
     voterEffects: groupResult.applied,
     fiscalImpactPct: fiscalImpact,
@@ -179,6 +181,79 @@ export function updateElection(currentState, aiResult, playerText, issue) {
     policyEffects
   };
   return { state, decision, election: state.election };
+}
+
+function asText(value, max = 1200) {
+  if (typeof value === "string") return value.trim().slice(0, max);
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    for (const key of ["text", "summary", "message", "reaction", "description"]) {
+      if (typeof value[key] === "string" && value[key].trim()) return value[key].trim().slice(0, max);
+    }
+  }
+  if (Array.isArray(value)) return value.filter(item => typeof item === "string").join(" · ").slice(0, max);
+  return "";
+}
+
+export function initializeElectionBaseline(currentState, seed = "") {
+  const state = currentState && typeof currentState === "object" && !Array.isArray(currentState)
+    ? structuredClone(currentState)
+    : {};
+  const phase = String(state.phase || "");
+  if (!["election_campaign", "election"].includes(phase)) return { state, changed: false };
+
+  const election = state.election && typeof state.election === "object" ? state.election : {};
+  if (Number(election.baselineVersion || 0) >= 2) return { state, changed: false };
+
+  const decisions = Array.isArray(election.decisions) ? election.decisions : [];
+  const actions = Array.isArray(state.politicalActions) ? state.politicalActions : [];
+  const issueIndex = Math.max(0, Number(election.issueIndex || 0));
+  const hasProgress = decisions.length > 0 || actions.length > 0 || issueIndex > 0;
+  const currentSupport = clamp(election.candidateSupport ?? state.approval ?? 45, 1, 99);
+
+  let hash = 2166136261;
+  for (const character of String(seed || election.partyName || "campaign")) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  const startingSupport = 18 + (hash >>> 0) % 9; // 18–26%, stable for this campaign.
+  const referenceSupport = hasProgress ? 45 : currentSupport;
+  const adjustment = Math.max(0, referenceSupport - startingSupport);
+  const candidateSupport = hasProgress
+    ? clamp(currentSupport - adjustment, 5, 45)
+    : startingSupport;
+
+  const currentGroups = election.voterGroups && typeof election.voterGroups === "object"
+    ? election.voterGroups
+    : {};
+  const voterGroups = {};
+  GROUP_KEYS.forEach((key, index) => {
+    const existing = Number(currentGroups[key]);
+    const spread = ((hash >>> (index * 3)) % 9) - 4;
+    const baseline = Number.isFinite(existing) ? existing : currentSupport + spread;
+    voterGroups[key] = Number(clamp(baseline - adjustment, 5, 55).toFixed(1));
+  });
+
+  state.election = {
+    ...election,
+    baselineVersion: 2,
+    startingSupport: Number(startingSupport.toFixed(1)),
+    baselineAdjustment: Number(adjustment.toFixed(1)),
+    candidateSupport: Number(candidateSupport.toFixed(1)),
+    oppositionSupport: Number((100 - candidateSupport).toFixed(1)),
+    voterGroups
+  };
+  return { state, changed: true };
+}
+
+export function isDuplicateCampaignAction(actions, input) {
+  const normalize = value => String(value || "").toLocaleLowerCase("ru-RU")
+    .replace(/ё/g, "е")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+  const requested = normalize(input);
+  if (requested.length < 8 || !Array.isArray(actions)) return false;
+  return actions.slice(-8).some(item => normalize(item?.text) === requested);
 }
 
 export function normalizeTreaties(raw) {
