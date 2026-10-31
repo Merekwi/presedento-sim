@@ -63,7 +63,15 @@
         :"Сохранено локально · в очереди "+active.length;
     }
     const retry=$("backgroundQueueRetry");
-    if(retry){retry.hidden=!failed.length;retry.disabled=outboxRunning;retry.textContent=failed.length>1?"Повторить запросы ("+failed.length+")":"Повторить запрос";}
+    if(retry){retry.hidden=!failed.some(item=>item.status==="failed");retry.disabled=outboxRunning;retry.textContent=failed.filter(item=>item.status==="failed").length>1?"Повторить запросы ("+failed.filter(item=>item.status==="failed").length+")":"Повторить запрос";}
+    let discard=$("backgroundQueueDiscard");
+    if(!discard&&host&&host.parentElement){
+      discard=node("button","background-queue-discard","Удалить запросы прошлой кампании");
+      discard.type="button";discard.id="backgroundQueueDiscard";
+      discard.style.cssText="margin:4px 0 0 6px;padding:3px 7px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;color:#64748b;font-size:11px;cursor:pointer";
+      discard.addEventListener("click",discardBlockedBackgroundJobs);host.parentElement.append(discard);
+    }
+    if(discard){discard.hidden=!failed.some(item=>item.status==="blocked");discard.disabled=outboxRunning;}
     const pending=active.length>0;
     const advance=$("advanceTurn"),newGame=$("newGame"),vote=$("electionVote");
     if(advance&&currentGame)advance.disabled=busy||pending||["election_campaign","election"].includes(currentGame.state&&currentGame.state.phase);
@@ -156,6 +164,14 @@
     if(outboxRunning)return;
     outbox.forEach(item=>{if(item.status==="failed"){item.status="queued";delete item.error;}});
     try{persistOutbox();void startBackgroundQueue();}catch(error){toast(error.message);}
+  }
+  function discardBlockedBackgroundJobs(){
+    if(outboxRunning)return;
+    const count=outbox.filter(item=>item.status==="blocked").length;
+    if(!count)return;
+    if(!confirm("Удалить "+count+" сохранённых запрос(ов), относящихся к предыдущей кампании? Они не будут отправлены."))return;
+    outbox=outbox.filter(item=>item.status!=="blocked");
+    try{persistOutbox();toast("Устаревшие запросы удалены с этого устройства.");}catch(error){toast(error.message);}
   }
   function attachStaticLocalDrafts(){
     ["order","amendmentText","amendmentReason","referendumQuestion"].forEach(id=>bindLocalDraft($(id),id));
