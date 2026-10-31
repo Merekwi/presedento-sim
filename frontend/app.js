@@ -625,6 +625,7 @@
       setText("militaryBattleTurn",String(front.battleTurn||activeWar.turn_number||0));
       const mode=$("militaryCommandMode");if(mode)mode.value=activeWar.command_mode||"ai";
       const posture=$("militaryPosture");if(posture)posture.value=activeWar.strategic_posture||"balanced";
+      const directive=$("militaryAiDirective");if(directive&&document.activeElement!==directive)directive.value=activeWar.commander_directive||"";
       const report=activeWar.last_report||{};
       setText("militaryWarReport",report.result
         ?"Последний ход: "+report.result+". Потери сторон: "+number(report.friendlyLosses||0,0)+" / "+number(report.enemyLosses||0,0)+"."
@@ -1617,7 +1618,10 @@
   });
   $("saveMilitaryDirective").addEventListener("click",()=>{
     const war=(currentPayload&&currentPayload.wars||[]).find(item=>item.status==="active");if(!war)return;
-    runMilitaryAction({action:"war_command",warId:war.id,commandMode:$("militaryCommandMode").value,posture:$("militaryPosture").value},$("saveMilitaryDirective"),"Военная директива передана штабу.");
+    runMilitaryAction({
+      action:"war_command",warId:war.id,commandMode:$("militaryCommandMode").value,
+      posture:$("militaryPosture").value,directive:$("militaryAiDirective").value.trim()
+    },$("saveMilitaryDirective"),"Президентский приказ передан военному штабу.");
   });
   $("advanceMilitaryWar").addEventListener("click",()=>{
     const war=(currentPayload&&currentPayload.wars||[]).find(item=>item.status==="active");if(!war)return;
