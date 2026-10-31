@@ -119,9 +119,10 @@ function applyCampaignOpinionEffects(currentElection, input, difficulty, mode) {
   const cap = mode === "event" ? profile.eventCap : profile.actionCap;
   const supportDelta = clamp(average * multiplier, -cap, cap);
   const support = clamp(Number(election.candidateSupport ?? 20) + supportDelta, 5, 95);
+  const roundedSupport = Number(support.toFixed(1));
   election.voterGroups = groupResult.groups;
-  election.candidateSupport = Number(support.toFixed(1));
-  election.oppositionSupport = Number((100 - support).toFixed(1));
+  election.candidateSupport = roundedSupport;
+  election.oppositionSupport = Number((100 - roundedSupport).toFixed(1));
   return { election, applied: groupResult.applied, supportDelta: Number(supportDelta.toFixed(2)) };
 }
 
@@ -217,7 +218,7 @@ export function updateElection(currentState, aiResult, playerText, issue) {
     decisions,
     voterGroups: groups,
     candidateSupport: Number(support.toFixed(1)),
-    oppositionSupport: Number((100 - support).toFixed(1)),
+    oppositionSupport: Number((100 - Number(support.toFixed(1))).toFixed(1)),
     issueIndex: nextIndex,
     currentIssue: agenda[nextIndex]?.id || null,
     policyCredibility: Number(credibility.toFixed(1)),
