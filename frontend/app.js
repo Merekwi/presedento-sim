@@ -93,6 +93,7 @@
     }
     if(discard){discard.hidden=!failed.some(item=>item.status==="blocked");discard.disabled=outboxRunning;}
     const pending=active.length>0;
+    document.querySelectorAll("[data-campaign-event-start],[data-campaign-event-respond],[data-election-proposal],[data-election-activity]").forEach(button=>button.disabled=busy||pending);
     const advance=$("advanceTurn"),newGame=$("newGame"),vote=$("electionVote");
     if(advance&&currentGame)advance.disabled=busy||pending||["election_campaign","election"].includes(currentGame.state&&currentGame.state.phase);
     if(newGame)newGame.disabled=busy||pending;
@@ -191,7 +192,7 @@
         let result;
         try{
           const request=item.client==="api"?auth.api:auth.aiApi;
-          result=await request(item.route,{method:"POST",headers:{"Idempotency-Key":item.id},body:JSON.stringify(item.payload)});
+          result=await request(item.route,{method:"POST",body:JSON.stringify(item.payload)});
         }catch(error){
           item.status="failed";item.error=error&&error.message?error.message:"Неизвестная ошибка отправки";
           item.failedAt=new Date().toISOString();persistOutbox();
