@@ -195,6 +195,8 @@ async function decreePublish(request, env, auth) {
     const decree = found.rows[0], effects = safeObject(decree.effects);
     const changes = sanitizeDeltas(effects.changes);
     const state = safeObject(game.state);
+    const actionPoints = Math.max(0, Number(state.actionPoints ?? 2));
+    if (actionPoints < 1) throw Object.assign(new Error("Недостаточно очков действий для публикации указа"), { status: 409 });
     const cost = clamp(Number(effects.budgetCost || 0), 0, Math.max(0, Number(state.treasury || 0)));
     changes.treasury = Number(changes.treasury || 0) - cost;
     changes.budgetBalance = Number(changes.budgetBalance || 0) - cost / Math.max(1, Number(state.gdp || 1)) * 100;
@@ -208,6 +210,7 @@ async function decreePublish(request, env, auth) {
     const projects = Array.isArray(applied.state.projects) ? [...applied.state.projects] : [];
     projects.unshift(project);
     applied.state.projects = projects.slice(0, 30);
+    applied.state.actionPoints = actionPoints - 1;
     await client.query("UPDATE game_saves SET state=$1::jsonb,updated_at=NOW() WHERE id=$2", [JSON.stringify(applied.state), game.id]);
     const updated = await client.query(
       "UPDATE decrees SET status='published',published_at=NOW(),effects=$1::jsonb WHERE id=$2 RETURNING *",
@@ -239,19 +242,21 @@ async function electionDecision(request, env, auth) {
     "Ты политический аналитик и руководитель штаба в реалистичном симуляторе выборов. Проанализируй свободное предложение кандидата по текущему вопросу. Оцени реакцию рабочих, бизнеса, сельских жителей, молодёжи, госслужащих и консервативных избирателей. Верни JSON: decisionTitle, analysis, publicReaction, voterEffects (числовые дельты только ключей workers,business,rural,youth,publicSector,conservative, каждая от -8 до 8), policyEffects (числовые дельты известных игровых метрик), credibilityDelta (-8..8), institutionalTrustDelta (-8..8), fiscalImpactPct (-3..3), feasibilityScore (0..100). Не делай всех групп одинаково довольными; учитывай компромиссы, стоимость, сроки и реализуемость.",
     { country: countryContext(auth.game), issue, existingProgram: election.decisions || [], proposal }, 1300);
   const applied = safeObject(result);
-  const stateResult = updateElection(current, {
+  const electionInput = {
     ...applied,
     voterEffects: sanitizeGroupDeltas(applied.voterEffects),
     policyEffects: sanitizeDeltas(applied.policyEffects)
-  }, proposal, issue);
+  };
   const client = await database(env).connect();
   try {
     await client.query("BEGIN");
     const game = await lockedSave(client, auth.game.id, auth.user.owner_id);
     const liveState = safeObject(game.state);
-    if (Number(liveState?.election?.issueIndex || 0) !== index || liveState.phase !== current.phase) {
-      throw Object.assign(new Error("Избирательная программа изменилась. Обновите страницу."), { status: 409 });
+    if (Number(liveState?.election?.issueIndex || 0) !== index || liveState.phase !== current.phase ||
+        new Date(game.updated_at).getTime() !== new Date(auth.game.updated_at).getTime()) {
+      throw Object.assign(new Error("Состояние кампании изменилось во время анализа. Обновите страницу и повторите действие."), { status: 409 });
     }
+    const stateResult = updateElection(liveState, electionInput, proposal, issue);
     await client.query("UPDATE game_saves SET state=$1::jsonb,updated_at=NOW() WHERE id=$2", [JSON.stringify(stateResult.state), game.id]);
     const impact = stateResult.decision.policyEffects;
     await addEvent(client, game, "campaign_proposal", "Программа: " + stateResult.decision.choiceTitle,
@@ -269,51 +274,58 @@ async function electionAction(request, env, auth) {
   const input = await bodyJson(request);
   const actionText = cleanText(input.action || input.text, 3000);
   if (actionText.length < 8) throw Object.assign(new Error("Опишите действие подробнее"), { status: 400 });
-  const state = safeObject(auth.game.state);
+  const initialState = safeObject(auth.game.state);
   const result = await askAI(env,
-    "Ты аналитик политической симуляции. Определи действие игрока и правдоподобные последствия. Классифицируй actionKind строго одним из: public_speech, public_service, campaigning, policy_promise, coalition, patronage, corruption, institutional_capture, coup_attempt, other. Верни JSON: actionKind, headline, analysis, publicReaction, changes (дельты метрик gdpGrowth,inflation,unemployment,budgetBalance,treasury,approval,stability,corruption,publicServices,education,healthcare,infrastructure,militaryPower,democracyIndex,taxRate,debt), voterEffects (workers,business,rural,youth,publicSector,conservative), credibilityDelta, institutionalTrustDelta, severity. Не увеличивай и не уменьшай показатели более чем на 8 за одно действие. Для коррупции всегда укажи рост коррупции и ухудшение институтов. Для попытки переворота не решай исход: его определит сервер.",
-    { country: countryContext(auth.game), phase: state.phase || "government", recentActions: state.politicalActions || [], existingElection: state.election || null, action: actionText }, 1200);
+    "Ты аналитик политической симуляции. Определи действие игрока и правдоподобные последствия. Классифицируй actionKind строго одним из: public_speech, public_service, campaigning, policy_promise, coalition, patronage, corruption, institutional_capture, coup_attempt, other. Верни JSON: actionKind, headline, analysis, publicReaction, changes (дельты метрик gdpGrowth,inflation,unemployment,budgetBalance,treasury,approval,stability,corruption,publicServices,education,healthcare,infrastructure,militaryPower,democracyIndex,institutionalTrust,taxRate,debt), voterEffects (workers,business,rural,youth,publicSector,conservative), credibilityDelta, institutionalTrustDelta, severity. Не увеличивай и не уменьшай показатели более чем на 8 за одно действие. Для коррупции всегда укажи рост коррупции и ухудшение институтов. Для попытки переворота не решай исход: его определит сервер.",
+    { country: countryContext(auth.game), phase: initialState.phase || "government", recentActions: initialState.politicalActions || [], existingElection: initialState.election || null, action: actionText }, 1200);
   const kind = ACTION_KINDS.has(result.actionKind) ? result.actionKind : "other";
-  let changes = sanitizeDeltas(result.changes);
-  let voterEffects = sanitizeGroupDeltas(result.voterEffects);
-  let nextState, coup = null;
-  if (kind === "coup_attempt") {
-    coup = resolveCoup(state, randomInt(1, 101));
-    nextState = coup.state;
-  } else {
-    if (kind === "corruption" || kind === "patronage") {
-      changes.corruption = Math.max(2, Number(changes.corruption || 0));
-      changes.democracyIndex = Math.min(-1, Number(changes.democracyIndex || 0));
-      changes.stability = Math.min(-1, Number(changes.stability || 0));
-    }
-    if (kind === "institutional_capture") {
-      changes.democracyIndex = Math.min(-3, Number(changes.democracyIndex || 0));
-      changes.institutionalTrust = Math.min(-2, Number(changes.institutionalTrust || 0));
-      changes.corruption = Math.max(1, Number(changes.corruption || 0));
-    }
-    const applied = applyStateDeltas(state, changes);
-    nextState = applied.state;
-  }
-  if (nextState.election && Object.keys(voterEffects).length) {
-    const groups = applyGroupDeltas(nextState.election.voterGroups, voterEffects);
-    nextState.election.voterGroups = groups.groups;
-    const avg = Object.values(groups.applied).reduce((a,b)=>a+b,0) / Math.max(1,Object.keys(groups.applied).length);
-    const support = clamp(Number(nextState.election.candidateSupport || 50) + avg * 0.5, 1, 99);
-    nextState.election.candidateSupport = Number(support.toFixed(1));
-    nextState.election.oppositionSupport = Number((100-support).toFixed(1));
-  }
-  const actionRecord = {
-    id: "action-" + Date.now(), kind, text: actionText,
-    analysis: cleanText(result.analysis, 1200), publicReaction: cleanText(result.publicReaction, 800),
-    coup: coup ? { success: coup.success, chance: coup.chance, roll: coup.roll } : null,
-    createdAt: new Date().toISOString()
-  };
-  nextState.politicalActions = [...(Array.isArray(nextState.politicalActions) ? nextState.politicalActions : []), actionRecord].slice(-40);
+  const changes = sanitizeDeltas(result.changes);
+  const voterEffects = sanitizeGroupDeltas(result.voterEffects);
   const client = await database(env).connect();
   try {
     await client.query("BEGIN");
     const game = await lockedSave(client, auth.game.id, auth.user.owner_id);
-    if (Number(game.turn_number) !== Number(auth.game.turn_number)) throw Object.assign(new Error("Игровой месяц уже изменился. Обновите страницу."), { status: 409 });
+    const liveState = safeObject(game.state);
+    if (Number(game.turn_number) !== Number(auth.game.turn_number) ||
+        new Date(game.updated_at).getTime() !== new Date(auth.game.updated_at).getTime()) {
+      throw Object.assign(new Error("Состояние страны изменилось во время анализа. Обновите страницу и повторите действие."), { status: 409 });
+    }
+    const actionPoints = Math.max(0, Number(liveState.actionPoints ?? 2));
+    if (actionPoints < 1) throw Object.assign(new Error("На этот игровой месяц закончились очки действий"), { status: 409 });
+    let nextState, coup = null;
+    if (kind === "coup_attempt") {
+      coup = resolveCoup(liveState, randomInt(1, 101));
+      nextState = coup.state;
+    } else {
+      const bounded = { ...changes };
+      if (kind === "corruption" || kind === "patronage") {
+        bounded.corruption = Math.max(2, Number(bounded.corruption || 0));
+        bounded.democracyIndex = Math.min(-1, Number(bounded.democracyIndex || 0));
+        bounded.stability = Math.min(-1, Number(bounded.stability || 0));
+      }
+      if (kind === "institutional_capture") {
+        bounded.democracyIndex = Math.min(-3, Number(bounded.democracyIndex || 0));
+        bounded.institutionalTrust = Math.min(-2, Number(bounded.institutionalTrust || 0));
+        bounded.corruption = Math.max(1, Number(bounded.corruption || 0));
+      }
+      nextState = applyStateDeltas(liveState, bounded).state;
+    }
+    if (nextState.election && Object.keys(voterEffects).length) {
+      const groups = applyGroupDeltas(nextState.election.voterGroups, voterEffects);
+      nextState.election.voterGroups = groups.groups;
+      const avg = Object.values(groups.applied).reduce((a,b)=>a+b,0) / Math.max(1,Object.keys(groups.applied).length);
+      const support = clamp(Number(nextState.election.candidateSupport || 50) + avg * 0.5, 1, 99);
+      nextState.election.candidateSupport = Number(support.toFixed(1));
+      nextState.election.oppositionSupport = Number((100-support).toFixed(1));
+    }
+    nextState.actionPoints = actionPoints - 1;
+    const actionRecord = {
+      id: "action-" + Date.now(), kind, text: actionText,
+      analysis: cleanText(result.analysis, 1200), publicReaction: cleanText(result.publicReaction, 800),
+      coup: coup ? { success: coup.success, chance: coup.chance, roll: coup.roll } : null,
+      createdAt: new Date().toISOString()
+    };
+    nextState.politicalActions = [...(Array.isArray(nextState.politicalActions) ? nextState.politicalActions : []), actionRecord].slice(-40);
     await client.query("UPDATE game_saves SET state=$1::jsonb,updated_at=NOW() WHERE id=$2", [JSON.stringify(nextState), game.id]);
     const headline = coup ? (coup.success ? "Попытка переворота удалась" : "Попытка переворота провалилась") : (cleanText(result.headline, 200) || "Политическое решение");
     const article = coup
