@@ -77,7 +77,7 @@ jobs:
           }
 
           const sourceApp = await readFile("frontend/app.js", "utf8");
-          for (const marker of ["function renderWorldMap", "./assets/portraits/", "data-election-proposal", "data-ai-diplomacy", "/api/presidential/ai/decree/draft", "/api/presidential/ai/election/action"]) {
+          for (const marker of ["function renderWorldMap", "./assets/portraits/", "data-election-proposal", "data-election-tab-panel", "data-election-tab", "data-ai-diplomacy", "/api/presidential/ai/decree/draft", "/api/presidential/ai/election/action", "/api/presidential/ai/election/initialize"]) {
             if (!sourceApp.includes(marker)) throw new Error("Committed frontend source is missing AI-powered political game logic: " + marker);
           }
 
@@ -171,6 +171,7 @@ jobs:
             "/api/presidential/ai/decree/publish",
             "/api/presidential/ai/election/decision",
             "/api/presidential/ai/election/action",
+            "/api/presidential/ai/election/initialize",
             "/api/presidential/ai/diplomacy/history?relationId=",
             "/api/presidential/ai/diplomacy/message"
           ];
@@ -213,6 +214,7 @@ jobs:
             ["/api/presidential/ai/decree/publish", "POST", { decreeId: "00000000-0000-0000-0000-000000000000" }],
             ["/api/presidential/ai/election/decision", "POST", { proposal: "Увеличить доступность медицинской помощи в регионах." }],
             ["/api/presidential/ai/election/action", "POST", { action: "Выступить перед работниками промышленных регионов и обсудить задержки зарплат." }],
+            ["/api/presidential/ai/election/initialize", "POST", {}],
             ["/api/presidential/ai/diplomacy/message", "POST", { relationId: "00000000-0000-0000-0000-000000000000", message: "Предлагаю начать переговоры о торговом соглашении." }],
             ["/api/presidential/ai/diplomacy/history?relationId=00000000-0000-0000-0000-000000000000", "GET", null]
           ];
