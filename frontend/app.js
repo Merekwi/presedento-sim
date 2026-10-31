@@ -337,12 +337,13 @@
     items.forEach(item=>{
       const card=node("article","campaign-action-card");
       const head=node("div","campaign-action-card-head");
-      head.append(node("b","",item.headline||actionKindLabel(item.kind)));
-      head.append(node("small","",dateLabel(item.createdAt)));
+      head.append(node("b","",actionKindLabel(item.kind)));
+      if(item.headline&&item.headline!==actionKindLabel(item.kind))head.append(node("small","campaign-action-headline",item.headline));
+      head.append(node("small","campaign-action-date",dateLabel(item.createdAt)));
       card.append(head);
       card.append(node("p","campaign-action-original",item.text||""));
       if(item.analysis)card.append(node("p","campaign-action-analysis",item.analysis));
-      if(item.publicReaction)card.append(node("p","campaign-action-reaction","Реакция общества: "+item.publicReaction));
+      if(item.publicReaction&&item.publicReaction!=="[object Object]")card.append(node("p","campaign-action-reaction","Реакция общества: "+item.publicReaction));
       const effects=Object.entries(item.voterEffects||{}).filter(([,value])=>Number(value)!==0);
       if(effects.length){
         const chips=node("div","campaign-action-effects");
