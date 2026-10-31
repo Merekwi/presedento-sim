@@ -149,6 +149,16 @@
       }
       if(item.kind==="election-position"){toast("Политическая позиция проанализирована и внесена в программу.");return;}
       if(item.kind==="election-activity"){toast("Действие кампании обработано. Разбор и реакция избирателей сохранены.");return;}
+      if(item.kind==="campaign-event-start"){
+        const event=result&&result.event;
+        toast(event?"Началось мероприятие: "+(event.title||"вопрос готов")+". Ответьте на вопрос в открытой сессии.":"Мероприятие подготовлено.");
+        return;
+      }
+      if(item.kind==="campaign-event-respond"){
+        if(result&&result.complete)toast("Мероприятие завершено. Итоги и реакция аудитории сохранены в истории кампании.");
+        else toast("Ответ принят. Следующий вопрос уже ожидает вас.");
+        return;
+      }
       if(item.kind==="presidential-action"){
         const coup=result&&result.coup;
         toast(coup?(coup.success?"Попытка переворота удалась. Последствия отражены в истории действий.":"Попытка переворота провалилась. Последствия отражены в истории действий."):"Президентское действие обработано и внесено в историю.");
@@ -683,17 +693,108 @@
 
       const actionPanel=node("section","campaign-tab-panel");
       actionPanel.dataset.electionTabPanel="actions";
-      actionPanel.append(node("div","campaign-choice-kicker","РАБОТА С ИЗБИРАТЕЛЯМИ"));
-      actionPanel.append(node("h3","","Действия кампании"));
-      actionPanel.append(node("p","campaign-choice-description","Проводите встречи, выступайте, помогайте сообществам, ведите переговоры и участвуйте в публичных дебатах. Результат зависит от содержания действия, бюджета, реакции разных групп и уже совершённых шагов."));
+      actionPanel.append(node("div","campaign-choice-kicker","ПУБЛИЧНАЯ ПОЛИТИКА"));
+      actionPanel.append(node("h3","","Кампания вживую"));
+      actionPanel.append(node("p","campaign-choice-description","Выходите на дебаты с оппонентом, отвечайте журналистам на неудобные вопросы и встречайтесь с избирателями. Каждое мероприятие проходит в несколько раундов: сначала вы получаете конкретный вопрос, затем отвечаете своими словами, а ИИ оценивает аргументы и реакцию разных групп."));
+      const eventPoints=Math.max(0,Number(state.actionPoints??2));
+      const pointsLine=node("div","campaign-event-points","Доступно очков действий: "+eventPoints+" · одно мероприятие расходует 1 очко после завершения");
+      actionPanel.append(pointsLine);
+
+      const activeEvent=state.campaignEvent&&state.campaignEvent.status==="active"?state.campaignEvent:null;
+      if(activeEvent){
+        const stage=node("section","campaign-event-live");
+        const head=node("div","campaign-event-live-head");
+        const headCopy=node("div","");
+        headCopy.append(node("span","campaign-event-kicker",String(activeEvent.label||"ПОЛИТИЧЕСКОЕ МЕРОПРИЯТИЕ").toUpperCase()));
+        headCopy.append(node("h4","",activeEvent.title||"Мероприятие кампании"));
+        headCopy.append(node("small","",[(activeEvent.venue||""),("Раунд "+activeEvent.round+" из "+activeEvent.maxRounds)].filter(Boolean).join(" · ")));
+        head.append(headCopy,node("span","campaign-event-live-dot","В ЭФИРЕ"));
+        stage.append(head);
+        if(activeEvent.opening)stage.append(node("p","campaign-event-opening",activeEvent.opening));
+        if(activeEvent.topic)stage.append(node("div","campaign-event-topic","ТЕМА · "+activeEvent.topic));
+        const question=node("article","campaign-event-question");
+        question.append(node("small","",activeEvent.questioner||"Вопрос"),node("p","",activeEvent.question||"Вопрос мероприятия"));
+        stage.append(question);
+        const answer=node("textarea","campaign-event-answer");
+        answer.id="campaignEventAnswer";answer.maxLength=3000;
+        answer.placeholder="Ваш ответ. Объясните позицию, назовите конкретные меры, сроки, ответственных и источники финансирования...";
+        answer.disabled=busy;bindLocalDraft(answer,"campaignEventAnswer-"+activeEvent.id);
+        stage.append(answer);
+        const submit=node("button","primary-button","Ответить и продолжить →");
+        submit.type="button";submit.dataset.campaignEventRespond=activeEvent.id;
+        submit.disabled=busy||hasPendingBackgroundJobs();
+        stage.append(submit);
+        actionPanel.append(stage);
+      }else{
+        const eventGrid=node("div","campaign-event-grid");
+        const eventCards=[
+          ["debate","Публичные дебаты","Оппонент атакует вашу программу. Нужно защитить решения, выдержать уточнения и не уйти от неудобных тем.","ДУЭЛЬ С ОППОЗИЦИЕЙ"],
+          ["press","Пресс-конференция","Журналисты задают вопросы о провалах, цифрах, обещаниях и ответственности правительства.","ВОПРОСЫ СМИ"],
+          ["meeting","Встреча с избирателями","Личный разговор с людьми, которые ждут решения конкретной проблемы своего сообщества.","РАЗГОВОР С ГРАЖДАНАМИ"]
+        ];
+        eventCards.forEach(([type,title,description,kicker])=>{
+          const card=node("article","campaign-event-choice");
+          card.append(node("small","campaign-event-choice-kicker",kicker));
+          card.append(node("h4","",title));
+          card.append(node("p","",description));
+          const start=node("button","primary-button",type==="debate"?"Выйти на дебаты →":type==="press"?"Открыть пресс-конференцию →":"Назначить встречу →");
+          start.type="button";start.dataset.campaignEventStart=type;
+          start.disabled=busy||hasPendingBackgroundJobs()||eventPoints<1;
+          card.append(start);eventGrid.append(card);
+        });
+        actionPanel.append(eventGrid);
+        const meetingDetails=node("div","campaign-event-settings");
+        const groupWrap=node("label","campaign-event-setting");
+        groupWrap.append(node("span","","С кем встретиться"));
+        const groupSelect=node("select");groupSelect.id="campaignMeetingGroup";
+        [["workers","Работающие и профсоюзы"],["business","Предприниматели"],["rural","Сельские жители"],["youth","Молодёжь"],["publicSector","Врачи, учителя и госслужащие"],["conservative","Консервативные избиратели"]].forEach(([value,label])=>{
+          const option=node("option","",label);option.value=value;groupSelect.append(option);
+        });
+        groupWrap.append(groupSelect);
+        const locationWrap=node("label","campaign-event-setting");
+        locationWrap.append(node("span","","Город или регион"));
+        const locationInput=node("input");locationInput.id="campaignEventLocation";locationInput.maxLength=140;
+        locationInput.placeholder="Например, северные регионы или город...";
+        bindLocalDraft(locationInput,"campaignEventLocation");locationWrap.append(locationInput);
+        meetingDetails.append(groupWrap,locationWrap);
+        actionPanel.append(meetingDetails);
+      }
+
+      const freeform=node("details","campaign-freeform campaign-freeform-extra");
+      const summary=node("summary","","Другое политическое действие");
+      freeform.append(summary,node("p","campaign-choice-description","Опишите самостоятельный шаг кампании: запуск штаба, коалиционные переговоры, адресная агитация, волонтёрская сеть или публичная инициатива."));
       const activityInput=node("textarea","campaign-proposal-input");
       activityInput.id="campaignActivityInput";activityInput.maxLength=3000;
-      activityInput.placeholder="Опишите конкретное действие: где вы его проводите, с кем встречаетесь, что предлагаете и кто будет отвечать за результат...";
+      activityInput.placeholder="Опишите действие, его цель, участников и ожидаемый результат...";
       activityInput.disabled=busy;bindLocalDraft(activityInput,"campaignActivityInput");
-      const activityButton=node("button","primary-button","Выполнить действие →");
-      activityButton.type="button";activityButton.dataset.electionActivity="true";activityButton.disabled=busy;
-      actionPanel.append(activityInput,activityButton);
-      actionPanel.append(node("div","campaign-history-heading","ИСТОРИЯ КАМПАНИИ"));
+      const activityButton=node("button","secondary-button","Отправить действие на анализ →");
+      activityButton.type="button";activityButton.dataset.electionActivity="true";activityButton.disabled=busy||hasPendingBackgroundJobs();
+      freeform.append(activityInput,activityButton);
+      actionPanel.append(freeform);
+
+      const completedEvents=Array.isArray(state.campaignEventHistory)?state.campaignEventHistory:[];
+      if(completedEvents.length){
+        actionPanel.append(node("div","campaign-history-heading","ПОСЛЕДНИЕ МЕРОПРИЯТИЯ"));
+        const eventHistory=node("div","campaign-event-history");
+        completedEvents.slice(-4).reverse().forEach(item=>{
+          const card=node("article","campaign-event-history-card");
+          card.append(node("b","",item.title||item.label||"Мероприятие кампании"));
+          card.append(node("small","",item.venue||""));
+          (item.transcript||[]).forEach(turn=>{
+            const exchange=node("div","campaign-event-history-turn");
+            exchange.append(node("small","",turn.questioner||"Вопрос"),node("p","",turn.question||""));
+            exchange.append(node("small","","Ваш ответ"),node("p","",turn.response||""));
+            if(turn.analysis)exchange.append(node("p","campaign-event-history-analysis",turn.analysis));
+            if(turn.publicReaction)exchange.append(node("p","campaign-event-history-reaction","Реакция зала: "+turn.publicReaction));
+            card.append(exchange);
+          });
+          if(item.lastPressCoverage)card.append(node("p","campaign-event-history-reaction","В СМИ: "+item.lastPressCoverage));
+          eventHistory.append(card);
+        });
+        actionPanel.append(eventHistory);
+      }
+
+      actionPanel.append(node("div","campaign-history-heading","ДРУГИЕ ШАГИ КАМПАНИИ"));
       const history=node("div","campaign-action-history");
       renderCampaignActionHistory(history,actions);
       actionPanel.append(history);
@@ -961,6 +1062,32 @@
       clearLocalDraft("campaignActivityInput");
     }catch(error){toast(error.message);}
   });
+  $("electionIssue").addEventListener("click",event=>{
+    const start=event.target.closest("[data-campaign-event-start]");
+    if(start){
+      if(busy||hasPendingBackgroundJobs())return toast("Дождитесь завершения предыдущего действия.");
+      const eventType=start.dataset.campaignEventStart;
+      const targetGroup=$("campaignMeetingGroup")&&$("campaignMeetingGroup").value||"workers";
+      const location=$("campaignEventLocation")&&$("campaignEventLocation").value.trim()||"";
+      try{
+        enqueueBackgroundTask({kind:"campaign-event-start",route:"/api/presidential/ai/election/event/start",payload:{eventType,targetGroup,location}});
+      }catch(error){toast(error.message);}
+      return;
+    }
+    const respond=event.target.closest("[data-campaign-event-respond]");
+    if(respond){
+      if(busy||hasPendingBackgroundJobs())return toast("Дождитесь завершения предыдущего действия.");
+      const response=$("campaignEventAnswer")&&$("campaignEventAnswer").value.trim();
+      if(!response||response.length<12)return toast("Ответьте подробнее: нужны аргументы и конкретные обязательства.");
+      const eventId=respond.dataset.campaignEventRespond;
+      try{
+        enqueueBackgroundTask({kind:"campaign-event-respond",route:"/api/presidential/ai/election/event/respond",payload:{eventId,response}});
+        $("campaignEventAnswer").value="";
+        clearLocalDraft("campaignEventAnswer-"+eventId);
+      }catch(error){toast(error.message);}
+    }
+  });
+
   $("electionVote").addEventListener("click",async()=>{
     if(!currentGame||busy)return;
     if(!confirm("Передать программу партии избирателям и провести национальные выборы? Результат зависит от поддержки разных групп, финансовой реалистичности обещаний и доверия к институтам. При поражении кампания завершится."))return;
