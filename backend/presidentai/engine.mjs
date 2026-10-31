@@ -91,20 +91,60 @@ export function applyGroupDeltas(currentGroups, input) {
 export function electionDifficultyProfile(value = "normal") {
   const difficulty = String(value || "normal").toLowerCase();
   if (difficulty === "easy") return {
-    startMin: 42, startRange: 9, proposalGroup: 0.70, proposalCredibility: 0.09,
+    startMin: 58, startRange: 9, proposalGroup: 0.70, proposalCredibility: 0.09,
     feasibilityPenalty: 0.20, proposalCap: 2.2, actionGroup: 0.42, actionCap: 1.3,
     eventGroup: 0.30, eventCap: 0.85
   };
   if (difficulty === "hard") return {
-    startMin: 18, startRange: 9, proposalGroup: 0.30, proposalCredibility: 0.04,
+    startMin: 50, startRange: 9, proposalGroup: 0.30, proposalCredibility: 0.04,
     feasibilityPenalty: 0.45, proposalCap: 1.25, actionGroup: 0.22, actionCap: 0.8,
     eventGroup: 0.18, eventCap: 0.45
   };
   return {
-    startMin: 32, startRange: 9, proposalGroup: 0.55, proposalCredibility: 0.07,
+    startMin: 52, startRange: 9, proposalGroup: 0.55, proposalCredibility: 0.07,
     feasibilityPenalty: 0.30, proposalCap: 1.9, actionGroup: 0.34, actionCap: 1.1,
     eventGroup: 0.24, eventCap: 0.70
   };
+}
+
+const OPPOSITION_PARTIES = [
+  "Социал-демократическая партия",
+  "Либеральный союз",
+  "Консервативный блок",
+  "Партия зелёных и регионов"
+];
+
+function buildPartyPoll(election, candidateSupport, seed = "") {
+  const partyName = String(election?.partyName || "Ваша партия");
+  const rotationSeed = String(seed || election?.countryName || election?.partyName || "election");
+  let hash = 2166136261;
+  for (const character of rotationSeed) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  const offset = (hash >>> 0) % OPPOSITION_PARTIES.length;
+  const oppositionNames = OPPOSITION_PARTIES
+    .map((_, index) => OPPOSITION_PARTIES[(index + offset) % OPPOSITION_PARTIES.length])
+    .filter(name => name.toLocaleLowerCase("ru-RU") !== partyName.toLocaleLowerCase("ru-RU"));
+  const names = oppositionNames.length ? oppositionNames : OPPOSITION_PARTIES;
+  const weights = [0.36, 0.27, 0.21, 0.16].slice(0, names.length);
+  const weightTotal = weights.reduce((sum, value) => sum + value, 0);
+  const remaining = Number((100 - candidateSupport).toFixed(1));
+  let allocated = 0;
+  const rows = [{
+    id: "player",
+    name: partyName,
+    support: Number(candidateSupport.toFixed(1)),
+    isPlayer: true
+  }];
+  names.forEach((name, index) => {
+    const share = index === names.length - 1
+      ? Number((remaining - allocated).toFixed(1))
+      : Number((remaining * weights[index] / weightTotal).toFixed(1));
+    allocated = Number((allocated + share).toFixed(1));
+    rows.push({ id: "opposition-" + index, name, support: share, isPlayer: false });
+  });
+  return rows;
 }
 
 function applyCampaignOpinionEffects(currentElection, input, difficulty, mode) {
@@ -123,6 +163,7 @@ function applyCampaignOpinionEffects(currentElection, input, difficulty, mode) {
   election.voterGroups = groupResult.groups;
   election.candidateSupport = roundedSupport;
   election.oppositionSupport = Number((100 - roundedSupport).toFixed(1));
+  election.partyPoll = buildPartyPoll(election, roundedSupport);
   return { election, applied: groupResult.applied, supportDelta: Number(supportDelta.toFixed(2)) };
 }
 
@@ -219,6 +260,7 @@ export function updateElection(currentState, aiResult, playerText, issue) {
     voterGroups: groups,
     candidateSupport: Number(support.toFixed(1)),
     oppositionSupport: Number((100 - Number(support.toFixed(1))).toFixed(1)),
+    partyPoll: buildPartyPoll(election, Number(support.toFixed(1))),
     issueIndex: nextIndex,
     currentIssue: agenda[nextIndex]?.id || null,
     policyCredibility: Number(credibility.toFixed(1)),
@@ -248,7 +290,7 @@ export function initializeElectionBaseline(currentState, seed = "") {
   if (!["election_campaign", "election"].includes(phase)) return { state, changed: false };
 
   const election = state.election && typeof state.election === "object" ? state.election : {};
-  if (Number(election.baselineVersion || 0) >= 3) return { state, changed: false };
+  if (Number(election.baselineVersion || 0) >= 4) return { state, changed: false };
 
   const decisions = Array.isArray(election.decisions) ? election.decisions : [];
   const actions = Array.isArray(state.politicalActions) ? state.politicalActions : [];
@@ -281,13 +323,14 @@ export function initializeElectionBaseline(currentState, seed = "") {
 
   state.election = {
     ...election,
-    baselineVersion: 3,
-    difficultyBalanceVersion: 3,
+    baselineVersion: 4,
+    difficultyBalanceVersion: 4,
     startingSupport: Number(startingSupport.toFixed(1)),
     baselineAdjustment: Number(adjustment.toFixed(1)),
     candidateSupport: Number(candidateSupport.toFixed(1)),
     oppositionSupport: Number((100 - candidateSupport).toFixed(1)),
-    voterGroups
+    voterGroups,
+    partyPoll: buildPartyPoll(election, candidateSupport, seed)
   };
   return { state, changed: true };
 }
