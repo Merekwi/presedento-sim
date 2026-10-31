@@ -56,7 +56,7 @@
     catch(error){throw new Error("Браузер не смог сохранить запрос локально. Освободите место в хранилище и повторите.");}
     updateOutboxIndicator();
   }
-  function hasPendingBackgroundJobs(){return outbox.some(item=>item.status==="queued"||item.status==="sending");}
+  function hasPendingBackgroundJobs(){return outbox.some(item=>item.status==="queued"||item.status==="sending"||item.status==="failed");}
   function updateOutboxIndicator(){
     let host=$("backgroundQueueStatus");
     if(!host){
@@ -92,7 +92,7 @@
       discard.addEventListener("click",discardBlockedBackgroundJobs);host.parentElement.append(discard);
     }
     if(discard){discard.hidden=!failed.length;discard.disabled=outboxRunning;}
-    const pending=active.length>0;
+    const pending=active.length>0||failed.some(item=>item.status==="failed");
     document.querySelectorAll("[data-campaign-event-start],[data-campaign-event-respond],[data-election-proposal],[data-election-activity]").forEach(button=>button.disabled=busy||pending);
     if(busy||pending){
       document.querySelectorAll("[data-program-start],[data-program-cancel],[data-dismiss-minister]").forEach(button=>button.disabled=true);
@@ -182,7 +182,7 @@
   async function startBackgroundQueue(){
     if(outboxRunning||!initializeOutbox())return;
     const auth=window.PRESIDENTIAL_AUTH;
-    const newCampaignQueued=outbox.some(item=>item.status==="queued"&&item.route==="/api/presidential/game/new");
+    const newCampaignQueued=outbox.some(item=>(item.status==="queued"||item.status==="failed")&&item.route==="/api/presidential/game/new");
     if(!auth||!auth.api||!auth.aiApi||(!currentGame&&!newCampaignQueued))return;
     outboxRunning=true;updateOutboxIndicator();
     try{
