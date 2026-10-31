@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   sanitizeDeltas, applyStateDeltas, applyGroupDeltas,
-  coupProbability, resolveCoup, updateElection, normalizeTreaties
+  coupProbability, resolveCoup, updateElection, normalizeTreaties,
+  initializeElectionBaseline, isDuplicateCampaignAction
 } from "./engine.mjs";
 
 test("AI deltas accept only known numeric metrics and enforce limits", () => {
@@ -22,6 +23,7 @@ test("voter group changes are bounded", () => {
   assert.equal(groups.workers, 100);
   assert.equal(groups.business, 0);
   assert.equal(groups.fake, undefined);
+  assert.deepEqual(applyGroupDeltas({ workers: 50 }, { workers: 8 }).applied, { workers: 4 });
 });
 
 test("coup probability stays between eight and sixty-five percent", () => {
@@ -51,4 +53,44 @@ test("election proposals add free-text decisions and advance only one agenda poi
 
 test("diplomacy treaties retain old list values", () => {
   assert.deepEqual(normalizeTreaties([{name:"Договор"}]).activeDeals, [{name:"Договор"}]);
+});
+
+test("new election baseline starts well below a 50 percent majority and is idempotent", () => {
+  const current = {
+    phase: "election_campaign",
+    approval: 70,
+    election: { candidateSupport: 49, voterGroups: { workers: 48, business: 52 }, decisions: [], issueIndex: 0 }
+  };
+  const first = initializeElectionBaseline(current, "save-123");
+  const support = first.state.election.candidateSupport;
+  assert.equal(first.changed, true);
+  assert.ok(support >= 18 && support <= 26);
+  assert.equal(first.state.election.oppositionSupport, 100 - support);
+  assert.ok(first.state.election.voterGroups.workers < 30);
+  assert.ok(first.state.election.voterGroups.business < 35);
+  const second = initializeElectionBaseline(first.state, "save-123");
+  assert.equal(second.changed, false);
+  assert.equal(second.state.election.candidateSupport, support);
+});
+
+test("baseline normalization preserves a small amount of early campaign progress", () => {
+  const current = {
+    phase: "election_campaign",
+    election: {
+      candidateSupport: 48,
+      voterGroups: { workers: 54, business: 43 },
+      issueIndex: 1,
+      decisions: [{ playerProposal: "proposal" }]
+    },
+    politicalActions: [{ text: "town hall meeting" }]
+  };
+  const result = initializeElectionBaseline(current, "existing-save");
+  assert.ok(result.state.election.candidateSupport < 30);
+  assert.ok(result.state.election.candidateSupport > result.state.election.startingSupport);
+});
+
+test("duplicate campaign actions are detected after whitespace and punctuation normalization", () => {
+  const actions = [{ text: "Провести встречи с жителями регионов!" }];
+  assert.equal(isDuplicateCampaignAction(actions, " провести   встречи с жителями регионов "), true);
+  assert.equal(isDuplicateCampaignAction(actions, "Организовать публичные дебаты"), false);
 });
