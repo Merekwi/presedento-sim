@@ -88,24 +88,49 @@ export function applyGroupDeltas(currentGroups, input) {
   return { groups, applied: deltas };
 }
 
-export function applyCampaignEventEffects(currentElection, input) {
+export function electionDifficultyProfile(value = "normal") {
+  const difficulty = String(value || "normal").toLowerCase();
+  if (difficulty === "easy") return {
+    startMin: 42, startRange: 9, proposalGroup: 0.70, proposalCredibility: 0.09,
+    feasibilityPenalty: 0.20, proposalCap: 2.2, actionGroup: 0.42, actionCap: 1.3,
+    eventGroup: 0.30, eventCap: 0.85
+  };
+  if (difficulty === "hard") return {
+    startMin: 18, startRange: 9, proposalGroup: 0.30, proposalCredibility: 0.04,
+    feasibilityPenalty: 0.45, proposalCap: 1.25, actionGroup: 0.22, actionCap: 0.8,
+    eventGroup: 0.18, eventCap: 0.45
+  };
+  return {
+    startMin: 32, startRange: 9, proposalGroup: 0.55, proposalCredibility: 0.07,
+    feasibilityPenalty: 0.30, proposalCap: 1.9, actionGroup: 0.34, actionCap: 1.1,
+    eventGroup: 0.24, eventCap: 0.70
+  };
+}
+
+function applyCampaignOpinionEffects(currentElection, input, difficulty, mode) {
   const election = currentElection && typeof currentElection === "object" && !Array.isArray(currentElection)
     ? structuredClone(currentElection)
     : {};
+  const profile = electionDifficultyProfile(difficulty);
   const groupResult = applyGroupDeltas(election.voterGroups, input);
   const values = Object.values(groupResult.applied);
   const average = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
-  // An entire event is deliberately incremental; individual rounds cannot swing the poll dramatically.
-  const supportDelta = clamp(average * 0.18, -0.45, 0.45);
+  const multiplier = mode === "event" ? profile.eventGroup : profile.actionGroup;
+  const cap = mode === "event" ? profile.eventCap : profile.actionCap;
+  const supportDelta = clamp(average * multiplier, -cap, cap);
   const support = clamp(Number(election.candidateSupport ?? 20) + supportDelta, 5, 95);
   election.voterGroups = groupResult.groups;
   election.candidateSupport = Number(support.toFixed(1));
   election.oppositionSupport = Number((100 - support).toFixed(1));
-  return {
-    election,
-    applied: groupResult.applied,
-    supportDelta: Number(supportDelta.toFixed(2))
-  };
+  return { election, applied: groupResult.applied, supportDelta: Number(supportDelta.toFixed(2)) };
+}
+
+export function applyCampaignEventEffects(currentElection, input, difficulty = "normal") {
+  return applyCampaignOpinionEffects(currentElection, input, difficulty, "event");
+}
+
+export function applyCampaignActionEffects(currentElection, input, difficulty = "normal") {
+  return applyCampaignOpinionEffects(currentElection, input, difficulty, "action");
 }
 
 export function coupProbability(state) {
@@ -159,9 +184,9 @@ export function updateElection(currentState, aiResult, playerText, issue) {
   const oldSupport = clamp(election.candidateSupport ?? state.approval ?? 50, 1, 99);
   const credibility = clamp(Number(election.policyCredibility ?? 50) + credibilityDelta, 0, 100);
   const trust = clamp(Number(election.institutionalTrust ?? state.democracyIndex ?? 50) + trustDelta, 0, 100);
-  const feasibilityPenalty = Math.max(0, Math.abs(fiscalImpact) - 1.2) * 0.45;
-  // Campaign support moves gradually. A single proposal must never swing the poll by several points.
-  const supportDelta = clamp(groupAverage * 0.3 + credibilityDelta * 0.04 - feasibilityPenalty, -1.25, 1.25);
+  const profile = electionDifficultyProfile(state.difficulty);
+  const feasibilityPenalty = Math.max(0, Math.abs(fiscalImpact) - 1.2) * 0.45 * profile.feasibilityPenalty;
+  const supportDelta = clamp(groupAverage * profile.proposalGroup + credibilityDelta * profile.proposalCredibility - feasibilityPenalty, -profile.proposalCap, profile.proposalCap);
   const support = clamp(oldSupport + supportDelta, 5, 95);
   const decisions = Array.isArray(election.decisions) ? [...election.decisions] : [];
   const issueTitle = issue?.title || aiResult?.issueTitle || "Политическая программа";
@@ -222,7 +247,7 @@ export function initializeElectionBaseline(currentState, seed = "") {
   if (!["election_campaign", "election"].includes(phase)) return { state, changed: false };
 
   const election = state.election && typeof state.election === "object" ? state.election : {};
-  if (Number(election.baselineVersion || 0) >= 2) return { state, changed: false };
+  if (Number(election.baselineVersion || 0) >= 3) return { state, changed: false };
 
   const decisions = Array.isArray(election.decisions) ? election.decisions : [];
   const actions = Array.isArray(state.politicalActions) ? state.politicalActions : [];
@@ -235,12 +260,12 @@ export function initializeElectionBaseline(currentState, seed = "") {
     hash ^= character.charCodeAt(0);
     hash = Math.imul(hash, 16777619);
   }
-  const startingSupport = 18 + (hash >>> 0) % 9; // 18–26%, stable for this campaign.
-  const referenceSupport = hasProgress ? 45 : currentSupport;
-  const adjustment = Math.max(0, referenceSupport - startingSupport);
-  const candidateSupport = hasProgress
-    ? clamp(currentSupport - adjustment, 5, 45)
-    : startingSupport;
+  const profile = electionDifficultyProfile(state.difficulty);
+  const startingSupport = profile.startMin + (hash >>> 0) % profile.startRange;
+  const previousStartingSupport = Number.isFinite(Number(election.startingSupport)) ? Number(election.startingSupport) : currentSupport;
+  const progress = hasProgress ? clamp(currentSupport - previousStartingSupport, -12, 25) : 0;
+  const candidateSupport = clamp(startingSupport + progress, 5, 95);
+  const adjustment = startingSupport - previousStartingSupport;
 
   const currentGroups = election.voterGroups && typeof election.voterGroups === "object"
     ? election.voterGroups
@@ -255,7 +280,8 @@ export function initializeElectionBaseline(currentState, seed = "") {
 
   state.election = {
     ...election,
-    baselineVersion: 2,
+    baselineVersion: 3,
+    difficultyBalanceVersion: 3,
     startingSupport: Number(startingSupport.toFixed(1)),
     baselineAdjustment: Number(adjustment.toFixed(1)),
     candidateSupport: Number(candidateSupport.toFixed(1)),
