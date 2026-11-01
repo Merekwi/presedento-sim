@@ -371,7 +371,7 @@
   function syncGameClock(game){
     const raw=game&&game.game_datetime;
     const stamp=raw instanceof Date?raw.toISOString():String(raw||"").replace(" ","T");
-    const normalized=stamp&&/(Z|[+-]\\d{2}:\\d{2})$/.test(stamp)?stamp:(stamp?stamp+"Z":"");
+    const normalized=stamp&&/(Z|[+-]\d{2}:\d{2})$/.test(stamp)?stamp:(stamp?stamp+"Z":"");
     let parsed=normalized?Date.parse(normalized):NaN;
     if(!Number.isFinite(parsed))parsed=Date.parse(String(game&&game.game_date||"")+"T08:00:00Z");
     clockBaseMs=Number.isFinite(parsed)?parsed:Date.now();
