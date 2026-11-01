@@ -9,18 +9,6 @@
   let militaryMapView = { scale: 1, x: 0, y: 0 };
   let militaryMapLayer = null;
   let militaryMapState = { mode: "view", draft: [], justDragged: false };
-  let militaryLeafletMap=null;
-  let militaryLeafletOverlay=null;
-  let militaryLeafletRoot=null;
-  let militaryLeafletSaveKey="";
-  let militaryLeafletWarKey="";
-  let militaryLeafletDefaultView={center:[20,0],zoom:2};
-  let militarySatellitePreviewMap=null;
-  let militarySatellitePreviewRoot=null;
-  let militarySatellitePreviewOverlay=null;
-  let militarySatellitePreviewDraftLayer=null;
-  let militarySatellitePreviewSaveKey="";
-  let militarySatellitePreviewWarKey="";
   let worldLeafletMap=null;
   let worldLeafletOverlay=null;
   let worldLeafletRoot=null;
@@ -954,15 +942,11 @@
     return g;
   }
   function applyMilitaryMapTransform(){
-    const liveMap=militaryLeafletMap||militarySatellitePreviewMap;
-    if(liveMap){setText("militaryZoomReset",liveMap.getZoom()+"×");return;}
     if(!militaryMapLayer)return;
     militaryMapLayer.setAttribute("transform","translate("+militaryMapView.x+" "+militaryMapView.y+") translate(500 250) scale("+militaryMapView.scale+") translate(-500 -250)");
     setText("militaryZoomReset",Math.round(militaryMapView.scale*100)+"%");
   }
   function changeMilitaryMapZoom(factor){
-    const liveMap=militaryLeafletMap||militarySatellitePreviewMap;
-    if(liveMap){if(Number(factor)>=1)liveMap.zoomIn();else liveMap.zoomOut();return;}
     militaryMapView.scale=clamp(militaryMapView.scale*Number(factor||1),1,6);
     applyMilitaryMapTransform();
   }
@@ -1129,176 +1113,9 @@
     }).catch(error=>root.replaceChildren(node("div","map-loading","Не удалось загрузить оперативную карту: "+(error.message||"ошибка данных"))));
   }
 
-  function militaryCountryCode(feature){
-    const p=feature&&feature.properties||{};
-    const eh=String(p.ISO_A2_EH||"").toUpperCase();
-    return (eh&&eh!=="-99"?eh:String(p.ISO_A2||"")).toUpperCase();
-  }
-  function militaryCountryLabel(feature){
-    const p=feature&&feature.properties||{};
-    return p.NAME_RU||p.NAME_EN||p.ADMIN||p.NAME||"Государство";
-  }
-  function leafletAnchor(anchor){
-    if(!anchor||anchor.lat==null||anchor.lon==null)return null;
-    const lat=Number(anchor.lat),lon=Number(anchor.lon);
-    return Number.isFinite(lat)&&Number.isFinite(lon)?[lat,lon]:null;
-  }
-  function leafletCountryAnchor(feature){
-    const p=feature&&feature.properties||{};
-    if(p.LABEL_X==null||p.LABEL_Y==null)return null;
-    const lon=Number(p.LABEL_X),lat=Number(p.LABEL_Y);
-    return Number.isFinite(lon)&&Number.isFinite(lat)?[lat,lon]:null;
-  }
-  function militaryLeafletUnitIcon(branch,side,caption){
-    const host=document.createElement("div");
-    host.className="military-leaflet-unit "+(side==="enemy"?"enemy":"friendly")+" branch-"+branch;
-    const art=document.createElement("div");art.className="military-leaflet-model";
-    const svg=document.createElementNS("http://www.w3.org/2000/svg","svg");
-    svg.setAttribute("viewBox","0 0 64 64");svg.setAttribute("aria-hidden","true");
-    const shapes={
-      land:'<ellipse cx="32" cy="53" rx="19" ry="5" opacity=".24"/><circle cx="31" cy="15" r="6"/><path d="M23 25 Q31 20 39 25 L43 43 L36 45 L36 56 L27 56 L26 45 L19 43 Z"/><path d="M22 28 L12 39 L16 42 L26 34 M38 28 L48 33 L46 38 L37 36 M28 55 L21 62 M35 55 L42 62"/><path d="M39 25 L55 12 L58 15 L43 34" stroke-width="3"/>',
-      guard:'<ellipse cx="32" cy="53" rx="19" ry="5" opacity=".24"/><path d="M20 22 L25 9 L39 9 L44 22 L39 25 L42 44 L36 46 L36 57 L27 57 L27 46 L21 44 L24 25 Z"/><circle cx="32" cy="17" r="6"/><path d="M22 30 L11 38 L16 42 L27 35 M40 30 L51 36 L47 41 L38 36 M28 56 L20 62 M36 56 L44 62"/>',
-      air:'<path d="M32 3 L36 23 L58 36 L58 42 L36 36 L36 50 L44 57 L44 61 L32 58 L20 61 L20 57 L28 50 L28 36 L6 42 L6 36 L28 23 Z"/><path d="M32 9 L32 55" fill="none" stroke-width="2"/>',
-      naval:'<path d="M27 4 L37 4 L39 17 L51 24 L47 46 L39 56 L25 56 L17 46 L13 24 L25 17 Z"/><path d="M24 24 L40 24 L40 37 L24 37 Z"/><path d="M32 11 L32 21 M18 43 Q26 38 32 43 T46 43 M12 54 Q22 49 32 54 T52 54" fill="none" stroke-width="2"/>',
-      hq:'<path d="M10 20 L54 20 L54 54 L10 54 Z"/><path d="M16 27 L28 27 L28 39 L16 39 Z M36 27 L48 27 L48 39 L36 39 Z M26 42 L38 42 L38 54 L26 54 Z"/><path d="M32 3 L32 19 M32 3 L53 9 L32 15 Z"/>'
-    };
-    art.innerHTML="";
-    const path=document.createElementNS("http://www.w3.org/2000/svg","g");
-    path.innerHTML=shapes[branch]||shapes.land;
-    svg.append(path);art.append(svg);host.append(art);
-    if(caption){const label=document.createElement("span");label.textContent=caption;host.append(label);}
-    return L.divIcon({html:host,className:"military-leaflet-icon",iconSize:[82,75],iconAnchor:[41,29],popupAnchor:[0,-26]});
-  }
-  function militaryLeafletPopup(title,detail,unit){
-    const box=document.createElement("div"),heading=document.createElement("b"),body=document.createElement("div");
-    heading.textContent=title||"Подразделение";body.textContent=detail||"";
-    box.append(heading,body);
-    if(unit){
-      const stats=document.createElement("small");
-      stats.textContent="Готовность "+number(unit.readiness||0,0)+"% · снабжение "+number(unit.supply||0,0)+"% · техника "+number(unit.equipment_level||0,0)+"%";
-      box.append(stats);
-    }
-    return box;
-  }
-  function militarySharedBorders(a,b){
-    const makeSegments=feature=>{
-      const geometry=feature&&feature.geometry;if(!geometry)return [];
-      const polygons=geometry.type==="Polygon"?[geometry.coordinates]:geometry.type==="MultiPolygon"?geometry.coordinates:[];
-      const segments=[];
-      for(const polygon of polygons)for(const ring of (polygon||[]).slice(0,1))for(let i=0;i<ring.length-1;i++){
-        const p=ring[i],q=ring[i+1];
-        if(!Array.isArray(p)||!Array.isArray(q)||p.length<2||q.length<2)continue;
-        const kp=Number(p[0]).toFixed(3)+","+Number(p[1]).toFixed(3),kq=Number(q[0]).toFixed(3)+","+Number(q[1]).toFixed(3);
-        if(kp===kq)continue;
-        const dx=(Number(q[0])-Number(p[0]))*Math.cos((Number(p[1])+Number(q[1]))*.5*Math.PI/180),dy=Number(q[1])-Number(p[1]);
-        segments.push({key:kp<kq?kp+"|"+kq:kq+"|"+kp,p,q,length:Math.hypot(dx,dy)});
-      }
-      return segments;
-    };
-    const own=new Map(makeSegments(a).map(segment=>[segment.key,segment])),shared=[];
-    for(const segment of makeSegments(b)){
-      const same=own.get(segment.key);if(!same)continue;
-      shared.push({a:[Number(same.p[1]),Number(same.p[0])],b:[Number(same.q[1]),Number(same.q[0])],mid:[(Number(same.p[1])+Number(same.q[1]))/2,(Number(same.p[0])+Number(same.q[0]))/2],length:same.length});
-    }
-    return shared;
-  }
-  function militaryNearestBoundaryPoint(feature){
-    const p=feature&&feature.properties||{},center=leafletCountryAnchor(feature),geometry=feature&&feature.geometry;
-    if(!center||!geometry)return null;
-    const polygons=geometry.type==="Polygon"?[geometry.coordinates]:geometry.type==="MultiPolygon"?geometry.coordinates:[];
-    let best=null,score=Infinity;
-    for(const polygon of polygons)for(const ring of (polygon||[]).slice(0,1))for(const point of ring){
-      let dx=Number(point[0])-center[1];if(dx>180)dx-=360;if(dx< -180)dx+=360;
-      const candidate=(dx*Math.cos(center[0]*Math.PI/180))**2+(Number(point[1])-center[0])**2;
-      if(candidate<score){score=candidate;best=[Number(point[1]),Number(point[0])];}
-    }
-    return best;
-  }
   function resetMilitaryMapView(){
-    if(militaryLeafletMap){militaryLeafletMap.setView(militaryLeafletDefaultView.center,militaryLeafletDefaultView.zoom);return;}
-    if(militarySatellitePreviewMap){
-      const iso=String(currentGame&&currentGame.iso2||"").trim().toUpperCase();
-      const view=MAP_COUNTRY_VIEWS[iso]||{center:[20,0],zoom:2};
-      militarySatellitePreviewMap.setView(view.center,view.zoom);
-      return;
-    }
-    militaryMapView={scale:1,x:0,y:0};applyMilitaryMapTransform();
-  }
-  function renderMilitarySatellitePreview(payload,root){
-    if(!root||!root.isConnected||!window.L)return;
-    if(militaryLeafletMap&&militaryLeafletRoot===root)return;
-    const saveKey=String(payload.game&&payload.game.id||"");
-    const iso=String(payload.game&&payload.game.iso2||"").trim().toUpperCase();
-    const view=MAP_COUNTRY_VIEWS[iso]||{center:[20,0],zoom:2};
-    const war=(payload.wars||[]).find(item=>item.status==="active")||null;
-    const warKey=war?String(war.id):"";
-    const front=war&&war.front_state||{};
-    const center=leafletAnchor(front.frontAnchor)||leafletAnchor(front.homeAnchor)||view.center;
-    const zoom=front.frontAnchor?5:front.homeAnchor?4:view.zoom;
-    if(!militarySatellitePreviewMap||militarySatellitePreviewRoot!==root){
-      if(militarySatellitePreviewMap)militarySatellitePreviewMap.remove();
-      root.replaceChildren();
-      militarySatellitePreviewMap=L.map(root,{center,zoom,minZoom:2,maxZoom:19,zoomControl:false,worldCopyJump:true,preferCanvas:true});
-      addMapBaseLayer(militarySatellitePreviewMap);
-      militarySatellitePreviewOverlay=L.layerGroup().addTo(militarySatellitePreviewMap);
-      militarySatellitePreviewRoot=root;
-      militarySatellitePreviewSaveKey=saveKey;
-      militarySatellitePreviewWarKey=warKey;
-      militarySatellitePreviewMap.on("zoomend",()=>setText("militaryZoomReset",militarySatellitePreviewMap.getZoom()+"×"));
-      militarySatellitePreviewMap.on("click",event=>{
-        const mode=militaryMapState.mode;
-        if(mode==="view")return;
-        const geo={lat:Number(event.latlng.lat.toFixed(5)),lon:Number(event.latlng.lng.toFixed(5))};
-        if(mode==="patrol"){
-          if(militaryMapState.draft.length>=8)return toast("В маршруте патруля уже восемь точек.");
-          militaryMapState.draft.push(geo);
-          setText("militaryMapDraftStatus","Точек маршрута: "+militaryMapState.draft.length+" · требуется минимум две.");
-          const save=$("saveMilitaryPatrol");if(save)save.disabled=militaryMapState.draft.length<2;
-          const group=militarySatellitePreviewDraftLayer;
-          if(group){
-            group.clearLayers();
-            const points=militaryMapState.draft.map(point=>[point.lat,point.lon]);
-            if(points.length>1)L.polyline(points,{color:"#e3a93c",weight:3,dashArray:"6 6"}).addTo(group);
-            points.forEach(point=>L.circleMarker(point,{radius:5,color:"#6b4a14",fillColor:"#f4c35e",fillOpacity:1}).addTo(group));
-          }
-          return;
-        }
-        if(mode==="order"){
-          const livePayload=currentPayload||payload;
-          const liveWar=(livePayload.wars||[]).find(item=>item.status==="active");
-          if(!liveWar)return toast("Сначала начните военный конфликт.");
-          const unitId=$("militaryMapUnit")&&$("militaryMapUnit").value,orderType=$("militaryMapOrder")&&$("militaryMapOrder").value;
-          const objective=orderType==="advance"?"Достичь указанного района":orderType==="defend"?"Защитить указанный район":"Выполнить приказ в отмеченной точке";
-          void runMilitaryAction({action:"issue_order",warId:liveWar.id,unitId,orderType,targetLat:geo.lat,targetLon:geo.lon,objective},null,"Приказ передан подразделению.");
-        }
-      });
-    }else if(militarySatellitePreviewSaveKey!==saveKey||militarySatellitePreviewWarKey!==warKey){
-      militarySatellitePreviewSaveKey=saveKey;militarySatellitePreviewWarKey=warKey;
-      militarySatellitePreviewMap.setView(center,zoom,{animate:false});
-    }
-    militarySatellitePreviewOverlay.clearLayers();
-    militarySatellitePreviewDraftLayer=L.layerGroup().addTo(militarySatellitePreviewOverlay);
-    L.circleMarker(view.center,{radius:5,color:"#172b3d",weight:1.5,fillColor:"#ffd36e",fillOpacity:1})
-      .bindTooltip(payload.game.name_local||payload.game.name_en||"Ваше государство").addTo(militarySatellitePreviewOverlay);
-    const enemy=leafletAnchor(front.enemyAnchor);
-    if(enemy)L.circleMarker(enemy,{radius:6,color:"#641e24",weight:2,fillColor:"#e56d5e",fillOpacity:1})
-      .bindTooltip(war&&war.opponent_country_name||"Силы противника").addTo(militarySatellitePreviewOverlay);
-    const frontPoint=leafletAnchor(front.frontAnchor);
-    if(frontPoint)L.circleMarker(frontPoint,{radius:7,color:"#641e24",weight:2,fillColor:"#ffb171",fillOpacity:1})
-      .bindTooltip("Сектор фронта").addTo(militarySatellitePreviewOverlay);
-    (payload.units||[]).forEach(unit=>{
-      const lat=Number(unit.location_lat),lon=Number(unit.location_lon);
-      if(!Number.isFinite(lat)||!Number.isFinite(lon))return;
-      L.circleMarker([lat,lon],{radius:5,color:"#103d43",weight:1.5,fillColor:"#9fe0c7",fillOpacity:1})
-        .bindTooltip(unit.unit_type||"Воинское подразделение").addTo(militarySatellitePreviewOverlay);
-    });
-    if(militaryMapState.draft.length){
-      const points=militaryMapState.draft.map(point=>[point.lat,point.lon]);
-      if(points.length>1)L.polyline(points,{color:"#e3a93c",weight:3,dashArray:"6 6"}).addTo(militarySatellitePreviewDraftLayer);
-      points.forEach(point=>L.circleMarker(point,{radius:5,color:"#6b4a14",fillColor:"#f4c35e",fillOpacity:1}).addTo(militarySatellitePreviewDraftLayer));
-    }
-    setText("militaryZoomReset",militarySatellitePreviewMap.getZoom()+"×");
-    window.setTimeout(()=>militarySatellitePreviewMap&&militarySatellitePreviewMap.invalidateSize({pan:false}),80);
+    militaryMapView={scale:1,x:0,y:0};
+    applyMilitaryMapTransform();
   }
 
   function renderMilitaryMap(payload){
@@ -2182,12 +1999,10 @@
     militaryMapState.draft=[];
     militaryMapState.mode="view";$("militaryMapMode").value="view";
     $("saveMilitaryPatrol").disabled=true;
-    if(militarySatellitePreviewDraftLayer)militarySatellitePreviewDraftLayer.clearLayers();
   });
   $("clearMilitaryMapDraft").addEventListener("click",()=>{
     militaryMapState.draft=[];setText("militaryMapDraftStatus","Точки карты очищены.");
     $("saveMilitaryPatrol").disabled=true;
-    if(militarySatellitePreviewDraftLayer)militarySatellitePreviewDraftLayer.clearLayers();
     if(currentPayload)renderMilitaryMap(currentPayload);
   });
   $("militaryZoomIn").addEventListener("click",()=>changeMilitaryMapZoom(1.2));
