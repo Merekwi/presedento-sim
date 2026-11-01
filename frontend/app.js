@@ -15,6 +15,9 @@
   let militaryLeafletSaveKey="";
   let militaryLeafletWarKey="";
   let militaryLeafletDefaultView={center:[20,0],zoom:2};
+  let militarySatellitePreviewMap=null;
+  let militarySatellitePreviewRoot=null;
+  let militarySatellitePreviewOverlay=null;
   let worldLeafletMap=null;
   let worldLeafletOverlay=null;
   let worldLeafletRoot=null;
@@ -1119,6 +1122,62 @@
     if(militaryLeafletMap){militaryLeafletMap.setView(militaryLeafletDefaultView.center,militaryLeafletDefaultView.zoom);return;}
     militaryMapView={scale:1,x:0,y:0};applyMilitaryMapTransform();
   }
+  function renderMilitarySatellitePreview(payload,root){
+    if(!root||!root.isConnected||!window.L)return;
+    if(militaryLeafletMap&&militaryLeafletRoot===root)return;
+    if(militarySatellitePreviewMap&&militarySatellitePreviewRoot===root)return;
+    if(militarySatellitePreviewMap)militarySatellitePreviewMap.remove();
+    const iso=String(payload.game&&payload.game.iso2||"").trim().toUpperCase();
+    const view=MAP_COUNTRY_VIEWS[iso]||{center:[20,0],zoom:2};
+    const war=(payload.wars||[]).find(item=>item.status==="active")||null;
+    const front=war&&war.front_state||{};
+    const center=leafletAnchor(front.frontAnchor)||leafletAnchor(front.homeAnchor)||view.center;
+    const zoom=front.frontAnchor?5:front.homeAnchor?4:view.zoom;
+    root.replaceChildren();
+    militarySatellitePreviewMap=L.map(root,{center,zoom,minZoom:2,maxZoom:19,zoomControl:false,worldCopyJump:true,preferCanvas:true});
+    L.tileLayer(SATELLITE_TILE_URL,{
+      minZoom:2,maxZoom:19,maxNativeZoom:19,updateWhenIdle:true,keepBuffer:2,
+      attribution:SATELLITE_ATTRIBUTION
+    }).addTo(militarySatellitePreviewMap);
+    militarySatellitePreviewOverlay=L.layerGroup().addTo(militarySatellitePreviewMap);
+    militarySatellitePreviewRoot=root;
+    L.circleMarker(view.center,{radius:5,color:"#172b3d",weight:1.5,fillColor:"#ffd36e",fillOpacity:1})
+      .bindTooltip(payload.game.name_local||payload.game.name_en||"Ваше государство").addTo(militarySatellitePreviewOverlay);
+    const enemy=leafletAnchor(front.enemyAnchor);
+    if(enemy)L.circleMarker(enemy,{radius:6,color:"#641e24",weight:2,fillColor:"#e56d5e",fillOpacity:1})
+      .bindTooltip(war&&war.opponent_country_name||"Силы противника").addTo(militarySatellitePreviewOverlay);
+    const frontPoint=leafletAnchor(front.frontAnchor);
+    if(frontPoint)L.circleMarker(frontPoint,{radius:7,color:"#641e24",weight:2,fillColor:"#ffb171",fillOpacity:1})
+      .bindTooltip("Сектор фронта").addTo(militarySatellitePreviewOverlay);
+    (payload.units||[]).forEach(unit=>{
+      const lat=Number(unit.location_lat),lon=Number(unit.location_lon);
+      if(!Number.isFinite(lat)||!Number.isFinite(lon))return;
+      L.circleMarker([lat,lon],{radius:5,color:"#103d43",weight:1.5,fillColor:"#9fe0c7",fillOpacity:1})
+        .bindTooltip(unit.unit_type||"Воинское подразделение").addTo(militarySatellitePreviewOverlay);
+    });
+    militarySatellitePreviewMap.on("click",event=>{
+      const mode=militaryMapState.mode;
+      if(mode==="view")return;
+      const geo={lat:Number(event.latlng.lat.toFixed(5)),lon:Number(event.latlng.lng.toFixed(5))};
+      if(mode==="patrol"){
+        if(militaryMapState.draft.length>=8)return toast("В маршруте патруля уже восемь точек.");
+        militaryMapState.draft.push(geo);
+        setText("militaryMapDraftStatus","Точек маршрута: "+militaryMapState.draft.length+" · требуется минимум две.");
+        const save=$("saveMilitaryPatrol");if(save)save.disabled=militaryMapState.draft.length<2;
+        renderMilitarySatellitePreview({...payload,units:payload.units},root);
+        return;
+      }
+      if(mode==="order"){
+        const liveWar=(currentPayload&&Array.isArray(currentPayload.wars)?currentPayload.wars:payload.wars||[]).find(item=>item.status==="active");
+        if(!liveWar)return toast("Сначала начните военный конфликт.");
+        const unitId=$("militaryMapUnit")&&$("militaryMapUnit").value,orderType=$("militaryMapOrder")&&$("militaryMapOrder").value;
+        const objective=orderType==="advance"?"Достичь указанного района":orderType==="defend"?"Защитить указанный район":"Выполнить приказ в отмеченной точке";
+        void runMilitaryAction({action:"issue_order",warId:liveWar.id,unitId,orderType,targetLat:geo.lat,targetLon:geo.lon,objective},null,"Приказ передан подразделению.");
+      }
+    });
+    window.setTimeout(()=>militarySatellitePreviewMap&&militarySatellitePreviewMap.invalidateSize({pan:false}),80);
+  }
+
   function renderMilitaryMap(payload){
     if(!window.L||!window.L.map||!window.L.tileLayer){
       const root=$("militaryMap");
@@ -1135,8 +1194,12 @@
       const mode=$("militaryMapMode");if(mode)mode.value="view";
       setText("militaryMapDraftStatus","Карта театра операций: выберите режим для прокладки маршрута или приказа.");
     }
+    renderMilitarySatellitePreview(payload,root);
     loadWorldGeoJSON().then(data=>{
       if(!root.isConnected)return;
+      if(militarySatellitePreviewMap&&militarySatellitePreviewRoot===root){
+        militarySatellitePreviewMap.remove();militarySatellitePreviewMap=null;militarySatellitePreviewRoot=null;militarySatellitePreviewOverlay=null;root.replaceChildren();
+      }
       const activeWar=(payload.wars||[]).find(item=>item.status==="active")||null;
       const warId=activeWar?String(activeWar.id):"";
       const homeIso=String(payload.game&&payload.game.iso2||"").toUpperCase();
@@ -1288,10 +1351,14 @@
       if(militaryLeafletMap&&militaryLeafletRoot===root)window.setTimeout(()=>militaryLeafletMap&&militaryLeafletMap.invalidateSize({pan:false}),50);
     }).catch(error=>{
       if(!root.isConnected)return;
-      if(window.L&&militaryLeafletMap){militaryLeafletMap.remove();militaryLeafletMap=null;militaryLeafletOverlay=null;militaryLeafletRoot=null;}
-      root.classList.remove("leaflet-container");
-      renderMilitarySvgMap(payload);
-      console.warn("Leaflet military map failed; SVG map fallback is active:",error);
+      if(militaryLeafletMap&&militaryLeafletRoot===root){
+        console.warn("Military country boundaries are unavailable; keep the satellite map active.",error);
+      }else if(!militarySatellitePreviewMap||militarySatellitePreviewRoot!==root){
+        renderMilitarySatellitePreview(payload,root);
+      }
+      const status=$("militaryMapDraftStatus");
+      if(status)status.textContent="Спутниковая карта загружена. Географические границы временно недоступны.";
+      console.warn("Military map boundary overlay unavailable; satellite imagery remains visible:",error);
     });
   }
 
