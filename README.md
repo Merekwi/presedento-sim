@@ -86,8 +86,9 @@ GitHub Pages использует ветку `main`, папку `/frontend`:
 
 AI-маршруты:
 
-- `POST /api/presidential/ai/decree/draft`
-- `POST /api/presidential/ai/decree/publish`
+- `POST /api/presidential/ai/decree/draft` — проект указа по теме исходной инициативы; отдельная проверка соответствия темы, повторная генерация при отклонении и отказ без сохранения, если тема всё равно не совпадает.
+- `POST /api/presidential/ai/decree/publish` — отдельная публикация только после подтверждения игрока.
+- `POST /api/presidential/ai/decree/discard` — удаление неопубликованного черновика по явному действию игрока.
 - `POST /api/presidential/ai/election/decision`
 - `POST /api/presidential/ai/election/action`
 - `GET /api/presidential/ai/diplomacy/history?relationId=...`
