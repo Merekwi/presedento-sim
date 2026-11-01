@@ -1,0 +1,144 @@
+/* Standalone military operations page */
+.military-page{min-height:100vh;background:#edf1f4}
+.military-topbar{position:sticky;top:0;z-index:50;min-height:82px;padding:12px clamp(16px,3vw,44px);display:flex;align-items:center;justify-content:space-between;gap:20px;background:#111d30;color:#edf3f7;border-bottom:1px solid #ffffff12;box-shadow:0 5px 20px #0b172522}
+.military-brand{display:flex;align-items:center;gap:13px;min-width:0}
+.military-back{display:grid;place-items:center;width:36px;height:36px;border:1px solid #ffffff27;border-radius:9px;color:#e4c98f;text-decoration:none;font-size:20px}
+.military-brand-mark{width:38px;height:38px;display:grid;place-items:center;border:1px solid #d8ba80;border-radius:10px;color:#e3c58e;font:700 23px Georgia,serif}
+.military-brand .eyebrow{color:#9fb0c3;font-size:8px}
+.military-brand h1{margin:3px 0 0;color:#fff;font:800 18px Manrope}
+.military-top-actions{display:flex;align-items:center;gap:18px}
+.military-country-chip{display:flex;align-items:center;gap:9px;padding:7px 11px;border:1px solid #ffffff18;border-radius:9px;background:#ffffff08}
+.military-country-chip>span{font-size:25px}.military-country-chip b,.military-country-chip small{display:block}
+.military-country-chip b{font-size:10px;color:#f1f5f7}.military-country-chip small{margin-top:2px;color:#9bacc0;font-size:8px}
+.military-clock{display:flex;align-items:center;gap:12px;padding:7px 10px;border:1px solid #ffffff1b;border-radius:9px;background:#ffffff08}
+.military-clock>div:first-child small,.military-clock>div:first-child b,.military-clock>div:first-child strong{display:block}
+.military-clock>div:first-child small{font-size:7px;letter-spacing:.9px;color:#90a2b7;font-weight:800}
+.military-clock>div:first-child b{font:700 10px Manrope;color:#e4ebf2;margin-top:2px}
+.military-clock>div:first-child strong{font:800 14px Manrope;color:#e5c88f;margin-top:1px;font-variant-numeric:tabular-nums}
+.military-clock-speeds{display:flex;gap:3px}.military-clock-speeds button{min-width:29px;padding:6px 4px;border:1px solid #ffffff1a;border-radius:5px;background:#ffffff08;color:#b4c2d1;font-size:8px;font-weight:800}
+.military-clock-speeds button.is-active{background:#d4b477;color:#192638;border-color:#d4b477}
+.military-content{max-width:1680px;margin:0 auto;padding:26px clamp(14px,2.7vw,40px) 46px}
+.military-title-row{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:17px}
+.military-title-row .eyebrow{color:#8291a4}
+.military-title-row h2{margin:5px 0 4px;color:#1a2a3f;font:800 clamp(21px,2.2vw,28px) Manrope;letter-spacing:-.8px}
+.military-title-row p{max-width:760px;margin:0;color:#718194;font-size:11px;line-height:1.6}
+.military-live-status{display:flex;align-items:center;gap:8px;white-space:nowrap;padding:8px 11px;border:1px solid #dce5e8;border-radius:8px;background:#fff;color:#718092;font-size:9px}
+.military-live-status i{width:7px;height:7px;border-radius:50%;background:#3f9c83;box-shadow:0 0 0 4px #3f9c831a}
+.military-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px;margin-bottom:14px}
+.military-metrics article{min-width:0;padding:15px 17px;background:#fff;border:1px solid #dfe6eb;border-radius:10px;box-shadow:0 5px 17px #14283a08}
+.military-metrics small,.military-metrics b,.military-metrics span{display:block}
+.military-metrics small{font-size:8px;letter-spacing:.8px;color:#8291a0;font-weight:800}
+.military-metrics b{margin:9px 0 2px;color:#1b3045;font:800 clamp(19px,2vw,25px) Manrope;font-variant-numeric:tabular-nums}
+.military-metrics span{color:#92a0ad;font-size:9px}
+.military-theatre{margin:0 0 15px;padding:20px;border-radius:13px;background:#f8fafb;border-color:#dce5e9}
+.military-theatre>.panel-heading{align-items:flex-start;margin-bottom:15px}
+.military-theatre>.panel-heading h3{font:800 18px Manrope;color:#1c3147;margin:4px 0 0}
+.military-theatre>.panel-heading p{margin:5px 0 0;color:#8493a2;font-size:10px}
+.military-state-chip{padding:7px 10px;border-radius:6px;background:#e6f2ee;color:#3b8573;font-size:8px;font-weight:900;letter-spacing:.8px}
+.military-state-chip.war{background:#fae9e6;color:#a95049}
+.military-theatre .military-map-layout{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(290px,.8fr);gap:14px;align-items:stretch}
+.military-theatre .military-map-column,.military-theatre .military-war-card{min-width:0;overflow:hidden;background:#102638;border:1px solid #203b4e;border-radius:10px;box-shadow:0 5px 16px #14283a12}
+.military-theatre .military-map-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 15px;background:#102638;border-bottom:1px solid #284456}
+.military-map-toolbar b{display:block;color:#e3edf1;font:800 11px Manrope}.military-map-toolbar small{display:block;margin-top:4px;color:#88a1b1;font-size:8px}
+.military-map-zoom{display:flex;gap:4px}.military-map-zoom button{min-width:30px;height:29px;border:1px solid #365165;border-radius:6px;background:#1a3448;color:#d8e5e9;font-weight:800;cursor:pointer}
+.military-map-zoom button:nth-child(2){min-width:50px;font-size:9px}
+.military-theatre .military-map{position:relative;min-height:470px;overflow:hidden;background:#0b1d2c;touch-action:none}
+.military-theatre .military-map svg{display:block;width:100%;height:100%;min-height:470px;cursor:grab;user-select:none}
+.military-theatre .military-map svg:active{cursor:grabbing}
+.military-theatre .military-map .military-ocean{fill:url(#militaryWater)}
+.military-theatre .military-map .military-graticule path{fill:none;stroke:#294456;stroke-width:.55;stroke-dasharray:1.6 5;opacity:.62}
+.military-theatre .military-map .military-country{fill:#354e58;stroke:#78909a;stroke-width:.62;stroke-linejoin:round;opacity:.91}
+.military-theatre .military-map .military-country.home{fill:#42766e;stroke:#91c4ad;stroke-width:1.25;opacity:1}
+.military-theatre .military-map .military-country.enemy{fill:#875451;stroke:#d69a84;stroke-width:1.15;opacity:1}
+.military-theatre .military-map .map-label{font:800 9px Manrope,sans-serif;fill:#dce8ed;paint-order:stroke;stroke:#0b1d2c;stroke-width:3.4px;stroke-linejoin:round;letter-spacing:.07em}
+.military-theatre .military-map .map-label-home{fill:#b8e3d1}.military-theatre .military-map .map-label-enemy{fill:#f2b7a9}
+.military-theatre .military-map .military-land-front{fill:none;stroke:#ff937c;stroke-width:4.5;stroke-linecap:round;stroke-linejoin:round}
+.military-theatre .military-map .military-front-sector{fill:#ffbc91;stroke:#6d2e31;stroke-width:2.5}
+.military-theatre .military-map .military-maritime-route{fill:none;stroke:#76b8d4;stroke-width:2.7;stroke-dasharray:7 5;stroke-linecap:round}
+.military-theatre .military-map .map-front-label,.military-theatre .military-map .map-theatre-label{font:900 8px Manrope,sans-serif;fill:#ffe0c2;paint-order:stroke;stroke:#152c3c;stroke-width:3px;letter-spacing:.08em}
+.military-theatre .military-map .military-route-line{fill:none;stroke:#f2c46c;stroke-width:2.1;stroke-dasharray:5 4}
+.military-theatre .military-map .military-route-dot{fill:#f1c66f;stroke:#132b3d;stroke-width:1.3}
+.military-theatre .military-map .military-model{filter:none}.military-theatre .military-map .military-model-label{font:800 6.6px Manrope,sans-serif;fill:#e8f2f4;paint-order:stroke;stroke:#102536;stroke-width:2.6px}
+.military-theatre .military-map .military-model-base{fill:#102b3a;stroke:#a8c5c9;stroke-width:1.25}
+.military-theatre .military-map .military-model.friendly .military-model-base{fill:#1b5e58;stroke:#b9ead9}
+.military-theatre .military-map .military-model.enemy .military-model-base{fill:#743d3c;stroke:#ffd0bb}
+.military-theatre .military-map .military-model-art{fill:#dcefe8;stroke:#e9f5ee;stroke-width:1.05;stroke-linecap:round;stroke-linejoin:round}
+.military-theatre .military-map .military-model.enemy .military-model-art{fill:#ffe0d4;stroke:#fff1e9}
+.military-theatre .military-map-legend{display:flex;gap:12px;flex-wrap:wrap;padding:9px 12px;border-top:1px solid #284456;background:#102638;color:#b3c7d0;font-size:8px}
+.military-theatre .military-map-legend span{display:flex;align-items:center;gap:6px}.military-theatre .military-map-legend i{display:inline-block;width:8px;height:8px;border-radius:3px}
+.military-theatre .military-legend-home{background:#79b7a3}.military-theatre .military-legend-enemy{background:#d17f71}.military-theatre .military-legend-front{background:#ff937c}.military-theatre .military-legend-patrol{background:#f2c46c}.military-theatre .military-legend-infantry{background:#dcefe8}.military-theatre .military-legend-air{background:#76b8d4}.military-theatre .military-legend-naval{background:#d9bc8b}
+.military-theatre .military-map-actions{display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:8px;padding:11px 12px;border-top:1px solid #284456;background:#102638}
+.military-theatre .military-map-actions label,.military-theatre .military-war-card label,.military-subpanel label{display:grid;gap:5px;color:#a9bdc9;font-size:8px;font-weight:800}
+.military-theatre .military-map-actions select,.military-theatre .military-war-card select,.military-theatre .military-war-card input,.military-theatre .military-war-card textarea,.military-subpanel select,.military-subpanel input[type="text"],.military-subpanel input:not([type]),.military-subpanel input[type="number"]{width:100%;min-width:0;min-height:34px;padding:7px 9px;border:1px solid #d9e2e8;border-radius:7px;background:#fff;color:#2b4358;font:10px "DM Sans",sans-serif}
+.military-theatre .military-war-card textarea{resize:vertical}
+.military-route-draft{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 13px;border-top:1px solid #284456;background:#0d2232;color:#9fb3c0;font-size:8px}
+.military-route-draft>div{display:flex;gap:6px;flex-wrap:wrap}.military-route-draft button{padding:7px 9px;font-size:8px}
+.military-theatre .military-war-card{height:100%;padding:16px;color:#e7f0f2}
+.military-card-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.military-card-heading .eyebrow{font-size:7px;color:#8aa2b2}.military-card-heading h4,.military-card-heading h3{margin:3px 0 0;color:#edf3f4;font:800 14px Manrope}
+.military-theatre .military-war-card p{color:#9db1bd;font-size:9px;line-height:1.6}
+.military-opponent-name{margin:4px 0 12px;color:#f3c1ae;font:800 17px Manrope}
+.military-front-track{height:8px;overflow:hidden;border-radius:8px;background:#3b424b}.military-front-track i{display:block;width:50%;height:100%;border-radius:8px;background:linear-gradient(90deg,#5b9b89,#cb7869)}
+.military-front-meta{display:flex;justify-content:space-between;margin-top:6px;color:#9aafbb;font-size:8px}.military-front-meta b{color:#e8eff0;font-variant-numeric:tabular-nums}
+.military-war-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:12px 0;padding:9px;border-radius:8px;background:#1a3548}
+.military-war-stats small,.military-war-stats b{display:block}.military-war-stats small{color:#94aab8;font-size:7px}.military-war-stats b{margin-top:4px;color:#f0f4f3;font:800 12px Manrope}
+.military-domain-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0}
+.military-domain-metric{padding:7px;background:#1a3548;border-radius:6px}.military-domain-metric small,.military-domain-metric b{display:block}
+.military-domain-metric small{color:#9aafba;font-size:7px}.military-domain-metric b{margin-top:3px;color:#e6eff0;font:800 10px Manrope}
+.military-theatre .military-war-card label{margin-top:10px}
+.military-theatre .military-war-buttons{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:12px}
+.military-theatre .military-war-buttons button{font-size:8px;padding:9px 8px}
+.military-theatre .military-war-report{padding:9px;border:1px solid #294657;border-radius:7px;background:#0b2030;color:#a9bec8;font-size:8px;line-height:1.55}
+.military-theatre .danger-button{width:100%;margin-top:12px;min-height:38px;border:1px solid #b76b64;border-radius:8px;background:#a95650;color:#fff;font-size:9px;font-weight:900}
+.military-management-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:15px}
+.military-subpanel{min-width:0;padding:19px;background:#fff;border:1px solid #dfe6eb;border-radius:12px;box-shadow:0 5px 17px #14283a08}
+.military-subpanel .military-card-heading .eyebrow{color:#8594a2}.military-subpanel .military-card-heading h3{color:#1c3045;font:800 15px Manrope}
+.military-subpanel label{margin-top:12px;color:#64788a;font-size:9px}
+.military-subpanel .secondary-button{margin-top:8px}
+.military-personnel-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0}
+.military-personnel-metrics>div{padding:9px 10px;border-radius:8px;background:#f4f7f8;border:1px solid #e8eef0}
+.military-personnel-metrics small,.military-personnel-metrics b{display:block}.military-personnel-metrics small{font-size:8px;color:#83919d}
+.military-personnel-metrics b{margin-top:5px;color:#243a50;font:800 15px Manrope}
+.military-explainer{display:block;margin-top:12px;color:#8996a3;font-size:8px;line-height:1.6}
+.military-budget-values{display:flex;justify-content:space-between;gap:10px;margin:13px 0 5px;color:#758493;font-size:9px}
+.military-budget-values b{color:#263b50;font:800 13px Manrope}.military-subpanel input[type="range"]{width:100%;accent-color:#3c8d7c}
+.military-program-heading{margin:17px 0 9px;padding-top:12px;border-top:1px solid #e9eef1}
+.military-program-list{display:grid;gap:8px}
+.military-program-list article{display:grid;grid-template-columns:1fr auto;gap:5px 10px;padding:10px;border:1px solid #e6ecef;border-radius:8px;background:#fafcfc}
+.military-program-list article>b{color:#31485d;font-size:10px}.military-program-list article>small{grid-column:1/-1;color:#81909d;font-size:8px;line-height:1.5}
+.military-program-list article button{grid-column:1/-1;justify-self:start;padding:7px 10px;border:1px solid #d7e2e6;border-radius:6px;background:#fff;color:#416b6d;font-size:8px;font-weight:800}
+.active-military-programs{display:grid;gap:7px;margin-top:10px}
+.active-military-program{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 9px;border-radius:7px;background:#eef5f3;color:#466d65;font-size:8px}
+.active-military-program button{padding:6px 8px;font-size:8px}
+.military-technology-list{display:grid;gap:8px;margin-top:12px}
+.military-technology-card{padding:10px;border:1px solid #e5ebef;border-radius:8px;background:#fbfcfc}
+.military-technology-head{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.military-technology-head b{color:#344a5d;font-size:9px}.military-technology-head small{color:#83919d;font-size:8px}
+.military-technology-card p{margin:5px 0 8px;color:#8794a0;font-size:8px;line-height:1.5}
+.military-tech-track{height:4px;overflow:hidden;border-radius:8px;background:#e9eef0}.military-tech-track i{display:block;height:100%;border-radius:8px;background:#4a9785}
+.technology-current{display:block;margin-top:6px;color:#6f9189;font-size:8px}
+.military-patrol-list{display:grid;gap:7px;margin-top:12px}
+.military-patrol-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px;border:1px solid #e6ecef;border-radius:8px}
+.military-patrol-row b,.military-patrol-row small{display:block}.military-patrol-row b{color:#32495c;font-size:9px}
+.military-patrol-row small{margin-top:3px;color:#85929d;font-size:8px}.military-patrol-row button{padding:6px 9px;font-size:8px}
+.military-units-panel{padding:19px;margin-bottom:18px}.military-units-panel .panel-heading h3{color:#1f354a}
+.military-units-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.military-unit-card{padding:12px;border:1px solid #e3eaee;border-radius:9px;background:#fff}
+.unit-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}.unit-card-head b{color:#263d52;font:800 11px Manrope}
+.unit-branch{flex-shrink:0;padding:4px 6px;border-radius:5px;background:#edf4f2;color:#5b877b;font-size:7px;font-weight:800}
+.unit-card-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-top:10px}
+.unit-stat{padding:7px;background:#f6f8f9;border-radius:6px}.unit-stat small,.unit-stat b{display:block}
+.unit-stat small{color:#8c98a3;font-size:7px}.unit-stat b{margin-top:3px;color:#3a4e60;font-size:9px}
+.unit-location{display:block;margin-top:8px;color:#91a0aa;font-size:8px}
+.military-footer{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:13px 3px;color:#91a0ac;font-size:8px}
+.military-footer a{color:#4e7f76;text-decoration:none;font-weight:800}.military-footer a:hover{text-decoration:underline}
+@media(max-width:1120px){.military-theatre .military-map-layout{grid-template-columns:1fr}.military-theatre .military-war-card{height:auto}}
+@media(max-width:850px){.military-topbar{align-items:flex-start;flex-direction:column}.military-top-actions{width:100%;justify-content:space-between;flex-wrap:wrap}.military-clock{flex:1;justify-content:space-between}.military-management-grid{grid-template-columns:1fr}}
+@media(max-width:600px){
+  .military-content{padding:16px 10px 30px}.military-title-row{align-items:flex-start;flex-direction:column}
+  .military-metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.military-metrics article{padding:11px}
+  .military-metrics b{font-size:19px}.military-theatre{padding:10px}
+  .military-theatre .military-map,.military-theatre .military-map svg{min-height:340px}
+  .military-theatre .military-map-actions{grid-template-columns:1fr}.military-route-draft{align-items:flex-start;flex-direction:column}
+  .military-clock-speeds button{min-width:24px}.military-units-grid{grid-template-columns:1fr}.unit-card-stats{grid-template-columns:repeat(2,1fr)}
+}
