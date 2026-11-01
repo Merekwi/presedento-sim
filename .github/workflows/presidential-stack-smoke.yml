@@ -74,12 +74,12 @@ jobs:
           }
 
           const sourceHtml = await readFile("frontend/index.html", "utf8");
-          for (const marker of ["<title>Presidential Simulator</title>", "id=\"worldMap\"", "id=\"presidentPortrait\"", "Случайная страна. Случайный кандидат.", "Название политической партии", "Сложность симуляции"]) {
+          for (const marker of ["<title>Presidential Simulator</title>", "id=\"worldMap\"", "id=\"presidentPortrait\"", "Интерактивная спутниковая карта мира", "Спутниковые снимки · Esri", "Случайная страна. Случайный кандидат.", "Название политической партии", "Сложность симуляции"]) {
             if (!sourceHtml.includes(marker)) throw new Error("Committed frontend source is missing a required game/setup element: " + marker);
           }
 
           const sourceApp = await readFile("frontend/app.js", "utf8");
-          for (const marker of ["function renderWorldMap", "function renderMilitaryMap", "function renderGameClock", "data-select-minister-candidate", "./assets/portraits/", "data-election-proposal", "data-election-tab-panel", "data-election-tab", "data-ai-diplomacy", "/api/presidential/game/military", "/api/presidential/ai/decree/draft", "/api/presidential/ai/election/action", "/api/presidential/ai/election/initialize"]) {
+          for (const marker of ["function renderWorldMap", "function renderMilitaryMap", "function renderMilitarySatellitePreview", "function ensureLeaflet", "World_Imagery", "SATELLITE_ATTRIBUTION", "function renderGameClock", "data-select-minister-candidate", "./assets/portraits/", "data-election-proposal", "data-election-tab-panel", "data-election-tab", "data-ai-diplomacy", "/api/presidential/game/military", "/api/presidential/ai/decree/draft", "/api/presidential/ai/election/action", "/api/presidential/ai/election/initialize"]) {
             if (!sourceApp.includes(marker)) throw new Error("Committed frontend source is missing AI-powered political game logic: " + marker);
           }
 
@@ -188,9 +188,12 @@ jobs:
           const ukraineFlagAsset = await fetchWithRetry(gameAssetBase + "assets/flags/UA.svg", { headers: { "Cache-Control": "no-cache" } });
           const portraitAsset = await fetchWithRetry(gameAssetBase + "assets/portraits/01.svg", { headers: { "Cache-Control": "no-cache" } });
           const worldMapAsset = await fetchWithRetry(gameAssetBase + "assets/world-countries.geojson?fresh=" + Date.now(), { headers: { "Cache-Control": "no-cache" } });
+          const satelliteTile = await fetchWithRetry("https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/2/1/1", { headers: { "Cache-Control": "no-cache" } }, 5);
           const mapData = await worldMapAsset.json();
           const ukraineFlag = await ukraineFlagAsset.text();
+          const satelliteContentType = satelliteTile.headers.get("content-type") || "";
           if (!(await flagAsset.text()).includes("<svg") || !ukraineFlag.includes("#0057b7") || !ukraineFlag.includes("#ffd700") || !(await portraitAsset.text()).includes("<svg") || !Array.isArray(mapData.features) || mapData.features.length < 100) throw new Error("Local flag, portrait or world map asset is missing or invalid.");
+          if (!satelliteTile.ok || !satelliteContentType.toLowerCase().startsWith("image/")) throw new Error("Esri World Imagery did not return a satellite image tile.");
           if (!appJs.includes('.trim().toUpperCase()') || !appJs.includes('appAssetUrl("./assets/flags/')) throw new Error("Country flags are not normalized or resolved from the app script location.");
 
           const protectedRoutes = [
