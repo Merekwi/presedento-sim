@@ -3,6 +3,8 @@
   const $ = id => document.getElementById(id);
   const api = () => window.PRESIDENTIAL_AUTH && window.PRESIDENTIAL_AUTH.api;
   let currentPayload = null, currentGame = null, draftId = null, busy = false;
+  let clockBaseMs=Date.now(),clockSyncedAt=Date.now(),clockSpeed=1;
+
   let selectedMinisterCandidate = null;
   let militaryMapView = { scale: 1, x: 0, y: 0 };
   let militaryMapLayer = null;
@@ -98,8 +100,8 @@
       if(politicalSubmit)politicalSubmit.disabled=true;
       if(politicalInput)politicalInput.disabled=true;
     }
-    const advance=$("advanceTurn"),newGame=$("newGame"),vote=$("electionVote");
-    if(advance&&currentGame)advance.disabled=busy||pending||["election_campaign","election"].includes(currentGame.state&&currentGame.state.phase);
+    const newGame=$("newGame"),vote=$("electionVote");
+    document.querySelectorAll("[data-clock-speed]").forEach(button=>{button.disabled=busy||pending;});
     if(newGame)newGame.disabled=busy||pending;
     if(vote)vote.disabled=busy||pending||vote.classList.contains("hidden")||vote.textContent.includes("Сначала")||Boolean(currentGame&&currentGame.state&&currentGame.state.campaignEvent&&currentGame.state.campaignEvent.status==="active");
   }
@@ -325,8 +327,6 @@
     setText("healthValue",Math.round(clamp(health))+"/100");
     setText("infrastructureValue",Math.round(clamp(infrastructure))+"/100");
     setBar("servicesBar",services);setBar("educationBar",education);setBar("healthBar",health);setBar("infrastructureBar",infrastructure);
-    const points=Math.max(0,Number(s.actionPoints??2));
-    setText("actionPoints",points+" / 2");setText("actionPointsLarge",points);
   }
 
   function loadWorldGeoJSON(){
@@ -368,6 +368,39 @@
     }catch(error){root.replaceChildren(node("div","map-loading","Не удалось открыть встроенную карту: "+(error&&error.message?error.message:"ошибка данных")));}
   }
 
+  function syncGameClock(game){
+    const raw=game&&game.game_datetime;
+    let parsed=raw instanceof Date?raw.getTime():Date.parse(String(raw||"").includes("T")?String(raw||""):String(raw||"").replace(" ","T"));
+    if(!Number.isFinite(parsed)&&raw)parsed=Date.parse(String(raw).replace(" ","T")+"Z");
+    if(!Number.isFinite(parsed))parsed=Date.parse(String(game&&game.game_date||"")+"T08:00:00Z");
+    clockBaseMs=Number.isFinite(parsed)?parsed:Date.now();
+    clockSyncedAt=Date.now();
+    const speed=Number(game&&game.time_speed||1);
+    clockSpeed=[1,2,4,6,12,16].includes(speed)?speed:1;
+    renderGameClock();
+  }
+  function renderGameClock(){
+    if(!currentGame)return;
+    const gameMs=clockBaseMs+Math.max(0,Date.now()-clockSyncedAt)*clockSpeed*60;
+    const current=new Date(gameMs);
+    if(!Number.isFinite(current.getTime()))return;
+    const dateOptions={day:"2-digit",month:"long",year:"numeric",timeZone:"UTC"};
+    const dateLong=new Intl.DateTimeFormat("ru-RU",dateOptions).format(current);
+    const dateShort=new Intl.DateTimeFormat("ru-RU",{day:"2-digit",month:"short",year:"numeric",timeZone:"UTC"}).format(current);
+    const timeText=new Intl.DateTimeFormat("ru-RU",{hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23",timeZone:"UTC"}).format(current);
+    setText("gameClockDate",dateLong);
+    setText("gameClockTime",timeText);
+    setText("date",dateLong);
+    setText("term","НЕПРЕРЫВНО");
+    setText("sidebarTurn",dateShort);
+    setText("sidebarDate",timeText);
+    document.querySelectorAll("[data-clock-speed]").forEach(button=>{
+      const active=Number(button.dataset.clockSpeed)===clockSpeed;
+      button.classList.toggle("is-active",active);
+      button.setAttribute("aria-pressed",active?"true":"false");
+    });
+  }
+
   function renderIdentity(game){
     const name=game.name_local||game.name_en||game.save_name||"Государство";
     const flag=game.flag_emoji||"🏳️";
@@ -378,10 +411,8 @@
     setText("bio",game.president_name+", "+game.president_age+" лет · "+(game.president_bio||"Президент"));
     const portraitRoot=$("presidentPortrait");
     if(portraitRoot)portraitRoot.replaceChildren(portraitNode((game.state||{}).presidentPortrait||portraitIdFromName(game.president_name)));
-    setText("date",dateLabel(game.game_date));setText("term","Месяц "+String(game.turn_number||1).padStart(3,"0"));
-    setText("topbarTurn","Ход "+String(game.turn_number||1).padStart(3,"0"));
-    setText("sidebarTurn","Месяц "+String(game.turn_number||1).padStart(3,"0"));
-    setText("sidebarDate",dateLabel(game.game_date));setText("sidebarCountry",name);
+    syncGameClock(game);
+    setText("sidebarCountry",name);
     setText("sidebarRegion",region||"Государство");
     renderWorldMap(game.iso2);
   }
@@ -1161,24 +1192,25 @@
   ];
   function institutionStatus(status){return ({public_consultation:"Общественное обсуждение",referendum_scheduled:"Ожидает референдума",approved:"Одобрено",parliamentary_rejected:"Отклонено парламентом",referendum_rejected:"Отклонено на референдуме",campaign:"Идёт кампания",invalid:"Недостаточная явка"})[status]||"Завершено";}
   function renderInstitutions(game){
-    const s=game.state||{},c=s.constitution||{},articles=Array.isArray(c.articles)&&c.articles.length?c.articles:DEFAULT_CONSTITUTION_ARTICLES,turn=Number(game.turn_number||0),government=s.phase==="government";
+    const s=game.state||{},c=s.constitution||{},articles=Array.isArray(c.articles)&&c.articles.length?c.articles:DEFAULT_CONSTITUTION_ARTICLES,turn=Number(game.turn_number||0),today=String(game.game_date||"").slice(0,10),government=s.phase==="government";
+    const deadlineReached=(date,legacyTurn)=>date?today>=String(date).slice(0,10):turn>=Number(legacyTurn||999999);
     setText("constitutionVersion","Редакция №"+Number(c.version||1));setText("constitutionArticleCount",articles.length+" статей");
     const art=$("constitutionArticles");if(art){art.replaceChildren();articles.forEach((item,i)=>{const card=node("article","constitution-article");card.append(node("div","constitution-article-number","СТАТЬЯ "+String(i+1).padStart(2,"0")),node("h4","",item.title),node("p","",item.text));art.append(card);});}
     const proposals=Array.isArray(c.proposals)?c.proposals:[],amendRoot=$("amendmentHistory");
-    if(amendRoot){amendRoot.replaceChildren();if(!proposals.length)amendRoot.append(node("div","loading-row","Поправки ещё не вносились."));proposals.slice(-4).reverse().forEach(item=>{const card=node("article","institution-process-card"),head=node("div","institution-process-head");head.append(node("b","",item.articleTitle||"Поправка"),node("span","institution-status",institutionStatus(item.status)));card.append(head,node("p","",item.reason||item.proposedText||""));const meta=[];if(item.consultationEndsTurn)meta.push("Обсуждение до месяца "+item.consultationEndsTurn);if(item.parliamentShare!==undefined)meta.push("Поддержка парламента "+number(item.parliamentShare,1)+"%");if(item.referendumTurn)meta.push("Референдум после месяца "+item.referendumTurn);if(item.referendumShare!==undefined)meta.push("Поддержка на референдуме "+number(item.referendumShare,1)+"%");if(meta.length)card.append(node("small","institution-process-meta",meta.join(" · ")));amendRoot.append(card);});}
+    if(amendRoot){amendRoot.replaceChildren();if(!proposals.length)amendRoot.append(node("div","loading-row","Поправки ещё не вносились."));proposals.slice(-4).reverse().forEach(item=>{const card=node("article","institution-process-card"),head=node("div","institution-process-head");head.append(node("b","",item.articleTitle||"Поправка"),node("span","institution-status",institutionStatus(item.status)));card.append(head,node("p","",item.reason||item.proposedText||""));const meta=[];if(item.consultationEndsDate||item.consultationEndsTurn)meta.push("Обсуждение до "+(item.consultationEndsDate?dateLabel(item.consultationEndsDate):"месяца "+item.consultationEndsTurn));if(item.parliamentShare!==undefined)meta.push("Поддержка парламента "+number(item.parliamentShare,1)+"%");if(item.referendumDate||item.referendumTurn)meta.push("Референдум "+(item.referendumDate?dateLabel(item.referendumDate):"после месяца "+item.referendumTurn));if(item.referendumShare!==undefined)meta.push("Поддержка на референдуме "+number(item.referendumShare,1)+"%");if(meta.length)card.append(node("small","institution-process-meta",meta.join(" · ")));amendRoot.append(card);});}
     const active=[...proposals].reverse().find(x=>["public_consultation","referendum_scheduled"].includes(x.status));
     const p=$("voteAmendmentParliament"),cr=$("holdConstitutionReferendum");
-    const parliamentDue=active&&active.status==="public_consultation"&&turn>=Number(active.consultationEndsTurn||999999);
+    const parliamentDue=active&&active.status==="public_consultation"&&deadlineReached(active.consultationEndsDate,active.consultationEndsTurn);
     if(p){p.disabled=busy||!government||!parliamentDue;p.textContent=parliamentDue?"Провести голосование парламента":"Парламент — после двух месяцев обсуждения";}
-    const constitutionDue=active&&active.status==="referendum_scheduled"&&turn>=Number(active.referendumTurn||999999);
+    const constitutionDue=active&&active.status==="referendum_scheduled"&&deadlineReached(active.referendumDate,active.referendumTurn);
     if(cr){cr.disabled=busy||!government||!constitutionDue;cr.textContent=constitutionDue?"Открыть итог референдума":"Обязательный референдум после парламентского одобрения";}
-    const propose=$("proposeAmendment");if(propose)propose.disabled=busy||!government||Number(s.actionPoints??2)<1||Boolean(active);
+    const propose=$("proposeAmendment");if(propose)propose.disabled=busy||!government||Boolean(active);
     const parliament=s.parliament||{};setText("parliamentBalance",parliament.governmentSeats!==undefined?Number(parliament.governmentSeats)+"% мест у правительственной коалиции · конституционное большинство — 2/3":"Состав парламента будет определён по итогам первых выборов.");
     const referendums=Array.isArray(s.referendums)?s.referendums:[],refRoot=$("referendumHistory");
-    if(refRoot){refRoot.replaceChildren();if(!referendums.length)refRoot.append(node("div","loading-row","Референдумы ещё не проводились."));referendums.slice(-5).reverse().forEach(item=>{const card=node("article","institution-process-card"),head=node("div","institution-process-head");head.append(node("b","",item.question),node("span","institution-status",institutionStatus(item.status)));card.append(head,node("p","","«"+(item.yesLabel||"За")+"» / «"+(item.noLabel||"Против")+"»"));if(item.yesShare!==undefined)card.append(node("small","institution-process-meta","За: "+number(item.yesShare,1)+"% · Против: "+number(100-item.yesShare,1)+"% · Явка: "+number(item.turnout,1)+"%"));else card.append(node("small","institution-process-meta","Голосование после месяца "+item.voteTurn));refRoot.append(card);});}
+    if(refRoot){refRoot.replaceChildren();if(!referendums.length)refRoot.append(node("div","loading-row","Референдумы ещё не проводились."));referendums.slice(-5).reverse().forEach(item=>{const card=node("article","institution-process-card"),head=node("div","institution-process-head");head.append(node("b","",item.question),node("span","institution-status",institutionStatus(item.status)));card.append(head,node("p","","«"+(item.yesLabel||"За")+"» / «"+(item.noLabel||"Против")+"»"));if(item.yesShare!==undefined)card.append(node("small","institution-process-meta","За: "+number(item.yesShare,1)+"% · Против: "+number(100-item.yesShare,1)+"% · Явка: "+number(item.turnout,1)+"%"));else card.append(node("small","institution-process-meta","Голосование "+(item.voteDate?dateLabel(item.voteDate):"после месяца "+item.voteTurn)));refRoot.append(card);});}
     const running=[...referendums].reverse().find(x=>x.status==="campaign"),start=$("proposeReferendum"),hold=$("holdReferendum");
-    if(start)start.disabled=busy||!government||Number(s.actionPoints??2)<1||Boolean(running);
-    const referendumDue=running&&turn>=Number(running.voteTurn||999999);
+    if(start)start.disabled=busy||!government||Boolean(running);
+    const referendumDue=running&&deadlineReached(running.voteDate,running.voteTurn);
     if(hold){hold.disabled=busy||!government||!referendumDue;hold.textContent=referendumDue?"Провести референдум":"Голосование после двух месяцев общественной кампании";}
   }
 
@@ -1424,10 +1456,6 @@
       actionPanel.append(node("div","campaign-choice-kicker","ПУБЛИЧНАЯ ПОЛИТИКА"));
       actionPanel.append(node("h3","","Кампания вживую"));
       actionPanel.append(node("p","campaign-choice-description","Выходите на дебаты с оппонентом, отвечайте журналистам на неудобные вопросы и встречайтесь с избирателями. Каждое мероприятие проходит в несколько раундов: сначала вы получаете конкретный вопрос, затем отвечаете своими словами, а ИИ оценивает аргументы и реакцию разных групп."));
-      const eventPoints=Math.max(0,Number(state.actionPoints??2));
-      const pointsLine=node("div","campaign-event-points","Доступно очков действий: "+eventPoints+" · одно мероприятие расходует 1 очко после завершения");
-      actionPanel.append(pointsLine);
-
       const activeEvent=activeCampaignEvent;
       if(activeEvent){
         const stage=node("section","campaign-event-live");
@@ -1590,7 +1618,7 @@
     });
     document.querySelectorAll("[data-program-start]").forEach(button=>{
       const exists=active.some(item=>item.projectId===button.dataset.programStart);
-      button.disabled=busy||!isGovernment||exists||active.length>=3||Number(state.actionPoints??2)<1;
+      button.disabled=busy||!isGovernment||exists||active.length>=3;
       button.textContent=!isGovernment?"После выборов":exists?"Уже запущена":"Запустить";
       button.title=!isGovernment?"Доступно после вступления в должность":active.length>=3?"Можно вести не более трёх программ одновременно":"";
     });
@@ -1696,21 +1724,20 @@
     renderMinisters(payload.ministers);renderEvents(payload.events);renderRelations(payload.relations);
     renderUnits(payload.units);renderMilitary(payload);renderDecrees(payload.decrees);renderProjects(currentGame);renderInstitutions(currentGame);renderPoliticalActionPanel(currentGame);
     setText("saveStatus","Сохранение синхронизировано");
-    const advance=$("advanceTurn"),newGame=$("newGame");
-    if(advance)advance.disabled=busy||hasPendingBackgroundJobs()||["election_campaign","election"].includes(currentGame.state&&currentGame.state.phase);
+    const newGame=$("newGame");
     if(newGame)newGame.disabled=busy||hasPendingBackgroundJobs();
+    renderGameClock();
   }
 
   let autonomousRefreshInFlight=false;
+  window.setInterval(renderGameClock,1000);
   window.setInterval(async()=>{
     if(!currentGame||busy||document.hidden||autonomousRefreshInFlight)return;
-    const hasAutonomousWar=(currentPayload&&Array.isArray(currentPayload.wars)||[]).some(w=>w.status==="active"&&w.command_mode==="ai");
-    if(!hasAutonomousWar)return;
     autonomousRefreshInFlight=true;
     try{const fresh=await api()("/api/presidential/game/current");if(fresh&&fresh.game)renderGame(fresh);}
-    catch(error){console.warn("Autonomous war refresh failed:",error);}
+    catch(error){console.warn("Continuous calendar refresh failed:",error);}
     finally{autonomousRefreshInFlight=false;}
-  },60000);
+  },15000);
 
   async function refreshGame(){
     if(!api()||!window.PRESIDENTIAL_AUTH||!window.PRESIDENTIAL_AUTH.user)return;
@@ -1775,11 +1802,16 @@
     });
   });
   window.addEventListener("resize",()=>militaryLeafletMap&&window.setTimeout(()=>militaryLeafletMap&&militaryLeafletMap.invalidateSize({pan:false}),80));
-  $("advanceTurn").addEventListener("click",async()=>{
-    if(!currentGame||busy)return;
-    const points=Number((currentGame.state||{}).actionPoints??2),warning=points>0?" Осталось "+points+" неиспользованных очка действий.":"";
-    if(!confirm("Завершить текущий месяц и перейти к следующему? Экономика, проекты, министры и мировые события будут пересчитаны."+warning))return;
-    try{await withBusy($("advanceTurn"),()=>api()("/api/presidential/game/advance",{method:"POST",body:"{}"}),result=>result&&result.event&&result.event.headline?"Наступил новый месяц. "+result.event.headline:"Наступил новый месяц.");}catch(_){}
+  document.querySelectorAll("[data-clock-speed]").forEach(button=>{
+    button.addEventListener("click",async()=>{
+      if(!currentGame||busy||hasPendingBackgroundJobs())return;
+      const speed=Number(button.dataset.clockSpeed);
+      if(![1,2,4,6,12,16].includes(speed)||speed===clockSpeed)return;
+      try{
+        await withBusy(button,()=>api()("/api/presidential/game/clock",{method:"POST",body:JSON.stringify({speed})}),
+          result=>"Скорость календаря изменена: x"+speed);
+      }catch(_){}
+    });
   });
   $("newGame").addEventListener("click",()=>openSetup());
   $("closeSetup").addEventListener("click",()=>$("setupDialog").close());
