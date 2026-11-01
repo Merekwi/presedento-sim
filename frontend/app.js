@@ -672,7 +672,7 @@
     return element;
   }
   function mapFeatureCenter(feature,width,height){
-    const props=feature&&feature.properties||{},lon=Number(props.LABEL_X),lat=Number(props.LABEL_Y);
+    const props=feature&&feature.properties||{},lon=props.LABEL_X==null?NaN:Number(props.LABEL_X),lat=props.LABEL_Y==null?NaN:Number(props.LABEL_Y);
     if(Number.isFinite(lon)&&Number.isFinite(lat)&&lon>=-180&&lon<=180&&lat>=-90&&lat<=90){
       const p=mollweidePoint([lon,lat],width,height);return {x:p[0],y:p[1],lon,lat};
     }
@@ -794,7 +794,7 @@
           }
         }else if(homeFeature&&enemyFeature){
           const coast=feature=>{
-            const p=feature&&feature.properties||{},center=[Number(p.LABEL_X),Number(p.LABEL_Y)],g=feature.geometry;
+            const p=feature&&feature.properties||{},center=[p.LABEL_X==null?NaN:Number(p.LABEL_X),p.LABEL_Y==null?NaN:Number(p.LABEL_Y)],g=feature.geometry;
             if(!g||!center.every(Number.isFinite))return null;
             const polys=g.type==="Polygon"?[g.coordinates]:g.type==="MultiPolygon"?g.coordinates:[];
             let best=null,score=Infinity;
@@ -819,7 +819,9 @@
       const labels={land:"ПЕХОТА",guard:"ГВ",air:"АВИАЦИЯ",naval:"ФЛОТ"};
       const units=Array.isArray(payload.units)?payload.units:[];
       units.forEach(unit=>{
-        const branch=String(unit.unit_branch||"land").toLowerCase(),lat=Number(unit.location_lat),lon=Number(unit.location_lon);
+        const branch=String(unit.unit_branch||"land").toLowerCase();
+        const hasCoordinates=unit.location_lat!=null&&unit.location_lon!=null;
+        const lat=hasCoordinates?Number(unit.location_lat):NaN,lon=hasCoordinates?Number(unit.location_lon):NaN;
         const pos=Number.isFinite(lat)&&Number.isFinite(lon)?mollweidePoint([lon,lat],width,height):home&&[home.x,home.y];
         if(!pos)return;
         const offset=offsets[branch]||[0,0];
