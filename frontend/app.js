@@ -397,6 +397,27 @@
   };
   const SATELLITE_TILE_URL="https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
   const SATELLITE_ATTRIBUTION='Tiles &copy; Esri, Vantor, Earthstar Geographics, and the GIS User Community';
+  const STREET_TILE_URL="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+  function addMapBaseLayer(map){
+    let layer=L.tileLayer(SATELLITE_TILE_URL,{
+      minZoom:2,maxZoom:19,maxNativeZoom:19,updateWhenIdle:true,keepBuffer:2,
+      attribution:SATELLITE_ATTRIBUTION
+    }).addTo(map);
+    let errors=0,switched=false;
+    layer.on("tileerror",()=>{
+      errors++;
+      if(errors>=4&&!switched&&map&&map._container&&map._container.isConnected){
+        switched=true;
+        try{map.removeLayer(layer);}catch(_){}
+        layer=L.tileLayer(STREET_TILE_URL,{
+          minZoom:2,maxZoom:19,subdomains:"abc",updateWhenIdle:true,keepBuffer:2,
+          attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+        console.warn("Satellite tiles unavailable; switched to street map tiles.");
+      }
+    });
+    return layer;
+  }
 
   function ensureLeaflet(){
     if(window.L&&window.L.map&&window.L.tileLayer)return Promise.resolve(window.L);
@@ -457,15 +478,7 @@
         center:view.center,zoom:view.zoom,minZoom:2,maxZoom:19,
         zoomControl:true,scrollWheelZoom:false,worldCopyJump:true,preferCanvas:true
       });
-      const satellite=L.tileLayer(SATELLITE_TILE_URL,{
-        minZoom:2,maxZoom:19,maxNativeZoom:19,updateWhenIdle:true,keepBuffer:2,
-        attribution:SATELLITE_ATTRIBUTION
-      }).addTo(worldLeafletMap);
-      let tileErrors=0;
-      satellite.on("tileerror",()=>{
-        tileErrors++;
-        if(tileErrors===3)console.warn("Satellite tiles are failing to load. Check access to services.arcgisonline.com.");
-      });
+      addMapBaseLayer(worldLeafletMap);
       worldLeafletOverlay=L.layerGroup().addTo(worldLeafletMap);
       worldLeafletRoot=root;
       worldLeafletCode=code;
@@ -1168,10 +1181,7 @@
       if(militarySatellitePreviewMap)militarySatellitePreviewMap.remove();
       root.replaceChildren();
       militarySatellitePreviewMap=L.map(root,{center,zoom,minZoom:2,maxZoom:19,zoomControl:false,worldCopyJump:true,preferCanvas:true});
-      L.tileLayer(SATELLITE_TILE_URL,{
-        minZoom:2,maxZoom:19,maxNativeZoom:19,updateWhenIdle:true,keepBuffer:2,
-        attribution:SATELLITE_ATTRIBUTION
-      }).addTo(militarySatellitePreviewMap);
+      addMapBaseLayer(militarySatellitePreviewMap);
       militarySatellitePreviewOverlay=L.layerGroup().addTo(militarySatellitePreviewMap);
       militarySatellitePreviewRoot=root;
       militarySatellitePreviewSaveKey=saveKey;
@@ -1278,10 +1288,7 @@
         if(militaryLeafletMap)militaryLeafletMap.remove();
         root.replaceChildren();
         militaryLeafletMap=L.map(root,{center:defaultCenter,zoom:defaultZoom,minZoom:2,maxZoom:18,zoomControl:false,worldCopyJump:true,preferCanvas:true});
-        L.tileLayer(SATELLITE_TILE_URL,{
-          minZoom:2,maxZoom:19,maxNativeZoom:19,updateWhenIdle:true,keepBuffer:2,
-          attribution:SATELLITE_ATTRIBUTION
-        }).addTo(militaryLeafletMap);
+        addMapBaseLayer(militaryLeafletMap);
         militaryLeafletOverlay=L.layerGroup().addTo(militaryLeafletMap);
         militaryLeafletRoot=root;militaryLeafletSaveKey=saveKey;militaryLeafletWarKey=warId;
         militaryLeafletDefaultView={center:defaultCenter,zoom:defaultZoom};
