@@ -1911,11 +1911,14 @@
 
   document.querySelectorAll(".nav-link").forEach(link=>{
     link.addEventListener("click",()=>{
-      document.querySelectorAll(".nav-link").forEach(item=>item.classList.remove("active"));link.classList.add("active");
-      if(link.getAttribute("href")==="#defense")window.setTimeout(()=>{const map=militaryLeafletMap||militarySatellitePreviewMap;if(map)map.invalidateSize({pan:false});},140);
+      document.querySelectorAll(".nav-link").forEach(item=>item.classList.remove("active"));
+      link.classList.add("active");
+      if(link.getAttribute("href")==="#military-map-tab"){
+        window.setTimeout(()=>applyMilitaryMapTransform(),80);
+      }
     });
   });
-  window.addEventListener("resize",()=>window.setTimeout(()=>{const map=militaryLeafletMap||militarySatellitePreviewMap;if(map)map.invalidateSize({pan:false});},80));
+  window.addEventListener("resize",()=>window.setTimeout(()=>applyMilitaryMapTransform(),80));
   document.querySelectorAll("[data-clock-speed]").forEach(button=>{
     button.addEventListener("click",async()=>{
       if(!currentGame||busy||hasPendingBackgroundJobs())return;
