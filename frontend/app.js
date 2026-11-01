@@ -401,18 +401,38 @@
   function ensureLeaflet(){
     if(window.L&&window.L.map&&window.L.tileLayer)return Promise.resolve(window.L);
     if(!leafletFallbackPromise){
-      leafletFallbackPromise=new Promise((resolve,reject)=>{
-        const cssHref="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css";
-        if(!Array.from(document.styleSheets).some(sheet=>{try{return sheet.href&&sheet.href.includes("leaflet.css");}catch(_){return false;}})){
-          const link=document.createElement("link");link.rel="stylesheet";link.href=cssHref;link.crossOrigin="anonymous";document.head.append(link);
+      leafletFallbackPromise=(async()=>{
+        const styles=[
+          "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
+          "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css",
+          "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
+        ];
+        const scripts=[
+          "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+          "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js",
+          "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
+        ];
+        if(!Array.from(document.styleSheets).some(sheet=>{try{return sheet.href&&sheet.href.includes("leaflet");}catch(_){return false;}})){
+          for(const href of styles){
+            const loaded=await new Promise(resolve=>{
+              const link=document.createElement("link");link.rel="stylesheet";link.href=href;
+              link.onload=()=>resolve(true);link.onerror=()=>{link.remove();resolve(false);};
+              document.head.append(link);
+            });
+            if(loaded)break;
+          }
         }
-        const script=document.createElement("script");
-        script.src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js";
-        script.crossOrigin="anonymous";
-        script.onload=()=>window.L&&window.L.map?resolve(window.L):reject(new Error("Leaflet did not initialize"));
-        script.onerror=()=>reject(new Error("Не удалось загрузить картографическую библиотеку"));
-        document.head.append(script);
-      }).catch(error=>{leafletFallbackPromise=null;throw error;});
+        for(const src of scripts){
+          const loaded=await new Promise(resolve=>{
+            const script=document.createElement("script");script.src=src;script.async=true;
+            script.onload=()=>resolve(!!(window.L&&window.L.map&&window.L.tileLayer));
+            script.onerror=()=>{script.remove();resolve(false);};
+            document.head.append(script);
+          });
+          if(loaded)return window.L;
+        }
+        throw new Error("Не удалось загрузить Leaflet ни с одного CDN. Проверьте блокировщик сети.");
+      })().catch(error=>{leafletFallbackPromise=null;throw error;});
     }
     return leafletFallbackPromise;
   }
@@ -1229,7 +1249,6 @@
       const mode=$("militaryMapMode");if(mode)mode.value="view";
       setText("militaryMapDraftStatus","Карта театра операций: выберите режим для прокладки маршрута или приказа.");
     }
-    renderMilitarySatellitePreview(payload,root);
     loadWorldGeoJSON().then(data=>{
       if(!root.isConnected)return;
       if(militarySatellitePreviewMap&&militarySatellitePreviewRoot===root){
