@@ -24,7 +24,7 @@ jobs:
         with:
           node-version: 24
       - name: Validate frontend JavaScript
-        run: node --check frontend/app.js && node --check frontend/auth.js
+        run: node --check frontend/app.js && node --check frontend/auth.js && node --check frontend/military.js
       - name: Verify published pages, CORS and Telegram signature gate
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
@@ -78,10 +78,26 @@ jobs:
             if (!sourceHtml.includes(marker)) throw new Error("Committed frontend source is missing a required game/setup element: " + marker);
           }
 
+          const militaryHtml = await readFile("frontend/military.html", "utf8");
+          const militaryJs = await readFile("frontend/military.js", "utf8");
+          for (const marker of ["leaflet@1.9.4/dist/leaflet.css", "leaflet@1.9.4/dist/leaflet.js", "militarySelectedUnitName", "confirmMilitaryMapOrder"]) {
+            if (!militaryHtml.includes(marker)) throw new Error("Military command page is missing " + marker);
+          }
+          for (const marker of ["World_Imagery/MapServer/tile", "World_Street_Map/MapServer/tile", "sharedFrontSegments", "create_patrol", "issue_order", "Передать приказ"]) {
+            if (!militaryJs.includes(marker)) throw new Error("Military satellite map or order workflow is missing " + marker);
+          }
+
           const sourceApp = await readFile("frontend/app.js", "utf8");
           for (const marker of ["function renderWorldMap", "function renderMilitaryMap", "function renderMilitarySatellitePreview", "function ensureLeaflet", "World_Imagery", "SATELLITE_ATTRIBUTION", "function renderGameClock", "data-select-minister-candidate", "./assets/portraits/", "data-election-proposal", "data-election-tab-panel", "data-election-tab", "data-ai-diplomacy", "/api/presidential/game/military", "/api/presidential/ai/decree/draft", "/api/presidential/ai/election/action", "/api/presidential/ai/election/initialize"]) {
             if (!sourceApp.includes(marker)) throw new Error("Committed frontend source is missing AI-powered political game logic: " + marker);
           }
+
+          await fetchHtmlUntil(
+            gameAssetBase + "military.html",
+            ["militarySelectedUnitName", "confirmMilitaryMapOrder", "leaflet@1.9.4/dist/leaflet.js"],
+            "Published military command page",
+            30
+          );
 
           const publishedGameHtml = await fetchHtmlUntil(
             gameAssetBase,
