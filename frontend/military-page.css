@@ -142,3 +142,46 @@
   .military-theatre .military-map-actions{grid-template-columns:1fr}.military-route-draft{align-items:flex-start;flex-direction:column}
   .military-clock-speeds button{min-width:24px}.military-units-grid{grid-template-columns:1fr}.unit-card-stats{grid-template-columns:repeat(2,1fr)}
 }
+
+
+/* Satellite map and command-console controls */
+.military-theatre .military-map{min-height:590px;background:#111d26;border-radius:0;isolation:isolate}
+.military-theatre .military-map .leaflet-container{width:100%;height:590px;min-height:590px;background:#101c24;font:12px "DM Sans",sans-serif}
+.military-theatre .military-map .leaflet-control-attribution{font-size:9px;background:#fffE;padding:2px 5px}
+.military-theatre .military-map .leaflet-control-layers{border:1px solid #29495e;border-radius:8px;box-shadow:0 4px 18px #06121d70;color:#dbe7ec;background:#102638}
+.military-theatre .military-map .leaflet-control-layers-toggle{width:34px;height:34px}
+.military-theatre .military-map .leaflet-control-layers-expanded{padding:9px 12px}
+.military-theatre .military-map .leaflet-control-layers label{color:#e3edf1;font-size:10px;font-weight:700}
+.military-theatre .military-map .leaflet-bar a{color:#18364a;background:#fff}
+.military-theatre .military-map .leaflet-tooltip.military-country-tooltip{border:1px solid #a1e3ca;background:#122b3c;color:#edf8f3;font-weight:800}
+.military-map-statusbar{display:flex;justify-content:space-between;gap:12px;padding:7px 12px;background:#0b2030;color:#9bb4c0;font-size:9px;border-top:1px solid #284456}
+.military-unit-marker-wrap{background:none;border:0}
+.military-unit-marker{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border:2px solid #ecf5f5;border-radius:50%;background:#17685c;color:#fff;font-size:16px;font-weight:900;box-shadow:0 2px 10px #06121d99}
+.military-unit-marker.air{background:#286887}.military-unit-marker.naval{background:#80633a}.military-unit-marker.guard{background:#5b548d}
+.military-unit-marker.is-selected{outline:3px solid #ffd36c;outline-offset:2px;transform:scale(1.12)}
+.military-marker-popup{display:grid;gap:5px;min-width:190px;color:#1e3548}
+.military-marker-popup b{font-size:12px}.military-marker-popup span{font-size:10px;color:#516577}
+.military-marker-select{border:0;border-radius:6px;padding:7px;background:#173f52;color:#fff;font-size:10px;font-weight:800;cursor:pointer}
+.military-target-preview{display:block;width:100%;padding:6px 0;color:#9fb4bf;font-size:9px}
+.military-route-draft{align-items:flex-start}
+.military-route-draft>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;width:100%}
+.military-route-draft button{min-width:0}
+.military-route-draft button:disabled{opacity:.42;cursor:not-allowed}
+.military-selected-unit-card{margin-top:12px;padding:14px;border:1px solid #2b4b5d;border-radius:10px;background:linear-gradient(140deg,#17374a,#102638);color:#e6f0f2}
+.military-selected-unit-card h4{margin:6px 0 12px;font:800 14px Manrope;color:#fff}
+.military-selected-unit-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.military-selected-unit-grid>div{display:grid;gap:4px;padding:8px;border-radius:7px;background:#0b2232}
+.military-selected-unit-grid small{font-size:8px;color:#9cb2bd}.military-selected-unit-grid b{font-size:11px;color:#fff}
+.military-selected-location{display:block;margin-top:9px;color:#a9c0ca;font-size:9px}
+.military-selected-unit-card p{margin:11px 0 0;padding-top:10px;border-top:1px solid #2e4b5c;color:#b4c7cf;font-size:9px;line-height:1.65}
+.military-unit-card{display:grid;gap:9px;transition:border-color .15s,box-shadow .15s}
+.military-unit-card.is-selected{border-color:#208b79;box-shadow:0 0 0 2px #208b7920}
+.unit-card-identity{display:grid;gap:5px;min-width:0}
+.unit-card-identity>b{font-size:12px;color:#243c50}
+.unit-select-button{flex:0 0 auto;border:1px solid #c9d8df;border-radius:7px;background:#f4f8f9;color:#244257;padding:7px 10px;font-size:9px;font-weight:800;cursor:pointer}
+.unit-select-button.is-selected,.unit-select-button[aria-pressed="true"]{border-color:#1a7568;background:#e2f3ed;color:#145d52}
+.unit-location{display:block;color:#748696;font-size:9px}
+@media(max-width:850px){
+  .military-theatre .military-map,.military-theatre .military-map .leaflet-container{min-height:430px;height:430px}
+  .military-map-statusbar{flex-direction:column;gap:4px}
+}
