@@ -1125,3 +1125,54 @@ button:disabled{opacity:.48;cursor:not-allowed}
   color:#2b4358;font:10px/1.55 "DM Sans",sans-serif;
 }
 .military-war-card textarea:focus{outline:2px solid #b9cbd9;outline-offset:1px}
+
+
+/* Operational theatre atlas and compact 2.5D force miniatures. */
+.military-map{
+  min-height:470px;
+  background:#0b1d2c;
+  border-bottom:1px solid #20394b;
+  touch-action:none;
+}
+.military-map svg{min-height:470px;background:#0b1d2c}
+.military-map .military-ocean{fill:#0b1d2c}
+.military-map .military-graticule path{stroke:#294456;stroke-width:.55;stroke-dasharray:1.6 5;opacity:.62}
+.military-map .military-country{fill:#354e58;stroke:#78909a;stroke-width:.62;stroke-linejoin:round;opacity:.91}
+.military-map .military-country.home{fill:#42766e;stroke:#91c4ad;stroke-width:1.25;opacity:1}
+.military-map .military-country.enemy{fill:#875451;stroke:#d69a84;stroke-width:1.15;opacity:1}
+.military-map .military-country.home.enemy{fill:#74616b}
+.military-map .map-label{font:800 9px Manrope,sans-serif;fill:#dce8ed;paint-order:stroke;stroke:#0b1d2c;stroke-width:3.4px;stroke-linejoin:round;letter-spacing:.07em}
+.military-map .map-label-home{fill:#b8e3d1}
+.military-map .map-label-enemy{fill:#f2b7a9}
+.military-map .military-land-front{fill:none;stroke:#ff937c;stroke-width:4.5;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 3px rgba(255,126,105,.65))}
+.military-map .military-front-sector{fill:#ffbc91;stroke:#6d2e31;stroke-width:2.5;filter:drop-shadow(0 0 5px rgba(255,151,115,.85))}
+.military-map .military-maritime-route{fill:none;stroke:#76b8d4;stroke-width:2.7;stroke-dasharray:7 5;stroke-linecap:round;filter:drop-shadow(0 0 3px rgba(81,173,218,.65))}
+.military-map .map-front-label,.military-map .map-theatre-label{font:900 8px Manrope,sans-serif;fill:#ffe0c2;paint-order:stroke;stroke:#152c3c;stroke-width:3px;letter-spacing:.08em}
+.military-map .military-route-line{fill:none;stroke:#f2c46c;stroke-width:2.1;stroke-dasharray:5 4;filter:drop-shadow(0 0 2px rgba(242,196,108,.35))}
+.military-map .military-route-dot{fill:#f1c66f;stroke:#132b3d;stroke-width:1.3}
+.military-model{cursor:help;filter:url(#militaryModelGlow)}
+.military-model-shadow{fill:#000;opacity:.35}
+.military-model-base{fill:#102b3a;stroke:#a8c5c9;stroke-width:1.25}
+.military-model.friendly .military-model-base{fill:#1b5e58;stroke:#b9ead9}
+.military-model.enemy .military-model-base{fill:#743d3c;stroke:#ffd0bb}
+.military-model-art{fill:#dcefe8;stroke:#e9f5ee;stroke-width:1.05;stroke-linecap:round;stroke-linejoin:round}
+.military-model.enemy .military-model-art{fill:#ffe0d4;stroke:#fff1e9}
+.military-model-label{font:800 6.6px Manrope,sans-serif;fill:#e8f2f4;paint-order:stroke;stroke:#102536;stroke-width:2.6px;stroke-linejoin:round;letter-spacing:.04em}
+.military-map-legend{background:#102638;border-top:1px solid #284456;color:#b3c7d0}
+.military-map-legend i{width:9px;height:9px;border-radius:3px}
+.military-legend-home{background:#79b7a3}.military-legend-enemy{background:#d17f71}
+.military-legend-front{background:#ff937c}.military-legend-patrol{background:#f2c46c}
+.military-legend-infantry{background:#dcefe8;clip-path:polygon(50% 0,75% 27%,68% 100%,32% 100%,25% 27%)}
+.military-legend-air{background:#a4d8ea;clip-path:polygon(50% 0,62% 38%,100% 64%,100% 76%,62% 66%,58% 100%,42% 100%,38% 66%,0 76%,0 64%)}
+.military-legend-naval{background:#c5d9e1;clip-path:polygon(0 20%,100% 20%,78% 100%,22% 100%)}
+.military-domain-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:9px 0 12px}
+.military-domain-metric{min-width:0;padding:8px 9px;border:1px solid #e7edf0;border-radius:8px;background:#f7fafb}
+.military-domain-metric small{display:block;color:#82919c;font-size:7px;font-weight:900;letter-spacing:.06em}
+.military-domain-metric b{display:block;margin-top:4px;color:#30495d;font-size:10px;font-variant-numeric:tabular-nums}
+.military-war-report{border-left:3px solid #70a294}
+@media(max-width:680px){
+  .military-map,.military-map svg{min-height:350px}
+  .military-domain-metrics{grid-template-columns:1fr}
+  .military-domain-metric{display:flex;align-items:center;justify-content:space-between;gap:7px}
+  .military-domain-metric b{margin:0}
+}
