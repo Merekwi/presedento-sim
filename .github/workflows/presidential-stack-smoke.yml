@@ -79,13 +79,13 @@ jobs:
           }
 
           const sourceApp = await readFile("frontend/app.js", "utf8");
-          for (const marker of ["function renderWorldMap", "function renderMilitaryMap", "data-select-minister-candidate", "./assets/portraits/", "data-election-proposal", "data-election-tab-panel", "data-election-tab", "data-ai-diplomacy", "/api/presidential/game/military", "/api/presidential/ai/decree/draft", "/api/presidential/ai/election/action", "/api/presidential/ai/election/initialize"]) {
+          for (const marker of ["function renderWorldMap", "function renderMilitaryMap", "function renderGameClock", "data-select-minister-candidate", "./assets/portraits/", "data-election-proposal", "data-election-tab-panel", "data-election-tab", "data-ai-diplomacy", "/api/presidential/game/military", "/api/presidential/ai/decree/draft", "/api/presidential/ai/election/action", "/api/presidential/ai/election/initialize"]) {
             if (!sourceApp.includes(marker)) throw new Error("Committed frontend source is missing AI-powered political game logic: " + marker);
           }
 
           const publishedGameHtml = await fetchHtmlUntil(
             gameAssetBase,
-            ["id=\"worldMap\"", "id=\"constitution\"", "closeDecreeTop"],
+            ["id=\"worldMap\"", "id=\"constitution\"", "data-clock-speed=\"16\"", "closeDecreeTop"],
             "Published game frontend",
             30
           );
@@ -164,7 +164,7 @@ jobs:
           );
           const gameRoutes = [
             "/api/presidential/game/program",
-            "/api/presidential/game/advance",
+            "/api/presidential/game/clock",
             "/api/presidential/game/minister",
             "/api/presidential/game/election/vote",
             "/api/presidential/game/constitution/propose",
@@ -192,7 +192,7 @@ jobs:
 
           const protectedRoutes = [
             ["/api/presidential/game/program", { action: "start", projectId: "health_modernization" }],
-            ["/api/presidential/game/advance", {}],
+            ["/api/presidential/game/clock", { speed: 1 }],
             ["/api/presidential/game/minister", { action: "appoint", name: "Smoke Test", portfolio: "Образование", age: 45, competence: 70, loyalty: 70, archetype: "technocrat", portraitId: "p01" }],
             ["/api/presidential/game/diplomacy", { action: "consultations", relationId: "00000000-0000-0000-0000-000000000000" }],
             ["/api/presidential/game/election/decision", { issueId: "budget", choiceId: "spending_review" }],
