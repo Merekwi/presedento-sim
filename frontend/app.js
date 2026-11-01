@@ -101,6 +101,14 @@
       if(politicalInput)politicalInput.disabled=true;
     }
     const newGame=$("newGame"),vote=$("electionVote");
+    const decreeDecisionPending=outbox.some(item=>
+      (item.kind==="decree-publish"||item.kind==="decree-discard")&&
+      (item.status==="queued"||item.status==="sending")&&
+      String(item.payload&&item.payload.decreeId||"")===String(draftId||"")
+    );
+    const publish=$("publishDecree"),reject=$("discardDecree");
+    if(publish)publish.disabled=busy||decreeDecisionPending||!draftId;
+    if(reject)reject.disabled=busy||decreeDecisionPending||!draftId;
     document.querySelectorAll("[data-clock-speed]").forEach(button=>{button.disabled=busy||pending;});
     if(newGame)newGame.disabled=busy||pending;
     if(vote)vote.disabled=busy||pending||vote.classList.contains("hidden")||vote.textContent.includes("Сначала")||Boolean(currentGame&&currentGame.state&&currentGame.state.campaignEvent&&currentGame.state.campaignEvent.status==="active");
