@@ -5,8 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#101a2b">
   <title>Presidential Simulator</title>
-  <link rel="stylesheet" href="/presedento-sim/frontend/styles.css?v=calendar-map-ua-fallback-2">
+  <link rel="stylesheet" href="/presedento-sim/frontend/styles.css?v=satellite-maps-1">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 </head>
 <body>
 <div class="layout app-shell">
@@ -118,8 +119,8 @@
         <section class="panel world-panel">
           <div class="panel-heading"><div><span class="eyebrow">ГЕОПОЛИТИЧЕСКАЯ ОБСТАНОВКА</span><h3>Международная карта</h3></div><span class="panel-tag">МИРОВАЯ СИТУАЦИЯ</span></div>
           <div class="world-map-wrap">
-            <div id="worldMap" class="world-map" role="img" aria-label="Карта мира с международными границами"><div class="map-loading">Загружаем карту государственных границ…</div></div>
-            <div class="map-caption"><span><i class="legend-player"></i>Ваше государство</span><span><i class="legend-border"></i>Государственные границы</span><small>Natural Earth · встроенные данные</small></div>
+            <div id="worldMap" class="world-map" role="application" aria-label="Интерактивная спутниковая карта мира"><div class="map-loading">Загружаем спутниковые снимки…</div></div>
+            <div class="map-caption"><span><i class="legend-player"></i>Ваше государство</span><span><i class="legend-border"></i>Государственные границы</span><small>Спутниковые снимки · Esri</small></div>
           </div>
           <div class="map-bottom-stats">
             <div><small>ДИПЛОМАТИЧЕСКИЕ КОНТАКТЫ</small><b id="relationCount">—</b></div>
