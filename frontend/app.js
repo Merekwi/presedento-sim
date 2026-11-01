@@ -999,7 +999,7 @@
       const layer=svgNode("g",{class:"military-map-layer"}),centers=new Map(),features=new Map();militaryMapLayer=layer;
       const war=(payload.wars||[]).find(item=>item.status==="active")||null;
       const homeIso=String(payload.game&&payload.game.iso2||"").toUpperCase();
-      const enemyIso=String(war&&war.opponent_iso2||"").toUpperCase();
+      const enemyIso=String(war&&(war.opponent_iso2||war.front_state&&war.front_state.enemyCountryIso2)||"").toUpperCase();
       data.features.forEach(feature=>{
         const props=feature.properties||{},eh=String(props.ISO_A2_EH||"").toUpperCase();
         const code=(eh&&eh!=="-99"?eh:String(props.ISO_A2||"")).toUpperCase();
@@ -1013,6 +1013,20 @@
       }
       const homeFeature=features.get(homeIso),enemyFeature=features.get(enemyIso);
       const home=centers.get(homeIso),enemy=centers.get(enemyIso);
+      if(!militaryMapState.initialViewReady){
+        let target=home?[home.x,home.y]:[width/2,height/2];
+        if(war&&home&&enemy){
+          let enemyX=enemy.x;
+          if(enemyX-home.x>width/2)enemyX-=width;
+          else if(enemyX-home.x< -width/2)enemyX+=width;
+          target=[(home.x+enemyX)/2,(home.y+enemy.y)/2];
+        }
+        const scale=war&&home&&enemy?1.65:home?1.45:1;
+        militaryMapView.scale=scale;
+        militaryMapView.x=-(target[0]-width/2)*scale;
+        militaryMapView.y=-(target[1]-height/2)*scale;
+        militaryMapState.initialViewReady=true;
+      }
       if(home)textLabel(home.x,home.y-20,payload.game.name_local||payload.game.name_en||"ВАШЕ ГОСУДАРСТВО","map-label map-label-home");
       if(war&&enemy)textLabel(enemy.x,enemy.y-20,war.opponent_country_name||"ПРОТИВНИК","map-label map-label-enemy");
       if(war){
