@@ -30,6 +30,7 @@ jobs:
       - name: Check source syntax
         run: |
           node --check frontend/app.js
+          node --check frontend/military.js
           node --check frontend/auth.js
           node --check backend/presidentai/index.mjs
           node --check backend/presidentai/engine.mjs
