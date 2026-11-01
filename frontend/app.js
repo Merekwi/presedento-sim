@@ -282,17 +282,30 @@
     const raw=String(value).slice(0,10),date=new Date(raw+"T12:00:00Z");
     return Number.isNaN(date.getTime())?raw:new Intl.DateTimeFormat("ru-RU",{day:"numeric",month:"long",year:"numeric",timeZone:"UTC"}).format(date);
   }
+  function appAssetUrl(path){
+    const appScript=Array.from(document.scripts).find(script=>/\/app\.js(?:[?#]|$)/i.test(script.src||""));
+    return new URL(path,appScript&&appScript.src?appScript.src:window.location.href).href;
+  }
   function flagNode(iso2, fallback){
-    if(iso2 && /^[A-Z]{2}$/.test(String(iso2))){
-      return sprite("flags.svg","flag-"+iso2,"flag-svg");
+    const raw=String(iso2||"").trim().toUpperCase();
+    const code=raw==="UKR"?"UA":raw;
+    const fallbackFlag=fallback||"🏳️";
+    if(/^[A-Z]{2}$/.test(code)){
+      const image=sprite("flags.svg","flag-"+code,"flag-svg");
+      image.loading="eager";
+      image.onerror=()=>{
+        image.onerror=null;
+        image.replaceWith(node("span","flag-fallback",fallbackFlag));
+      };
+      return image;
     }
-    return node("span","flag-fallback",fallback||"🏳️");
+    return node("span","flag-fallback",fallbackFlag);
   }
   function sprite(file,symbol,className){
     const image=document.createElement("img");
     image.className=className||"";image.alt="";image.decoding="async";image.loading="lazy";
-    if(file==="flags.svg") image.src="./assets/flags/"+String(symbol).replace(/^flag-/,"")+".svg";
-    else image.src="./assets/portraits/"+String(symbol).replace(/^p/,"")+".svg";
+    if(file==="flags.svg") image.src=appAssetUrl("./assets/flags/"+String(symbol).replace(/^flag-/,"")+".svg");
+    else image.src=appAssetUrl("./assets/portraits/"+String(symbol).replace(/^p/,"")+".svg");
     image.onerror=()=>{image.style.display="none";};
     return image;
   }
@@ -332,7 +345,7 @@
   function loadWorldGeoJSON(){
     if(!worldMapPromise){
       const sources=[
-        new URL("./assets/world-countries.geojson",window.location.href).href,
+        appAssetUrl("./assets/world-countries.geojson"),
         "https://cdn.jsdelivr.net/gh/Merekwi/presedento-sim@main/frontend/assets/world-countries.geojson",
         "https://raw.githubusercontent.com/Merekwi/presedento-sim/main/frontend/assets/world-countries.geojson"
       ];
