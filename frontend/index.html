@@ -192,7 +192,7 @@
           <div class="military-map-layout">
             <div class="military-map-column">
               <div class="military-map-toolbar">
-                <div><b>Оперативная карта</b><small id="militaryMapHint">Колесо мыши — масштаб · перетаскивание — перемещение</small></div>
+                <div><b>Оперативная карта</b><small id="militaryMapHint">Географические якоря стран · фактические границы · масштабирование и перемещение</small></div>
                 <div class="military-map-zoom">
                   <button type="button" id="militaryZoomOut" aria-label="Уменьшить масштаб">−</button>
                   <button type="button" id="militaryZoomReset">100%</button>
@@ -203,10 +203,13 @@
                 <div class="map-loading">Загружаем оперативную карту…</div>
               </div>
               <div class="military-map-legend">
-                <span><i class="military-legend-home"></i>Ваше государство</span>
-                <span><i class="military-legend-enemy"></i>Противник</span>
-                <span><i class="military-legend-front"></i>Линия фронта</span>
-                <span><i class="military-legend-patrol"></i>Патруль</span>
+                <span><i class="military-legend-home"></i>Свои силы</span>
+                <span><i class="military-legend-enemy"></i>Силы противника</span>
+                <span><i class="military-legend-front"></i>Реальная сухопутная граница</span>
+                <span><i class="military-legend-infantry"></i>Пехота / гарнизон</span>
+                <span><i class="military-legend-air"></i>Авиация</span>
+                <span><i class="military-legend-naval"></i>Флот</span>
+                <span><i class="military-legend-patrol"></i>Патруль / маршрут</span>
               </div>
               <div class="military-map-actions">
                 <label>Режим карты
@@ -255,17 +258,18 @@
                   <div class="military-war-stats">
                     <div><small>Свои потери</small><b id="militaryFriendlyLosses">0</b></div>
                     <div><small>Потери противника</small><b id="militaryEnemyLosses">0</b></div>
-                    <div><small>Оперативный ход</small><b id="militaryBattleTurn">0</b></div>
+                    <div><small>Оперативный цикл</small><b id="militaryBattleTurn">0</b></div>
                   </div>
+                  <div id="militaryDomainMetrics" class="military-domain-metrics" aria-label="Соотношение сил по родам войск"></div>
                   <label for="militaryCommandMode">Кто управляет войсками</label>
                   <select id="militaryCommandMode"><option value="ai">Военный штаб ИИ</option><option value="manual">Президент · ручное управление</option></select>
                   <label for="militaryPosture">Стратегическая позиция</label>
                   <select id="militaryPosture"><option value="defensive">Оборона и удержание позиций</option><option value="balanced">Сбалансированные действия</option><option value="offensive">Наступательная операция</option></select>
                   <label for="militaryAiDirective">Личный приказ президента штабу</label>
-                  <textarea id="militaryAiDirective" rows="3" maxlength="1200" placeholder="Например: удерживать оборонительные рубежи, избегать неоправданных потерь, обеспечить снабжение и подготовить разведданные перед следующим наступлением."></textarea>
+                  <textarea id="militaryAiDirective" rows="3" maxlength="1200" placeholder="Например: не допускать потери крупных населённых пунктов, сохранить резервы, обеспечить снабжение и добиться превосходства в воздухе. Штаб сам выберет темп и состав операций."></textarea>
                   <div class="military-war-buttons">
                     <button type="button" id="saveMilitaryDirective" class="secondary-button">Передать директиву</button>
-                    <button type="button" id="advanceMilitaryWar" class="primary-button">Следующий оперативный ход</button>
+                    <button type="button" id="advanceMilitaryWar" class="primary-button">Выполнить оперативный ход</button>
                     <button type="button" id="ceaseMilitaryWar" class="secondary-button">Запросить прекращение огня</button>
                   </div>
                   <p id="militaryWarReport" class="military-war-report">Штаб ожидает распоряжений.</p>
