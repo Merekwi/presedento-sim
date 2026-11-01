@@ -185,10 +185,13 @@ jobs:
           }
 
           const flagAsset = await fetchWithRetry(gameAssetBase + "assets/flags/BR.svg", { headers: { "Cache-Control": "no-cache" } });
+          const ukraineFlagAsset = await fetchWithRetry(gameAssetBase + "assets/flags/UA.svg", { headers: { "Cache-Control": "no-cache" } });
           const portraitAsset = await fetchWithRetry(gameAssetBase + "assets/portraits/01.svg", { headers: { "Cache-Control": "no-cache" } });
           const worldMapAsset = await fetchWithRetry(gameAssetBase + "assets/world-countries.geojson?fresh=" + Date.now(), { headers: { "Cache-Control": "no-cache" } });
           const mapData = await worldMapAsset.json();
-          if (!(await flagAsset.text()).includes("<svg") || !(await portraitAsset.text()).includes("<svg") || !Array.isArray(mapData.features) || mapData.features.length < 100) throw new Error("Local flag, portrait or world map asset is missing or invalid.");
+          const ukraineFlag = await ukraineFlagAsset.text();
+          if (!(await flagAsset.text()).includes("<svg") || !ukraineFlag.includes("#0057b7") || !ukraineFlag.includes("#ffd700") || !(await portraitAsset.text()).includes("<svg") || !Array.isArray(mapData.features) || mapData.features.length < 100) throw new Error("Local flag, portrait or world map asset is missing or invalid.");
+          if (!appJs.includes('raw.toUpperCase()') || !appJs.includes('appAssetUrl("./assets/flags/')) throw new Error("Country flags are not normalized or resolved from the app script location.");
 
           const protectedRoutes = [
             ["/api/presidential/game/program", { action: "start", projectId: "health_modernization" }],
