@@ -427,7 +427,7 @@
     <div class="decree-page-toolbar"><span>КАНЦЕЛЯРИЯ ПРЕЗИДЕНТА · РЕЕСТР НОРМАТИВНЫХ АКТОВ</span><button type="button" id="closeDecreeTop">← Вернуться</button></div>
     <div class="dialog-eyebrow">НОВАЯ ЗАКОНОДАТЕЛЬНАЯ ИНИЦИАТИВА</div><h3>Подготовить президентский указ</h3>
     <p>Опишите инициативу. Сервер подготовит официальный проект и рассчитает последствия после публикации.</p>
-    <label for="order">Содержание инициативы</label><textarea id="order" rows="5" minlength="10" maxlength="5000" required placeholder="Например: запустить программу модернизации сельских больниц…"></textarea>
+    <label for="order">Содержание инициативы президента</label><textarea id="order" rows="5" minlength="10" maxlength="5000" required placeholder="Например: запустить программу модернизации сельских больниц…"></textarea>
     <div id="decreePreview" class="decree-preview hidden">
       <article class="official-document" id="officialDocument">
         <div class="document-security-line"></div>
@@ -484,6 +484,7 @@
       <div class="decree-preview-actions">
         <button type="button" id="copy" class="secondary-button">Копировать текст</button>
         <button type="button" id="printDecree" class="secondary-button">Печать / PDF</button>
+        <button type="button" id="discardDecree" class="decree-discard-button">Не публиковать этот указ</button>
         <button type="button" id="publishDecree" class="primary-button">Опубликовать указ</button>
       </div>
     </div>
