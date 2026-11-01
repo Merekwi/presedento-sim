@@ -15,6 +15,12 @@
   let militaryLeafletSaveKey="";
   let militaryLeafletWarKey="";
   let militaryLeafletDefaultView={center:[20,0],zoom:2};
+  let worldLeafletMap=null;
+  let worldLeafletOverlay=null;
+  let worldLeafletRoot=null;
+  let worldLeafletCode="";
+  let worldLeafletOverlayCode="";
+  let leafletFallbackPromise=null;
 
   const decreeCache = new Map();
 
@@ -374,37 +380,98 @@
     }
     return worldMapPromise;
   }
-  function mollweidePoint(point,width,height){
-    const lon=Number(point[0])*Math.PI/180,lat=Math.max(-89.9999,Math.min(89.9999,Number(point[1])))*Math.PI/180;
-    let theta=lat;
-    for(let i=0;i<12;i++){const den=2+2*Math.cos(2*theta);if(Math.abs(den)<1e-9)break;const delta=(2*theta+Math.sin(2*theta)-Math.PI*Math.sin(lat))/den;theta-=delta;if(Math.abs(delta)<1e-8)break;}
-    return [width/2+(2*Math.SQRT2/Math.PI*lon*Math.cos(theta))*width/(4*Math.SQRT2),height/2-(Math.SQRT2*Math.sin(theta))*height/(2*Math.SQRT2)];
+  const MAP_COUNTRY_VIEWS={
+    AR:{center:[-38.4,-63.6],zoom:3},AU:{center:[-25.3,133.8],zoom:3},BR:{center:[-14.2,-51.9],zoom:3},
+    CA:{center:[56.1,-106.3],zoom:2.5},CL:{center:[-35.7,-71.5],zoom:3.4},EG:{center:[26.8,30.8],zoom:4},
+    FR:{center:[46.2,2.2],zoom:4},DE:{center:[51.2,10.5],zoom:4.5},IN:{center:[20.6,79],zoom:3.5},
+    ID:{center:[-0.8,113.9],zoom:3},JP:{center:[36.2,138.3],zoom:4},KE:{center:[-0.02,37.9],zoom:4},
+    MX:{center:[23.6,-102.6],zoom:3.2},NL:{center:[52.1,5.3],zoom:6},NO:{center:[60.5,8.5],zoom:3.5},
+    PL:{center:[51.9,19.1],zoom:5},ZA:{center:[-30.6,22.9],zoom:3.5},TH:{center:[15.9,101],zoom:4},
+    TR:{center:[39,35.2],zoom:4},UA:{center:[48.4,31.2],zoom:4}
+  };
+  const SATELLITE_TILE_URL="https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+  const SATELLITE_ATTRIBUTION='Tiles &copy; Esri, Vantor, Earthstar Geographics, and the GIS User Community';
+
+  function ensureLeaflet(){
+    if(window.L&&window.L.map&&window.L.tileLayer)return Promise.resolve(window.L);
+    if(!leafletFallbackPromise){
+      leafletFallbackPromise=new Promise((resolve,reject)=>{
+        const cssHref="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css";
+        if(!Array.from(document.styleSheets).some(sheet=>{try{return sheet.href&&sheet.href.includes("leaflet.css");}catch(_){return false;}})){
+          const link=document.createElement("link");link.rel="stylesheet";link.href=cssHref;link.crossOrigin="anonymous";document.head.append(link);
+        }
+        const script=document.createElement("script");
+        script.src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js";
+        script.crossOrigin="anonymous";
+        script.onload=()=>window.L&&window.L.map?resolve(window.L):reject(new Error("Leaflet did not initialize"));
+        script.onerror=()=>reject(new Error("Не удалось загрузить картографическую библиотеку"));
+        document.head.append(script);
+      }).catch(error=>{leafletFallbackPromise=null;throw error;});
+    }
+    return leafletFallbackPromise;
   }
-  function mapRingPath(ring,width,height){
-    if(!Array.isArray(ring)||ring.length<3)return "";
-    let d="",prev=null,segments=0;
-    for(const point of ring){if(!Array.isArray(point)||point.length<2)continue;const lon=Number(point[0]),p=mollweidePoint(point,width,height),seam=prev&&Math.abs(lon-prev[0])>180;d+=(prev&&!seam?"L":"M")+p[0].toFixed(2)+","+p[1].toFixed(2);if(!prev||seam)segments++;prev=[lon,Number(point[1])];}
-    return segments===1?d+"Z":d;
-  }
-  function geometryPath(g,w,h){
-    if(!g)return "";const polygons=g.type==="Polygon"?[g.coordinates]:g.type==="MultiPolygon"?g.coordinates:[];let d="";
-    for(const polygon of polygons||[])for(const ring of polygon||[])d+=mapRingPath(ring,w,h);
-    return d;
-  }
-  async function renderWorldMap(iso2){
-    const root=$("worldMap");if(!root)return;root.replaceChildren(node("div","map-loading","Загружаем встроенную карту мира…"));
-    try{
-      const data=await loadWorldGeoJSON(),w=900,h=450,ns="http://www.w3.org/2000/svg",svg=document.createElementNS(ns,"svg");
-      svg.setAttribute("class","world-map-svg");svg.setAttribute("viewBox","0 0 "+w+" "+h);svg.setAttribute("role","img");svg.setAttribute("aria-label","Политическая карта мира");svg.setAttribute("preserveAspectRatio","xMidYMid meet");
-      const ocean=document.createElementNS(ns,"rect");ocean.setAttribute("class","map-ocean");ocean.setAttribute("width",w);ocean.setAttribute("height",h);svg.append(ocean);
-      const grid=document.createElementNS(ns,"g");grid.setAttribute("class","map-graticule");
-      for(const lat of [-60,-30,0,30,60]){const line=document.createElementNS(ns,"path");let d="";for(let lon=-180;lon<=180;lon+=4){const p=mollweidePoint([lon,lat],w,h);d+=(lon===-180?"M":"L")+p[0].toFixed(1)+","+p[1].toFixed(1);}line.setAttribute("d",d);grid.append(line);}svg.append(grid);
-      const countries=document.createElementNS(ns,"g");
-      data.features.forEach(feature=>{const props=feature.properties||{},eh=String(props.ISO_A2_EH||"").toUpperCase(),code=(eh&&eh!=="-99"?eh:String(props.ISO_A2||"")).toUpperCase(),path=document.createElementNS(ns,"path");
-        path.setAttribute("d",geometryPath(feature.geometry,w,h));path.setAttribute("class","map-country"+(code===String(iso2||"").toUpperCase()?" active":""));path.setAttribute("data-iso2",code);
-        const name=props.NAME_RU||props.NAME_EN||props.ADMIN||props.NAME||"Государство";path.setAttribute("aria-label",name);const title=document.createElementNS(ns,"title");title.textContent=name;path.append(title);countries.append(path);});
-      svg.append(countries);root.replaceChildren(svg);
-    }catch(error){root.replaceChildren(node("div","map-loading","Не удалось открыть встроенную карту: "+(error&&error.message?error.message:"ошибка данных")));}
+
+  function renderWorldMap(iso2){
+    const root=$("worldMap");if(!root)return;
+    const code=String(iso2||"").trim().toUpperCase();
+    const view=MAP_COUNTRY_VIEWS[code]||{center:[20,0],zoom:2};
+    if(!window.L||!window.L.map||!window.L.tileLayer){
+      root.replaceChildren(node("div","map-loading","Подключаем спутниковую карту…"));
+      ensureLeaflet().then(()=>renderWorldMap(code)).catch(error=>{
+        if(root.isConnected)root.replaceChildren(node("div","map-loading","Не удалось подключить спутниковую карту: "+(error.message||"ошибка сети")));
+      });
+      return;
+    }
+    if(worldLeafletMap&&worldLeafletRoot!==root){
+      worldLeafletMap.remove();worldLeafletMap=null;worldLeafletOverlay=null;worldLeafletRoot=null;
+    }
+    if(!worldLeafletMap){
+      root.replaceChildren();
+      worldLeafletMap=L.map(root,{
+        center:view.center,zoom:view.zoom,minZoom:2,maxZoom:19,
+        zoomControl:true,scrollWheelZoom:false,worldCopyJump:true,preferCanvas:true
+      });
+      const satellite=L.tileLayer(SATELLITE_TILE_URL,{
+        minZoom:2,maxZoom:19,maxNativeZoom:19,updateWhenIdle:true,keepBuffer:2,
+        attribution:SATELLITE_ATTRIBUTION
+      }).addTo(worldLeafletMap);
+      let tileErrors=0;
+      satellite.on("tileerror",()=>{
+        tileErrors++;
+        if(tileErrors===3)console.warn("Satellite tiles are failing to load. Check access to services.arcgisonline.com.");
+      });
+      worldLeafletOverlay=L.layerGroup().addTo(worldLeafletMap);
+      worldLeafletRoot=root;
+      worldLeafletCode=code;
+      worldLeafletMap.whenReady(()=>window.setTimeout(()=>worldLeafletMap&&worldLeafletMap.invalidateSize({pan:false}),80));
+    }else if(worldLeafletCode!==code){
+      worldLeafletCode=code;
+      worldLeafletMap.setView(view.center,view.zoom,{animate:false});
+    }
+    if(worldLeafletOverlayCode!==code){
+      worldLeafletOverlayCode=code;
+      worldLeafletOverlay.clearLayers();
+      loadWorldGeoJSON().then(data=>{
+        if(!worldLeafletMap||worldLeafletRoot!==root||!root.isConnected||worldLeafletCode!==code)return;
+        const layer=L.geoJSON(data,{
+          style:feature=>{
+            const props=feature.properties||{};
+            const featureCode=String(props.ISO_A2_EH||props.ISO_A2||"").toUpperCase();
+            return featureCode===code
+              ?{color:"#ffd36e",weight:2.6,opacity:1,fillColor:"#f7bf54",fillOpacity:.13}
+              :{color:"#ffffff",weight:1,opacity:.72,fillColor:"#ffffff",fillOpacity:.015};
+          },
+          onEachFeature:(feature,countryLayer)=>{
+            const props=feature.properties||{};
+            const name=props.NAME_RU||props.NAME_EN||props.ADMIN||props.NAME||"Государство";
+            countryLayer.bindTooltip(name,{sticky:false,direction:"top",opacity:.92});
+          }
+        });
+        layer.addTo(worldLeafletOverlay);
+        const player=MAP_COUNTRY_VIEWS[code];
+        if(player)L.circleMarker(player.center,{radius:4,color:"#172b3d",weight:1.5,fillColor:"#ffd36e",fillOpacity:1}).bindTooltip("Ваше государство").addTo(worldLeafletOverlay);
+      }).catch(error=>console.warn("Country borders are unavailable; satellite basemap remains active.",error));
+    }
   }
 
   function syncGameClock(game){
@@ -1053,7 +1120,14 @@
     militaryMapView={scale:1,x:0,y:0};applyMilitaryMapTransform();
   }
   function renderMilitaryMap(payload){
-    if(!window.L||!window.L.map||!window.L.tileLayer){renderMilitarySvgMap(payload);return;}
+    if(!window.L||!window.L.map||!window.L.tileLayer){
+      const root=$("militaryMap");
+      if(root)root.replaceChildren(node("div","map-loading","Подключаем спутниковую карту театра операций…"));
+      ensureLeaflet().then(()=>renderMilitaryMap(payload)).catch(error=>{
+        if(root&&root.isConnected){root.replaceChildren(node("div","map-loading","Не удалось загрузить спутниковую карту: "+(error.message||"ошибка сети")));}
+      });
+      return;
+    }
     const root=$("militaryMap");if(!root)return;
     const saveKey=String(payload.game&&payload.game.id||"");
     if(militaryMapState.saveKey!==saveKey){
@@ -1087,9 +1161,9 @@
         if(militaryLeafletMap)militaryLeafletMap.remove();
         root.replaceChildren();
         militaryLeafletMap=L.map(root,{center:defaultCenter,zoom:defaultZoom,minZoom:2,maxZoom:18,zoomControl:false,worldCopyJump:true,preferCanvas:true});
-        L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{
-          minZoom:2,maxZoom:18,maxNativeZoom:19,updateWhenIdle:true,keepBuffer:2,
-          attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>'
+        L.tileLayer(SATELLITE_TILE_URL,{
+          minZoom:2,maxZoom:19,maxNativeZoom:19,updateWhenIdle:true,keepBuffer:2,
+          attribution:SATELLITE_ATTRIBUTION
         }).addTo(militaryLeafletMap);
         militaryLeafletOverlay=L.layerGroup().addTo(militaryLeafletMap);
         militaryLeafletRoot=root;militaryLeafletSaveKey=saveKey;militaryLeafletWarKey=warId;
