@@ -1031,10 +1031,11 @@
             renderMilitaryMap(currentPayload||payload);return;
           }
           if(militaryMapState.mode==="order"){
-            if(!activeWar)return toast("Сначала начните военный конфликт.");
+            const liveWar=(currentPayload&&Array.isArray(currentPayload.wars)?currentPayload.wars:payload.wars||[]).find(item=>item.status==="active");
+            if(!liveWar)return toast("Сначала начните военный конфликт.");
             const unitId=$("militaryMapUnit")&&$("militaryMapUnit").value,orderType=$("militaryMapOrder")&&$("militaryMapOrder").value;
             const objective=orderType==="advance"?"Достичь указанного района":orderType==="defend"?"Защитить указанный район":"Выполнить приказ в отмеченной точке";
-            void runMilitaryAction({action:"issue_order",warId:activeWar.id,unitId,orderType,targetLat:geo.lat,targetLon:geo.lon,objective},null,"Приказ передан подразделению.");
+            void runMilitaryAction({action:"issue_order",warId:liveWar.id,unitId,orderType,targetLat:geo.lat,targetLon:geo.lon,objective},null,"Приказ передан подразделению.");
           }
         });
       }else if(militaryLeafletSaveKey!==saveKey||militaryLeafletWarKey!==warId){
@@ -1737,8 +1738,12 @@
   }
 
   document.querySelectorAll(".nav-link").forEach(link=>{
-    link.addEventListener("click",()=>{document.querySelectorAll(".nav-link").forEach(item=>item.classList.remove("active"));link.classList.add("active");});
+    link.addEventListener("click",()=>{
+      document.querySelectorAll(".nav-link").forEach(item=>item.classList.remove("active"));link.classList.add("active");
+      if(link.getAttribute("href")==="#defense")window.setTimeout(()=>militaryLeafletMap&&militaryLeafletMap.invalidateSize({pan:false}),140);
+    });
   });
+  window.addEventListener("resize",()=>militaryLeafletMap&&window.setTimeout(()=>militaryLeafletMap&&militaryLeafletMap.invalidateSize({pan:false}),80));
   $("advanceTurn").addEventListener("click",async()=>{
     if(!currentGame||busy)return;
     const points=Number((currentGame.state||{}).actionPoints??2),warning=points>0?" Осталось "+points+" неиспользованных очка действий.":"";
