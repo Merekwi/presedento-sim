@@ -330,9 +330,35 @@
   }
 
   function loadWorldGeoJSON(){
-    if(!worldMapPromise)worldMapPromise=fetch("./assets/world-countries.geojson",{cache:"force-cache"})
-      .then(r=>{if(!r.ok)throw new Error("локальные данные карты: HTTP "+r.status);return r.json();})
-      .then(data=>{if(!data||!Array.isArray(data.features)||!data.features.length)throw new Error("файл геоданных повреждён");return data;});
+    if(!worldMapPromise){
+      const sources=[
+        new URL("./assets/world-countries.geojson",window.location.href).href,
+        "https://cdn.jsdelivr.net/gh/Merekwi/presedento-sim@main/frontend/assets/world-countries.geojson",
+        "https://raw.githubusercontent.com/Merekwi/presedento-sim/main/frontend/assets/world-countries.geojson"
+      ];
+      worldMapPromise=(async()=>{
+        const failures=[];
+        for(const url of sources){
+          const controller=new AbortController();
+          const timeout=window.setTimeout(()=>controller.abort(),15000);
+          try{
+            const response=await fetch(url,{cache:"no-cache",signal:controller.signal});
+            if(!response.ok)throw new Error("HTTP "+response.status);
+            const data=await response.json();
+            if(!data||!Array.isArray(data.features)||!data.features.length)throw new Error("неверный формат GeoJSON");
+            return data;
+          }catch(error){
+            failures.push(new URL(url).hostname+": "+(error&&error.message?error.message:"ошибка сети"));
+          }finally{
+            window.clearTimeout(timeout);
+          }
+        }
+        throw new Error("Не удалось получить данные карты. "+failures.join("; "));
+      })().catch(error=>{
+        worldMapPromise=null;
+        throw error;
+      });
+    }
     return worldMapPromise;
   }
   function mollweidePoint(point,width,height){
