@@ -27,6 +27,7 @@
       <a class="nav-link" href="#government"><span class="nav-icon">♙</span>Правительство</a>
       <a class="nav-link" href="#diplomacy"><span class="nav-icon">◎</span>Дипломатия</a>
       <a class="nav-link" href="#defense"><span class="nav-icon">⬡</span>Вооружённые силы</a>
+      <a class="nav-link" href="#military-map-tab"><span class="nav-icon">⌖</span>Военная карта</a>
       <a class="nav-link" href="#events"><span class="nav-icon">≋</span>Хроника событий</a>
       <a class="nav-link" href="#laws"><span class="nav-icon">▤</span>Указы и законы</a>
     </nav>
@@ -197,12 +198,13 @@
           <div class="panel-heading"><div><span class="eyebrow">МИНИСТЕРСТВО ИНОСТРАННЫХ ДЕЛ</span><h3>Дипломатические отношения</h3></div><span class="panel-tag">МИРОВАЯ ПОВЕСТКА</span></div>
           <div id="relationsList" class="relation-list"><div class="loading-row">Загружаем международные отношения…</div></div>
         </section>
-        <section class="panel military-command-panel" id="defense">
-          <div class="panel-heading">
-            <div><span class="eyebrow">ГЕНЕРАЛЬНЫЙ ШТАБ · МИНИСТЕРСТВО ОБОРОНЫ</span><h3>Вооружённые силы и военные операции</h3><p>Комплектование армии, военные технологии, охрана границ и управление войной.</p></div>
-            <span class="panel-tag">СТРАТЕГИЧЕСКОЕ УПРАВЛЕНИЕ</span>
-          </div>
+      </div>
 
+      <section class="panel military-theatre-panel" id="military-map-tab">
+        <div class="panel-heading">
+          <div><span class="eyebrow">ОПЕРАТИВНОЕ УПРАВЛЕНИЕ · ГЕНЕРАЛЬНЫЙ ШТАБ</span><h3>Военная карта</h3><p>Самостоятельная стратегическая карта: государственные границы, воинские части, оперативные районы и патрули.</p></div>
+          <span class="panel-tag">ВОЕННЫЙ ТЕАТР</span>
+        </div>
           <div class="military-map-layout">
             <div class="military-map-column">
               <div class="military-map-toolbar">
@@ -291,6 +293,13 @@
               </section>
             </aside>
           </div>
+      </section>
+
+      <section class="panel military-command-panel military-force-management" id="defense">
+        <div class="panel-heading">
+          <div><span class="eyebrow">МИНИСТЕРСТВО ОБОРОНЫ · ВОЕННАЯ АДМИНИСТРАЦИЯ</span><h3>Вооружённые силы</h3><p>Комплектование армии, военные технологии, оборонный бюджет и готовность подразделений.</p></div>
+          <span class="panel-tag">УПРАВЛЕНИЕ ОБОРОНОЙ</span>
+        </div>
 
           <div class="military-dashboard-grid">
             <section class="military-subpanel">
@@ -353,7 +362,7 @@
             <div class="military-card-heading"><div><span class="eyebrow">СОСТАВ И ГОТОВНОСТЬ</span><h4>Воинские подразделения</h4></div></div>
             <div id="militaryUnits" class="unit-list"><div class="loading-row">Загружаем структуру вооружённых сил…</div></div>
           </section>
-        </section>
+      </section>
       </div>
 
       <section class="panel laws-panel" id="laws">
