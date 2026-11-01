@@ -18,6 +18,7 @@
   let militarySatellitePreviewMap=null;
   let militarySatellitePreviewRoot=null;
   let militarySatellitePreviewOverlay=null;
+  let militarySatellitePreviewDraftLayer=null;
   let worldLeafletMap=null;
   let worldLeafletOverlay=null;
   let worldLeafletRoot=null;
@@ -874,13 +875,15 @@
     return g;
   }
   function applyMilitaryMapTransform(){
-    if(militaryLeafletMap){setText("militaryZoomReset",militaryLeafletMap.getZoom()+"×");return;}
+    const liveMap=militaryLeafletMap||militarySatellitePreviewMap;
+    if(liveMap){setText("militaryZoomReset",liveMap.getZoom()+"×");return;}
     if(!militaryMapLayer)return;
     militaryMapLayer.setAttribute("transform","translate("+militaryMapView.x+" "+militaryMapView.y+") translate(500 250) scale("+militaryMapView.scale+") translate(-500 -250)");
     setText("militaryZoomReset",Math.round(militaryMapView.scale*100)+"%");
   }
   function changeMilitaryMapZoom(factor){
-    if(militaryLeafletMap){if(Number(factor)>=1)militaryLeafletMap.zoomIn();else militaryLeafletMap.zoomOut();return;}
+    const liveMap=militaryLeafletMap||militarySatellitePreviewMap;
+    if(liveMap){if(Number(factor)>=1)liveMap.zoomIn();else liveMap.zoomOut();return;}
     militaryMapView.scale=clamp(militaryMapView.scale*Number(factor||1),1,6);
     applyMilitaryMapTransform();
   }
@@ -1120,6 +1123,12 @@
   }
   function resetMilitaryMapView(){
     if(militaryLeafletMap){militaryLeafletMap.setView(militaryLeafletDefaultView.center,militaryLeafletDefaultView.zoom);return;}
+    if(militarySatellitePreviewMap){
+      const iso=String(currentGame&&currentGame.iso2||"").trim().toUpperCase();
+      const view=MAP_COUNTRY_VIEWS[iso]||{center:[20,0],zoom:2};
+      militarySatellitePreviewMap.setView(view.center,view.zoom);
+      return;
+    }
     militaryMapView={scale:1,x:0,y:0};applyMilitaryMapTransform();
   }
   function renderMilitarySatellitePreview(payload,root){
@@ -1140,7 +1149,9 @@
       attribution:SATELLITE_ATTRIBUTION
     }).addTo(militarySatellitePreviewMap);
     militarySatellitePreviewOverlay=L.layerGroup().addTo(militarySatellitePreviewMap);
+    militarySatellitePreviewDraftLayer=L.layerGroup().addTo(militarySatellitePreviewOverlay);
     militarySatellitePreviewRoot=root;
+    militarySatellitePreviewMap.on("zoomend",()=>setText("militaryZoomReset",militarySatellitePreviewMap.getZoom()+"×"));
     L.circleMarker(view.center,{radius:5,color:"#172b3d",weight:1.5,fillColor:"#ffd36e",fillOpacity:1})
       .bindTooltip(payload.game.name_local||payload.game.name_en||"Ваше государство").addTo(militarySatellitePreviewOverlay);
     const enemy=leafletAnchor(front.enemyAnchor);
@@ -1164,7 +1175,12 @@
         militaryMapState.draft.push(geo);
         setText("militaryMapDraftStatus","Точек маршрута: "+militaryMapState.draft.length+" · требуется минимум две.");
         const save=$("saveMilitaryPatrol");if(save)save.disabled=militaryMapState.draft.length<2;
-        renderMilitarySatellitePreview({...payload,units:payload.units},root);
+        if(militarySatellitePreviewDraftLayer){
+          militarySatellitePreviewDraftLayer.clearLayers();
+          const points=militaryMapState.draft.map(point=>[point.lat,point.lon]);
+          if(points.length>1)L.polyline(points,{color:"#e3a93c",weight:3,dashArray:"6 6"}).addTo(militarySatellitePreviewDraftLayer);
+          points.forEach(point=>L.circleMarker(point,{radius:5,color:"#6b4a14",fillColor:"#f4c35e",fillOpacity:1}).addTo(militarySatellitePreviewDraftLayer));
+        }
         return;
       }
       if(mode==="order"){
