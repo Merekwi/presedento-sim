@@ -1176,3 +1176,108 @@ button:disabled{opacity:.48;cursor:not-allowed}
   .military-domain-metric{display:flex;align-items:center;justify-content:space-between;gap:7px}
   .military-domain-metric b{margin:0}
 }
+
+
+/* Real terrain basemap with tactical 2.5D force miniatures. */
+.military-map.leaflet-container{
+  height:490px;
+  min-height:490px;
+  background:#142c39;
+  overflow:hidden;
+  border-radius:0;
+  cursor:grab;
+  touch-action:pan-x pan-y;
+}
+.military-map.leaflet-container:active{cursor:grabbing}
+.military-map .leaflet-tile-pane{filter:saturate(.78) brightness(.82) contrast(1.06)}
+.military-map .leaflet-overlay-pane{z-index:410}
+.military-map .leaflet-marker-pane{z-index:620}
+.military-map .leaflet-tooltip{
+  background:#102637;
+  color:#f2f6f7;
+  border:1px solid #426071;
+  box-shadow:0 3px 14px rgba(0,0,0,.22);
+  border-radius:5px;
+  font-size:10px;
+  font-weight:800;
+  padding:5px 8px;
+}
+.military-map .leaflet-tooltip-top:before{border-top-color:#426071}
+.military-map .leaflet-popup-content-wrapper{
+  background:#102637;
+  color:#ecf3f4;
+  border:1px solid #456172;
+  border-radius:9px;
+  box-shadow:0 10px 28px rgba(0,0,0,.3);
+}
+.military-map .leaflet-popup-tip{background:#102637;border:1px solid #456172}
+.military-map .leaflet-popup-content{margin:11px 14px;line-height:1.45;font-size:11px}
+.military-map .leaflet-popup-content b{display:block;margin-bottom:4px;font-size:12px}
+.military-map .leaflet-popup-content small{display:block;margin-top:5px;color:#a9bec8}
+.military-map .leaflet-control-attribution{
+  color:#d4e0e5;
+  background:rgba(7,22,34,.82);
+  border-top-left-radius:5px;
+  font-size:9px;
+}
+.military-map .leaflet-control-attribution a{color:#a6d0dc}
+.military-leaflet-icon{background:transparent;border:0}
+.military-leaflet-unit{
+  width:82px;height:75px;
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+  gap:2px;
+  pointer-events:none;
+  transform:translateY(-4px);
+}
+.military-leaflet-model{
+  width:39px;height:39px;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:50%;
+  background:linear-gradient(145deg,#315f62,#102a3b 76%);
+  border:1.6px solid #bbebd7;
+  box-shadow:0 3px 9px rgba(0,0,0,.42),inset 0 1px 2px rgba(255,255,255,.24);
+}
+.military-leaflet-unit.enemy .military-leaflet-model{
+  background:linear-gradient(145deg,#9c5149,#48252c 78%);
+  border-color:#ffd0bf;
+}
+.military-leaflet-model svg{
+  width:29px;height:29px;
+  fill:#e6f3ec;stroke:#e6f3ec;
+  stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;
+  filter:drop-shadow(0 1px 1px rgba(0,0,0,.45));
+}
+.military-leaflet-unit span{
+  max-width:82px;
+  padding:2px 4px;
+  border-radius:4px;
+  background:rgba(7,23,35,.9);
+  color:#f2f7f8;
+  font:800 7px/1.2 Manrope,Arial,sans-serif;
+  text-align:center;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  border:1px solid rgba(178,210,218,.28);
+  box-shadow:0 1px 3px rgba(0,0,0,.25);
+}
+.military-leaflet-unit.enemy span{color:#ffe0d6;border-color:rgba(255,189,168,.45)}
+.military-leaflet-country-label{background:transparent;border:0;pointer-events:none}
+.military-leaflet-country-label span{
+  display:block;
+  width:150px;
+  text-align:center;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  color:#f3fff9;
+  font:900 10px/1.2 Manrope,Arial,sans-serif;
+  letter-spacing:.06em;
+  text-shadow:0 2px 4px #06131c,0 0 7px #06131c;
+}
+.military-leaflet-country-label.enemy span{color:#ffe0d6}
+@media(max-width:680px){
+  .military-map.leaflet-container{height:370px;min-height:370px}
+  .military-leaflet-unit{transform:scale(.88) translateY(-3px)}
+  .military-map .leaflet-control-attribution{font-size:8px}
+}
