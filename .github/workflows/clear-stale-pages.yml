@@ -23,25 +23,26 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Cancel the abandoned Pages deployment
+      - name: Inspect and cancel the abandoned Pages deployment
         uses: actions/github-script@v7
         with:
           script: |
             const { owner, repo } = context.repo;
             const deploymentId = "1cdec0d9082ef37e7ef8d4789b00b7f081477eb4";
-            try {
-              const response = await github.request(
+            const status = await github.request(
+              "GET /repos/{owner}/{repo}/pages/deployments/{deploymentId}",
+              { owner, repo, deploymentId }
+            );
+            core.info("Old Pages deployment status: " + JSON.stringify(status.data));
+            if (["queued", "pending", "in_progress"].includes(status.data.status)) {
+              const cancelled = await github.request(
                 "POST /repos/{owner}/{repo}/pages/deployments/{deploymentId}/cancel",
                 { owner, repo, deploymentId }
               );
-              core.info("Cancelled stale GitHub Pages deployment " + deploymentId);
-              core.info(JSON.stringify(response.data));
-            } catch (error) {
-              if (error.status === 404 || error.status === 409) {
-                core.warning("The stale Pages deployment is already gone or no longer cancellable: " + error.message);
-              } else {
-                throw error;
-              }
+              core.info("Cancelled stale Pages deployment " + deploymentId);
+              core.info(JSON.stringify(cancelled.data));
+            } else {
+              core.info("Old Pages deployment is not active; no cancellation required.");
             }
       - name: Let the Pages deployment queue settle
         run: sleep 8
