@@ -3,9 +3,9 @@
   const $=id=>document.getElementById(id);
   let currentPayload=null,currentGame=null,busy=false,refreshInFlight=false;
   let worldMapPromise=null;
-  let militaryMapView={scale:1,x:0,y:0};
-  let militaryMapLayer=null;
-  let militaryMapState={mode:"view",draft:[],justDragged:false,saveKey:""};
+  let militaryMapInstance=null,militaryBoundaryLayer=null,militaryFrontLayer=null,militaryUnitLayer=null,militaryPatrolLayer=null,militaryDraftLayer=null;
+  let militaryMapState={mode:"view",draft:[],saveKey:"",fitKey:""};
+  let selectedMilitaryUnitId="",pendingMilitaryTarget=null,leafletErrorShown=false;
   let clockBaseMs=Date.now(),clockSyncedAt=Date.now(),clockSpeed=1;
   const MILITARY_TECH_LABELS={command:"Командование и связь",logistics:"Военная логистика",air_defense:"ПВО",armor:"Бронетехника",precision:"Высокоточные системы",military_medicine:"Военная медицина",naval:"Военно-морские технологии",cyber_defense:"Кибероборона"};
   const MILITARY_TECH_HINTS={command:"Согласованность штаба и скорость исполнения приказов.",logistics:"Снабжение, ремонт и устойчивость подразделений.",air_defense:"Защита войск, городов и стратегических объектов.",armor:"Защищённость и мобильность сухопутных частей.",precision:"Эффективность операций и снижение потерь.",military_medicine:"Медицинская эвакуация, лечение и восстановление личного состава.",naval:"Готовность флота и безопасность морских коммуникаций.",cyber_defense:"Устойчивость военных сетей и критической инфраструктуры."};
@@ -31,303 +31,244 @@
       worldMapPromise=fetch(appAssetUrl("./assets/world-countries.geojson"),{cache:"no-cache"})
         .then(response=>{if(!response.ok)throw new Error("HTTP "+response.status);return response.json();})
         .then(data=>{if(!data||!Array.isArray(data.features)||!data.features.length)throw new Error("Некорректный GeoJSON");return data;})
-        .catch(error=>{worldMapPromise=null;throw new Error("Не удалось загрузить локальные географические границы: "+error.message);});
+        .catch(error=>{worldMapPromise=null;throw new Error("Не удалось загрузить границы государств: "+error.message);});
     }
     return worldMapPromise;
   }
   function renderMapLoading(message){const root=$("militaryMap");if(root)root.replaceChildren(node("div","map-loading",message));}
-
-  function mollweidePoint(point,width,height){
-    const longitude=Number(point&&point[0]);
-    const latitude=clamp(Number(point&&point[1]),-89.999999,89.999999);
-    const phi=latitude*Math.PI/180;
-    let theta=phi;
-    if(Math.abs(Math.abs(phi)-Math.PI/2)<1e-7)theta=Math.sign(phi)*Math.PI/2;
-    else{
-      for(let i=0;i<14;i++){
-        const numerator=2*theta+Math.sin(2*theta)-Math.PI*Math.sin(phi);
-        const denominator=2+2*Math.cos(2*theta);
-        if(Math.abs(denominator)<1e-9)break;
-        const step=numerator/denominator;
-        theta-=step;
-        if(Math.abs(step)<1e-9)break;
-      }
-    }
-    const x=width*(.5+(longitude*Math.PI/180)*Math.cos(theta)/(2*Math.PI));
-    const y=height*(.5-Math.sin(theta)/2);
-    return [x,y];
+  function isoCode(feature){
+    const p=feature&&feature.properties||{};
+    const candidates=[p.ISO_A2_EH,p.ISO_A2,p.POSTAL,p.ADM0_A3];
+    return String(candidates.find(value=>value&&value!=="-99")||"").toUpperCase();
   }
-  function geometryPath(geometry,width,height){
-    if(!geometry)return "";
-    const polygons=geometry.type==="Polygon"?[geometry.coordinates]:
-      geometry.type==="MultiPolygon"?geometry.coordinates:[];
-    const paths=[];
-    polygons.forEach(polygon=>{
-      (polygon||[]).forEach(ring=>{
-        if(!Array.isArray(ring)||ring.length<3)return;
-        let path="",previousX=null;
-        ring.forEach((coordinate,index)=>{
-          const point=mollweidePoint(coordinate,width,height);
-          let x=point[0];
-          if(previousX!==null){
-            while(x-previousX>width/2)x-=width;
-            while(x-previousX< -width/2)x+=width;
-          }
-          path+=(index===0?"M":"L")+x.toFixed(2)+","+point[1].toFixed(2)+" ";
-          previousX=x;
-        });
-        paths.push(path+"Z");
-      });
+  function featureAnchor(feature){
+    const p=feature&&feature.properties||{};
+    const lat=Number(p.LABEL_Y),lon=Number(p.LABEL_X);
+    return Number.isFinite(lat)&&Number.isFinite(lon)?[lat,lon]:null;
+  }
+  function initMilitaryMap(){
+    if(militaryMapInstance)return militaryMapInstance;
+    if(!window.L)throw new Error("Не загрузилась библиотека интерактивной карты. Проверьте доступ к CDN и обновите страницу.");
+    const map=L.map("militaryMap",{center:[25,10],zoom:2,minZoom:2,maxZoom:18,zoomControl:true,worldCopyJump:true,preferCanvas:true,scrollWheelZoom:true});
+    const satellite=L.tileLayer("https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{
+      maxZoom:19,attribution:"Imagery © Esri, Maxar, Earthstar Geographics, and the GIS User Community"
     });
-    return paths.join(" ");
+    const streets=L.tileLayer("https://services.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",{
+      maxZoom:19,attribution:"Map data © Esri and contributors"
+    });
+    const topo=L.tileLayer("https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",{
+      maxZoom:19,attribution:"Map data © Esri and contributors"
+    });
+    const labels=L.tileLayer("https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",{
+      maxZoom:19,opacity:.95,attribution:"Place names and boundaries © Esri"
+    });
+    satellite.addTo(map);labels.addTo(map);
+    L.control.layers({"Спутник":satellite,"Улицы":streets,"Топографическая":topo},{"Подписи и названия":labels},{collapsed:false,position:"topright"}).addTo(map);
+    map.attributionControl.setPrefix('<a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a>');
+    militaryBoundaryLayer=L.layerGroup().addTo(map);
+    militaryFrontLayer=L.layerGroup().addTo(map);
+    militaryPatrolLayer=L.layerGroup().addTo(map);
+    militaryUnitLayer=L.layerGroup().addTo(map);
+    militaryDraftLayer=L.layerGroup().addTo(map);
+    map.on("click",handleMilitaryMapClick);
+    map.on("baselayerchange",event=>setText("militaryMapLayerStatus","Подложка: "+event.name));
+    militaryMapInstance=map;
+    return map;
   }
-  function inverseMollweidePoint(x,y,width,height){
-    const theta=Math.asin(clamp(1-2*y/height,-1,1));
-    const sinLatitude=clamp((2*theta+Math.sin(2*theta))/Math.PI,-1,1);
-    const latitude=Math.asin(sinLatitude)*180/Math.PI;
-    const cosine=Math.max(0.0001,Math.cos(theta));
-    const longitude=(x-width/2)*2*Math.PI/(width*cosine)*180/Math.PI;
-    return {lat:clamp(latitude,-90,90),lon:clamp(longitude,-180,180)};
+  function branchInfo(branch){
+    return ({land:{label:"Сухопутные",symbol:"⌖",className:"land"},guard:{label:"Гвардия",symbol:"✚",className:"guard"},air:{label:"Авиация",symbol:"✈",className:"air"},naval:{label:"Флот",symbol:"⚓",className:"naval"},hq:{label:"Штаб",symbol:"✥",className:"hq"}})[String(branch||"land").toLowerCase()]||{label:"Подразделение",symbol:"⌖",className:"land"};
   }
-  function svgNode(tag,attrs){
-    const element=document.createElementNS("http://www.w3.org/2000/svg",tag);
-    Object.entries(attrs||{}).forEach(([key,value])=>element.setAttribute(key,String(value)));
-    return element;
+  function unitById(id){
+    const units=currentPayload&&Array.isArray(currentPayload.units)?currentPayload.units:[];
+    return units.find(unit=>String(unit.id)===String(id))||null;
   }
-  function mapFeatureCenter(feature,width,height){
-    const props=feature&&feature.properties||{},lon=props.LABEL_X==null?NaN:Number(props.LABEL_X),lat=props.LABEL_Y==null?NaN:Number(props.LABEL_Y);
-    if(Number.isFinite(lon)&&Number.isFinite(lat)&&lon>=-180&&lon<=180&&lat>=-90&&lat<=90){
-      const p=mollweidePoint([lon,lat],width,height);return {x:p[0],y:p[1],lon,lat};
+  function selectedUnit(){
+    const units=currentPayload&&Array.isArray(currentPayload.units)?currentPayload.units:[];
+    return unitById(selectedMilitaryUnitId)||units[0]||null;
+  }
+  function selectMilitaryUnit(id){
+    selectedMilitaryUnitId=String(id||"");
+    const select=$("militaryMapUnit");
+    if(select)select.value=selectedMilitaryUnitId;
+    const unit=selectedUnit();
+    setText("militarySelectedUnitName",unit?unit.unit_type||"Воинское подразделение":"Подразделение не выбрано");
+    setText("militarySelectedUnitBranch",unit?branchInfo(unit.unit_branch).label:"—");
+    setText("militarySelectedUnitPersonnel",unit?number(unit.active_personnel||0,0)+" военнослужащих": "—");
+    setText("militarySelectedUnitReadiness",unit?number(unit.readiness||0,0)+"%":"—");
+    const location=unit&&unit.location_lat!=null&&unit.location_lon!=null
+      ?Number(unit.location_lat).toFixed(3)+", "+Number(unit.location_lon).toFixed(3)
+      :"координаты базирования не указаны";
+    setText("militarySelectedUnitLocation",location);
+    document.querySelectorAll("[data-select-military-unit]").forEach(button=>{
+      const active=String(button.dataset.selectMilitaryUnit)===selectedMilitaryUnitId;
+      button.classList.toggle("is-selected",active);
+      button.setAttribute("aria-pressed",String(active));
+    });
+    if(militaryMapInstance&&unit&&unit.location_lat!=null&&unit.location_lon!=null){
+      militaryMapInstance.panTo([Number(unit.location_lat),Number(unit.location_lon)],{animate:true});
+      const marker=militaryUnitMarkers.get(String(unit.id));if(marker)marker.openPopup();
     }
-    const geometry=feature&&feature.geometry;if(!geometry)return null;
+    return unit;
+  }
+  function countryFeature(data,iso){
+    return data.features.find(feature=>isoCode(feature)===String(iso||"").toUpperCase())||null;
+  }
+  function outerRings(feature){
+    const geometry=feature&&feature.geometry;if(!geometry)return [];
     const polygons=geometry.type==="Polygon"?[geometry.coordinates]:geometry.type==="MultiPolygon"?geometry.coordinates:[];
-    let sx=0,sy=0,n=0;
-    polygons.forEach(poly=>(poly||[]).forEach((ring,index)=>{
-      if(index!==0)return;
-      for(const point of ring){if(!Array.isArray(point)||point.length<2)continue;const p=mollweidePoint(point,width,height);sx+=p[0];sy+=p[1];n++;}
-    }));
-    return n?{x:sx/n,y:sy/n}:null;
+    return polygons.flatMap(polygon=>(polygon||[]).slice(0,1));
   }
-  function sharedCountryBorder(a,b,width,height){
-    const segments=feature=>{
-      const geometry=feature&&feature.geometry;if(!geometry)return [];
-      const polygons=geometry.type==="Polygon"?[geometry.coordinates]:geometry.type==="MultiPolygon"?geometry.coordinates:[];
-      const out=[];
-      for(const poly of polygons)for(const ring of (poly||[]).slice(0,1))for(let i=0;i<ring.length-1;i++){
-        const p=ring[i],q=ring[i+1];const x=Number(p[0]).toFixed(3)+","+Number(p[1]).toFixed(3),y=Number(q[0]).toFixed(3)+","+Number(q[1]).toFixed(3);
-        if(x!==y)out.push({key:x<y?x+"|"+y:y+"|"+x,p,q});
-      }
-      return out;
+  function sharedFrontSegments(homeFeature,enemyFeature){
+    const keyFor=(a,b)=>{
+      const p=Number(a[0]).toFixed(3)+","+Number(a[1]).toFixed(3);
+      const q=Number(b[0]).toFixed(3)+","+Number(b[1]).toFixed(3);
+      return p<q?p+"|"+q:q+"|"+p;
     };
-    const own=new Map(segments(a).map(item=>[item.key,item])),shared=[];
-    for(const item of segments(b)){const match=own.get(item.key);if(!match)continue;
-      const p=mollweidePoint(match.p,width,height),q=mollweidePoint(match.q,width,height);
-      const length=Math.hypot(q[0]-p[0],q[1]-p[1]);if(length>.25)shared.push({p,q,length,mid:[(p[0]+q[0])/2,(p[1]+q[1])/2]});
-    }
+    const own=new Map();
+    outerRings(homeFeature).forEach(ring=>{
+      for(let i=0;i<ring.length-1;i++)own.set(keyFor(ring[i],ring[i+1]),[ring[i],ring[i+1]]);
+    });
+    const shared=[];
+    outerRings(enemyFeature).forEach(ring=>{
+      for(let i=0;i<ring.length-1;i++){
+        const key=keyFor(ring[i],ring[i+1]),segment=own.get(key);
+        if(segment)shared.push(segment.map(point=>[Number(point[1]),Number(point[0])])); 
+      }
+    });
     return shared;
   }
-  function appendMilitaryModel(layer,x,y,branch,side,title,detail,dx=0,dy=0){
-    const g=svgNode("g",{class:"military-model "+side+" branch-"+branch,transform:"translate("+(x+dx)+" "+(y+dy)+")"});
-    const titleNode=svgNode("title",{});titleNode.textContent=title+(detail?" · "+detail:"");g.append(titleNode);
-    g.append(svgNode("circle",{class:"military-model-shadow",cx:0,cy:2,r:15}),svgNode("circle",{class:"military-model-base",cx:0,cy:0,r:13}));
-    const art=svgNode("g",{class:"military-model-art"});
-    if(branch==="air"){
-      art.append(svgNode("path",{d:"M0 -12 L2 -4 L10 1 L10 4 L2 2 L2 8 L5 11 L5 13 L0 12 L-5 13 L-5 11 L-2 8 L-2 2 L-10 4 L-10 1 L-2 -4 Z"}));
-    }else if(branch==="naval"){
-      art.append(svgNode("path",{d:"M-3 -11 L3 -11 L4 -4 L8 -2 L7 6 L3 10 L-3 10 L-7 6 L-8 -2 L-4 -4 Z"}),svgNode("path",{d:"M-3 -4 L3 -4 L3 3 L-3 3 Z"}),svgNode("path",{d:"M-10 12 Q-6 9 -2 12 T6 12 T12 12"}));
-    }else if(branch==="hq"){
-      art.append(svgNode("path",{d:"M-8 -8 L8 -8 L8 8 L-8 8 Z M-5 -5 L-1 -5 L-1 -1 L-5 -1 Z M1 -5 L5 -5 L5 -1 L1 -1 Z M-5 2 L5 2 L5 7 L-5 7 Z"}),svgNode("path",{d:"M0 -12 L0 -8 M0 -12 L7 -10 L0 -8 Z"}));
-    }else{
-      art.append(svgNode("circle",{cx:0,cy:-6,r:3.2}),svgNode("path",{d:"M-4 -2 Q0 -5 4 -2 L5 5 L2 6 L2 11 L-2 11 L-2 6 L-5 5 Z"}),svgNode("path",{d:"M-3 1 L-9 5 M3 1 L9 4 M-2 10 L-5 13 M2 10 L5 13 M-1 -9 L5 -11 L10 -7"}));
-    }
-    g.append(art);layer.append(g);
-    const label=svgNode("text",{x:x+dx,y:y+dy+24,class:"military-model-label","text-anchor":"middle"});label.textContent=detail||title;layer.append(label);
-    return g;
+  function makeUnitIcon(unit,selected){
+    const branch=branchInfo(unit.unit_branch),label=branch.symbol;
+    return L.divIcon({className:"military-unit-marker-wrap",html:'<span class="military-unit-marker '+branch.className+(selected?" is-selected":"")+'">'+label+'</span>',iconSize:[34,34],iconAnchor:[17,17]});
   }
-  function applyMilitaryMapTransform(){
-    if(!militaryMapLayer)return;
-    militaryMapLayer.setAttribute("transform","translate("+militaryMapView.x+" "+militaryMapView.y+") translate(500 250) scale("+militaryMapView.scale+") translate(-500 -250)");
-    setText("militaryZoomReset",Math.round(militaryMapView.scale*100)+"%");
+  function fitMilitaryTheatre(homeFeature,enemyFeature,fitKey){
+    if(!militaryMapInstance||militaryMapState.fitKey===fitKey)return;
+    militaryMapState.fitKey=fitKey;
+    const homeLayer=homeFeature&&L.geoJSON(homeFeature),enemyLayer=enemyFeature&&L.geoJSON(enemyFeature);
+    const homeBounds=homeLayer&&homeLayer.getBounds(),enemyBounds=enemyLayer&&enemyLayer.getBounds();
+    if(homeBounds&&homeBounds.isValid()&&enemyBounds&&enemyBounds.isValid()){
+      const bounds=L.latLngBounds(homeBounds,enemyBounds);
+      militaryMapInstance.fitBounds(bounds.pad(.14),{padding:[42,42],maxZoom:7});
+    }else if(homeBounds&&homeBounds.isValid()){
+      militaryMapInstance.fitBounds(homeBounds.pad(.12),{padding:[35,35],maxZoom:7});
+    }else militaryMapInstance.setView([20,0],2);
   }
-  function changeMilitaryMapZoom(factor){
-    militaryMapView.scale=clamp(militaryMapView.scale*Number(factor||1),1,6);
-    applyMilitaryMapTransform();
-  }
-  function renderMilitarySvgMap(payload){
-    const root=$("militaryMap");if(!root)return;
-    const saveKey=String(payload.game&&payload.game.id||"");
-    if(militaryMapState.saveKey!==saveKey){
-      militaryMapState={mode:"view",draft:[],justDragged:false,saveKey};
-      militaryMapView={scale:1,x:0,y:0};
-      const mode=$("militaryMapMode");if(mode)mode.value="view";
-      setText("militaryMapDraftStatus","Обзор: подразделения показаны в местах базирования.");
-    }
-    root.replaceChildren(node("div","map-loading","Загружаем географическую карту…"));
-    loadWorldGeoJSON().then(data=>{
-      if(!root.isConnected)return;
-      const width=1000,height=500;
-      const svg=svgNode("svg",{viewBox:"0 0 "+width+" "+height,role:"application","aria-label":"Военная карта мира с географическими координатами и родами войск"});
-      const defs=svgNode("defs",{});
-      const water=svgNode("linearGradient",{id:"militaryWater",x1:"0",y1:"0",x2:"1",y2:"1"});
-      water.append(svgNode("stop",{offset:"0%","stop-color":"#153a50"}),svgNode("stop",{offset:"100%","stop-color":"#071725"}));defs.append(water);
-      const relief=svgNode("linearGradient",{id:"militaryRelief",x1:"0",y1:"0",x2:"0",y2:"1"});
-      relief.append(svgNode("stop",{offset:"0%","stop-color":"#607b78"}),svgNode("stop",{offset:"100%","stop-color":"#344f56"}));defs.append(relief);
-      svg.append(defs,svgNode("rect",{class:"military-ocean",width,height,fill:"url(#militaryWater)"}));
-      const grid=svgNode("g",{class:"military-graticule"});
-      for(const lon of [-150,-120,-90,-60,-30,0,30,60,90,120,150]){
-        let d="";for(let lat=-84;lat<=84;lat+=3){const p=mollweidePoint([lon,lat],width,height);d+=(lat===-84?"M":"L")+p[0].toFixed(1)+","+p[1].toFixed(1);}
-        grid.append(svgNode("path",{d}));
-      }
-      for(const lat of [-60,-30,0,30,60]){
-        let d="";for(let lon=-180;lon<=180;lon+=3){const p=mollweidePoint([lon,lat],width,height);d+=(lon===-180?"M":"L")+p[0].toFixed(1)+","+p[1].toFixed(1);}
-        grid.append(svgNode("path",{d}));
-      }
-      svg.append(grid);
-      const layer=svgNode("g",{class:"military-map-layer"}),centers=new Map(),features=new Map();militaryMapLayer=layer;
-      const war=(payload.wars||[]).find(item=>item.status==="active")||null;
-      const homeIso=String(payload.game&&payload.game.iso2||"").toUpperCase();
-      const enemyIso=String(war&&(war.opponent_iso2||war.front_state&&war.front_state.enemyCountryIso2)||"").toUpperCase();
-      data.features.forEach(feature=>{
-        const props=feature.properties||{},eh=String(props.ISO_A2_EH||"").toUpperCase();
-        const code=(eh&&eh!=="-99"?eh:String(props.ISO_A2||"")).toUpperCase();
-        if(code)features.set(code,feature);
-        const path=svgNode("path",{d:geometryPath(feature.geometry,width,height),class:"military-country"+(code===homeIso?" home":"")+(code===enemyIso?" enemy":"")});
-        const tip=svgNode("title",{});tip.textContent=props.NAME_RU||props.NAME_EN||props.ADMIN||"Государство";path.append(tip);layer.append(path);
-        const center=mapFeatureCenter(feature,width,height);if(center)centers.set(code,center);
-      });
-      function textLabel(x,y,value,cls){
-        const t=svgNode("text",{x,y,class:cls||"map-label","text-anchor":"middle"});t.textContent=value;layer.append(t);return t;
-      }
-      const homeFeature=features.get(homeIso),enemyFeature=features.get(enemyIso);
-      const home=centers.get(homeIso),enemy=centers.get(enemyIso);
-      if(!militaryMapState.initialViewReady){
-        let target=home?[home.x,home.y]:[width/2,height/2];
-        if(war&&home&&enemy){
-          let enemyX=enemy.x;
-          if(enemyX-home.x>width/2)enemyX-=width;
-          else if(enemyX-home.x< -width/2)enemyX+=width;
-          target=[(home.x+enemyX)/2,(home.y+enemy.y)/2];
-        }
-        const scale=war&&home&&enemy?1.65:home?1.45:1;
-        militaryMapView.scale=scale;
-        militaryMapView.x=-(target[0]-width/2)*scale;
-        militaryMapView.y=-(target[1]-height/2)*scale;
-        militaryMapState.initialViewReady=true;
-      }
-      if(home)textLabel(home.x,home.y-20,payload.game.name_local||payload.game.name_en||"ВАШЕ ГОСУДАРСТВО","map-label map-label-home");
-      if(war&&enemy)textLabel(enemy.x,enemy.y-20,war.opponent_country_name||"ПРОТИВНИК","map-label map-label-enemy");
-      if(war){
-        if(war.front_state&&war.front_state.theatreType==="land"&&homeFeature&&enemyFeature){
-          const border=sharedCountryBorder(homeFeature,enemyFeature,width,height);
-          if(border.length){
-            const path=border.map(seg=>"M"+seg.p[0].toFixed(2)+","+seg.p[1].toFixed(2)+" L"+seg.q[0].toFixed(2)+","+seg.q[1].toFixed(2)).join(" ");
-            layer.append(svgNode("path",{d:path,class:"military-land-front"}));
-            border.sort((a,b)=>b.length-a.length);
-            const sector=border[0];
-            layer.append(svgNode("circle",{cx:sector.mid[0],cy:sector.mid[1],r:13,class:"military-front-sector"}));
-            textLabel(sector.mid[0],sector.mid[1]+27,"СЕКТОР ФРОНТА","map-front-label");
-          }else if(home&&enemy){
-            textLabel((home.x+enemy.x)/2,(home.y+enemy.y)/2,"СУХОПУТНЫЙ ТЕАТР · ГРАНИЦА НЕ ВЫДЕЛЕНА","map-theatre-label");
-          }
-        }else if(homeFeature&&enemyFeature){
-          const coast=feature=>{
-            const p=feature&&feature.properties||{},center=[p.LABEL_X==null?NaN:Number(p.LABEL_X),p.LABEL_Y==null?NaN:Number(p.LABEL_Y)],g=feature.geometry;
-            if(!g||!center.every(Number.isFinite))return null;
-            const polys=g.type==="Polygon"?[g.coordinates]:g.type==="MultiPolygon"?g.coordinates:[];
-            let best=null,score=Infinity;
-            for(const poly of polys)for(const ring of (poly||[]).slice(0,1))for(const point of ring){
-              let dx=Number(point[0])-center[0];if(dx>180)dx-=360;if(dx< -180)dx+=360;
-              const d=dx*dx*Math.max(.15,Math.cos(center[1]*Math.PI/180))**2+(Number(point[1])-center[1])**2;
-              if(d<score){score=d;best=point;}
-            }
-            return best?mollweidePoint(best,width,height):null;
-          };
-          const front=war.front_state||{};
-          const c1=front.homeCoastAnchor?mollweidePoint([front.homeCoastAnchor.lon,front.homeCoastAnchor.lat],width,height):coast(homeFeature)||home&&[home.x,home.y];
-          const c2=front.enemyCoastAnchor?mollweidePoint([front.enemyCoastAnchor.lon,front.enemyCoastAnchor.lat],width,height):coast(enemyFeature)||enemy&&[enemy.x,enemy.y];
-          if(c1&&c2){
-            const bend=(c1[0]+c2[0])/2,arcY=Math.min(c1[1],c2[1])-Math.min(95,Math.abs(c2[0]-c1[0])*.12);
-            layer.append(svgNode("path",{d:"M"+c1[0]+","+c1[1]+" Q"+bend+","+arcY+" "+c2[0]+","+c2[1],class:"military-maritime-route"}));
-            textLabel(bend,arcY-9,"МОРСКОЙ / ВОЗДУШНЫЙ ТВД","map-theatre-label");
-          }
-        }
-      }
-      const offsets={land:[-13,0],guard:[13,0],air:[0,-16],naval:[0,16]};
-      const labels={land:"ПЕХОТА",guard:"ГВ",air:"АВИАЦИЯ",naval:"ФЛОТ"};
-      const units=Array.isArray(payload.units)?payload.units:[];
-      units.forEach(unit=>{
-        const branch=String(unit.unit_branch||"land").toLowerCase();
-        const hasCoordinates=unit.location_lat!=null&&unit.location_lon!=null;
-        const lat=hasCoordinates?Number(unit.location_lat):NaN,lon=hasCoordinates?Number(unit.location_lon):NaN;
-        const pos=Number.isFinite(lat)&&Number.isFinite(lon)?mollweidePoint([lon,lat],width,height):home&&[home.x,home.y];
-        if(!pos)return;
-        const offset=offsets[branch]||[0,0];
-        const amount=branch==="air"?number(unit.quantity||0,0)+" борт.":branch==="naval"?number(unit.quantity||0,0)+" ед.":number(unit.active_personnel||0,0)+" чел.";
-        appendMilitaryModel(layer,pos[0],pos[1],["land","guard","air","naval"].includes(branch)?branch:"land","friendly",unit.unit_type||"Воинская часть",(labels[branch]||"ЧАСТЬ")+" · "+amount,offset[0],offset[1]);
-      });
-      if(home&&!units.length)appendMilitaryModel(layer,home.x,home.y,"hq","friendly","Штаб вооружённых сил","ВАШ ШТАБ");
-      if(war&&enemy)appendMilitaryModel(layer,enemy.x,enemy.y,"hq","enemy","Штаб противника","ОЦЕНКА · "+number(war.front_state&&war.front_state.enemyPersonnel||0,0)+" чел.");
-      (payload.patrols||[]).filter(item=>item.status==="active").forEach(patrol=>{
-        const route=Array.isArray(patrol.route)?patrol.route:[];if(route.length<2)return;
-        const points=route.map(point=>mollweidePoint([Number(point.lon),Number(point.lat)],width,height));
-        layer.append(svgNode("polyline",{points:points.map(p=>p[0]+","+p[1]).join(" "),class:"military-route-line"}));
-        points.forEach(point=>layer.append(svgNode("circle",{cx:point[0],cy:point[1],r:3.5,class:"military-route-dot"})));
-      });
-      if(militaryMapState.draft.length){
-        const points=militaryMapState.draft.map(point=>mollweidePoint([point.lon,point.lat],width,height));
-        if(points.length>1)layer.append(svgNode("polyline",{points:points.map(p=>p[0]+","+p[1]).join(" "),class:"military-route-line"}));
-        points.forEach(point=>layer.append(svgNode("circle",{cx:point[0],cy:point[1],r:4.5,class:"military-route-dot"})));
-      }
-      svg.append(layer);root.replaceChildren(svg);applyMilitaryMapTransform();
-      svg.addEventListener("wheel",event=>{
-        event.preventDefault();militaryMapView.scale=clamp(militaryMapView.scale*(event.deltaY<0?1.18:1/1.18),1,6);applyMilitaryMapTransform();
-      },{passive:false});
-      let drag=null;
-      svg.addEventListener("pointerdown",event=>{
-        if(event.button!==0)return;drag={x:event.clientX,y:event.clientY,baseX:militaryMapView.x,baseY:militaryMapView.y,moved:false};
-        try{svg.setPointerCapture(event.pointerId);}catch(_){}
-      });
-      svg.addEventListener("pointermove",event=>{
-        if(!drag)return;const rect=svg.getBoundingClientRect(),dx=(event.clientX-drag.x)*width/Math.max(1,rect.width),dy=(event.clientY-drag.y)*height/Math.max(1,rect.height);
-        if(Math.abs(dx)+Math.abs(dy)>4)drag.moved=true;
-        if(drag.moved){militaryMapView.x=drag.baseX+dx;militaryMapView.y=drag.baseY+dy;applyMilitaryMapTransform();}
-      });
-      svg.addEventListener("pointerup",()=>{
-        if(drag&&drag.moved){militaryMapState.justDragged=true;setTimeout(()=>{militaryMapState.justDragged=false;},180);}drag=null;
-      });
-      svg.addEventListener("pointercancel",()=>{drag=null;});
-      svg.addEventListener("click",event=>{
-        if(militaryMapState.justDragged||militaryMapState.mode==="view")return;
-        const point=svg.createSVGPoint();point.x=event.clientX;point.y=event.clientY;
-        const local=point.matrixTransform(layer.getScreenCTM().inverse()),geo=inverseMollweidePoint(local.x,local.y,width,height);
-        if(militaryMapState.mode==="patrol"){
-          if(militaryMapState.draft.length>=8)return toast("В маршруте патруля уже восемь точек.");
-          militaryMapState.draft.push(geo);setText("militaryMapDraftStatus","Точек маршрута: "+militaryMapState.draft.length+" · требуется минимум две.");
-          const save=$("saveMilitaryPatrol");if(save)save.disabled=militaryMapState.draft.length<2;
-          renderMilitaryMap(currentPayload||payload);return;
-        }
-        if(militaryMapState.mode==="order"){
-          if(!war)return toast("Сначала начните военный конфликт.");
-          const unitId=$("militaryMapUnit").value,orderType=$("militaryMapOrder").value;
-          const objective=orderType==="advance"?"Достичь указанного района":orderType==="defend"?"Защитить указанный район":"Выполнить приказ в отмеченной точке";
-          void runMilitaryAction({action:"issue_order",warId:war.id,unitId,orderType,targetLat:geo.lat,targetLon:geo.lon,objective},null,"Приказ передан подразделению.");
-        }
-      });
-    }).catch(error=>root.replaceChildren(node("div","map-loading","Не удалось загрузить оперативную карту: "+(error.message||"ошибка данных"))));
-  }
-
-  function resetMilitaryMapView(){
-    militaryMapView={scale:1,x:0,y:0};
-    applyMilitaryMapTransform();
-  }
-
   function renderMilitaryMap(payload){
-    renderMilitarySvgMap(payload);
+    const root=$("militaryMap");if(!root)return;
+    try{
+      const map=initMilitaryMap();
+      loadWorldGeoJSON().then(data=>{
+        if(!root.isConnected)return;
+        const game=payload.game||{},war=(payload.wars||[]).find(item=>item.status==="active")||null;
+        const homeIso=String(game.iso2||"").toUpperCase();
+        const enemyIso=String(war&&(war.opponent_iso2||war.front_state&&war.front_state.enemyCountryIso2)||"").toUpperCase();
+        const homeFeature=countryFeature(data,homeIso),enemyFeature=countryFeature(data,enemyIso);
+        militaryBoundaryLayer.clearLayers();militaryFrontLayer.clearLayers();militaryUnitLayer.clearLayers();militaryPatrolLayer.clearLayers();militaryDraftLayer.clearLayers();
+        const boundaries=L.geoJSON(data,{style:feature=>{
+          const code=isoCode(feature),isHome=code===homeIso,isEnemy=Boolean(enemyIso)&&code===enemyIso;
+          return {color:isHome?"#70f0c0":isEnemy?"#ff8c79":"#dce7eb",weight:isHome?2.8:isEnemy?2.4:.7,opacity:isHome||isEnemy?1:.48,fillColor:isHome?"#16b99a":isEnemy?"#e35e54":"#ffffff",fillOpacity:isHome?.19:isEnemy?.13:0,lineJoin:"round"};
+        },onEachFeature:(feature,layer)=>{
+          const p=feature.properties||{},name=p.NAME_RU||p.NAME_EN||p.ADMIN||"Государство";
+          if(isoCode(feature)===homeIso||isoCode(feature)===enemyIso)layer.bindTooltip(name,{sticky:true,direction:"auto",className:"military-country-tooltip"});
+        }});
+        boundaries.addTo(militaryBoundaryLayer);
+        if(war&&homeFeature&&enemyFeature){
+          const segments=sharedFrontSegments(homeFeature,enemyFeature);
+          if(segments.length){
+            segments.forEach(segment=>L.polyline(segment,{color:"#ff6c59",weight:5,opacity:.96,dashArray:"8 4",lineCap:"round"}).bindTooltip("Граница государств — условная линия соприкосновения",{sticky:true}).addTo(militaryFrontLayer));
+          }else{
+            const a=featureAnchor(homeFeature),b=featureAnchor(enemyFeature);
+            if(a&&b)L.polyline([a,b],{color:"#ffc36b",weight:3,opacity:.9,dashArray:"4 9"}).bindTooltip("Схематичное направление театра конфликта, не фактическая линия фронта").addTo(militaryFrontLayer);
+          }
+        }
+        if(war){
+          const enemyAnchor=enemyFeature&&featureAnchor(enemyFeature);
+          if(enemyAnchor)L.circleMarker(enemyAnchor,{radius:7,color:"#ffe1d5",weight:2,fillColor:"#c64d43",fillOpacity:1}).bindTooltip("Государство-противник · "+(war.opponent_country_name||"противник")).addTo(militaryFrontLayer);
+        }
+        const units=Array.isArray(payload.units)?payload.units:[];
+        const noCoordinates=[];
+        units.forEach(unit=>{
+          if(unit.location_lat==null||unit.location_lon==null||!Number.isFinite(Number(unit.location_lat))||!Number.isFinite(Number(unit.location_lon))){noCoordinates.push(unit);return;}
+          const branch=branchInfo(unit.unit_branch),marker=L.marker([Number(unit.location_lat),Number(unit.location_lon)],{icon:makeUnitIcon(unit,String(unit.id)===selectedMilitaryUnitId),keyboard:true,title:unit.unit_type||branch.label});
+          const popup=node("div","military-marker-popup");
+          popup.append(node("b","",unit.unit_type||"Воинское подразделение"));
+          popup.append(node("span","",branch.label+" · "+number(unit.active_personnel||0,0)+" чел."));
+          popup.append(node("span","","Готовность: "+number(unit.readiness||0,0)+"% · Снабжение: "+number(unit.supply||0,0)+"%"));
+          const choose=node("button","military-marker-select","Выбрать соединение");choose.type="button";choose.addEventListener("click",()=>selectMilitaryUnit(unit.id));popup.append(choose);
+          marker.bindPopup(popup);marker.on("click",()=>selectMilitaryUnit(unit.id));marker.addTo(militaryUnitLayer);militaryUnitMarkers.set(String(unit.id),marker);
+        });
+        setText("militaryMapMissingCoordinates",noCoordinates.length?"Без координат базирования: "+noCoordinates.length+" подразделений":"Координаты всех соединений указаны");
+        (payload.patrols||[]).filter(item=>item.status==="active").forEach(patrol=>{
+          const route=Array.isArray(patrol.route)?patrol.route:[];
+          if(route.length<2)return;
+          const points=route.map(point=>[Number(point.lat),Number(point.lon)]).filter(point=>point.every(Number.isFinite));
+          if(points.length>=2)L.polyline(points,{color:"#ffc85f",weight:3,dashArray:"7 6",opacity:.95}).bindTooltip((patrol.patrol_name||"Патруль")+" · "+(patrol.unit_type||"подразделение")).addTo(militaryPatrolLayer);
+          points.forEach((point,index)=>L.circleMarker(point,{radius:4,color:"#24354a",weight:1,fillColor:"#ffd36c",fillOpacity:1}).bindTooltip("Точка "+(index+1)).addTo(militaryPatrolLayer));
+        });
+        if(militaryMapState.draft.length){
+          const points=militaryMapState.draft.map(point=>[point.lat,point.lon]);
+          if(militaryMapState.mode==="patrol"&&points.length>1)L.polyline(points,{color:"#ffd36c",weight:4,dashArray:"6 5"}).addTo(militaryDraftLayer);
+          points.forEach((point,index)=>L.circleMarker(point,{radius:6,color:"#10263b",weight:2,fillColor:"#ffe08a",fillOpacity:1}).bindTooltip("Точка маршрута "+(index+1)).addTo(militaryDraftLayer));
+        }
+        if(pendingMilitaryTarget){
+          L.circleMarker([pendingMilitaryTarget.lat,pendingMilitaryTarget.lon],{radius:9,color:"#fff",weight:2,fillColor:"#ff6c59",fillOpacity:1}).bindTooltip("Цель приказа · "+pendingMilitaryTarget.lat.toFixed(3)+", "+pendingMilitaryTarget.lon.toFixed(3)).addTo(militaryDraftLayer);
+        }
+        militaryUnitMarkers.clear();
+        militaryUnitLayer.eachLayer(layer=>{
+          if(layer instanceof L.Marker&&layer.options.title){
+            const unit=units.find(item=>item.unit_type===layer.options.title);
+            if(unit)militaryUnitMarkers.set(String(unit.id),layer);
+          }
+        });
+        fitMilitaryTheatre(homeFeature,enemyFeature,String(game.id||"")+":"+(war&&war.id||"peace"));
+        setText("militaryMapLayerStatus","Спутниковая подложка · "+(war?"активный театр конфликта":"территория государства"));
+        const mode=$("militaryMapMode");if(mode)mode.value=militaryMapState.mode;
+        if(militaryMapInstance&&militaryMapInstance.invalidateSize)window.setTimeout(()=>militaryMapInstance&&militaryMapInstance.invalidateSize(),80);
+      }).catch(error=>{
+        renderMapLoading(error.message||"Не удалось загрузить географические данные.");
+        console.error("Military map data failed:",error);
+      });
+    }catch(error){
+      renderMapLoading(error.message||"Не удалось открыть спутниковую карту.");
+      if(!leafletErrorShown){leafletErrorShown=true;toast(error.message||"Не удалось загрузить карту.");}
+      console.error("Military map init failed:",error);
+    }
   }
-
-
-
-  function activeWar(){return ((currentPayload&&currentPayload.wars)||[]).find(item=>item.status==="active")||null;}
+  function drawMilitaryDraft(){
+    if(!militaryMapInstance||!militaryDraftLayer)return;
+    militaryDraftLayer.clearLayers();
+    const points=militaryMapState.draft.map(point=>[point.lat,point.lon]);
+    if(militaryMapState.mode==="patrol"&&points.length>1)L.polyline(points,{color:"#ffd36c",weight:4,dashArray:"6 5"}).addTo(militaryDraftLayer);
+    points.forEach((point,index)=>L.circleMarker(point,{radius:6,color:"#10263b",weight:2,fillColor:"#ffe08a",fillOpacity:1}).bindTooltip("Точка маршрута "+(index+1)).addTo(militaryDraftLayer));
+    if(pendingMilitaryTarget)L.circleMarker([pendingMilitaryTarget.lat,pendingMilitaryTarget.lon],{radius:9,color:"#fff",weight:2,fillColor:"#ff6c59",fillOpacity:1}).bindTooltip("Цель приказа").addTo(militaryDraftLayer);
+  }
+  function handleMilitaryMapClick(event){
+    const geo={lat:Number(event.latlng.lat),lon:Number(event.latlng.lng)};
+    if(militaryMapState.mode==="patrol"){
+      if(militaryMapState.draft.length>=8)return toast("В маршруте уже восемь точек.");
+      militaryMapState.draft.push(geo);
+      setText("militaryMapDraftStatus","Маршрут патруля: "+militaryMapState.draft.length+" точек · добавьте ещё или сохраните.");
+      $("saveMilitaryPatrol").disabled=militaryMapState.draft.length<2;
+      drawMilitaryDraft();return;
+    }
+    if(militaryMapState.mode!=="order")return;
+    if(!activeWar())return toast("Приказы на театр боевых действий доступны только при активном конфликте.");
+    const unit=selectedUnit();if(!unit)return toast("Сначала сформируйте и выберите подразделение.");
+    pendingMilitaryTarget=geo;
+    setText("militaryTargetPreview","Цель выбрана: "+geo.lat.toFixed(4)+"°, "+geo.lon.toFixed(4)+"°. Теперь проверьте подразделение и приказ.");
+    $("confirmMilitaryMapOrder").disabled=false;
+    setText("militaryMapDraftStatus","Приказ подготовлен, но ещё не отправлен. Нажмите «Передать приказ».");drawMilitaryDraft();
+  }
+  function resetMilitaryMapView(){
+    if(!militaryMapInstance)return;
+    const game=currentPayload&&currentPayload.game||{},war=activeWar();
+    const key=String(game.id||"")+":"+(war&&war.id||"peace");
+    militaryMapState.fitKey="";
+    if(currentPayload)renderMilitaryMap(currentPayload);
+    else militaryMapInstance.setView([20,0],2);
+    setText("militaryZoomReset","Автомасштаб");
+  }
+    function activeWar(){return ((currentPayload&&currentPayload.wars)||[]).find(item=>item.status==="active")||null;}
   async function refreshGame(quiet=false){
     const auth=window.PRESIDENTIAL_AUTH;if(refreshInFlight||!auth||!auth.user||!auth.api)return;
     refreshInFlight=true;
@@ -350,6 +291,7 @@
     document.querySelectorAll(".military-page button").forEach(item=>{item.disabled=true;});
     try{
       await window.PRESIDENTIAL_AUTH.api("/api/presidential/game/military",{method:"POST",body:JSON.stringify(payload)});
+      if(payload&&payload.action==="issue_order"){pendingMilitaryTarget=null;setText("militaryTargetPreview","Приказ передан. Ожидается подтверждение штаба.");}
       await refreshGame(true);if(message)toast(message);
     }catch(error){toast("Действие не выполнено: "+(error.message||"ошибка сервера"));}
     finally{
@@ -386,23 +328,28 @@
   }
   function renderMilitaryUnits(units){
     const root=$("militaryUnits");root.replaceChildren();
-    if(!units.length){root.append(node("div","loading-row","Воинские подразделения ещё не сформированы."));return;}
+    if(!units.length){root.append(node("div","loading-row","Воинские подразделения ещё не сформированы."));selectMilitaryUnit("");return;}
+    if(!units.some(unit=>String(unit.id)===selectedMilitaryUnitId))selectedMilitaryUnitId=String(units[0].id);
     units.forEach(unit=>{
-      const branch=String(unit.unit_branch||"land").toLowerCase();
-      const branchLabel=({land:"Сухопутные войска",guard:"Гвардия",air:"Авиация",naval:"Флот"})[branch]||"Воинская часть";
-      const amount=branch==="air"?number(unit.quantity||0,0)+" единиц техники":branch==="naval"?number(unit.quantity||0,0)+" кораблей":number(unit.active_personnel||0,0)+" человек";
-      const card=node("article","military-unit-card"),head=node("div","unit-card-head");
-      head.append(node("b","",unit.unit_type||"Воинское подразделение"),node("span","unit-branch",branchLabel));
+      const branch=branchInfo(unit.unit_branch),amount=branch.className==="air"?number(unit.quantity||0,0)+" единиц техники":branch.className==="naval"?number(unit.quantity||0,0)+" кораблей":number(unit.active_personnel||0,0)+" человек";
+      const card=node("article","military-unit-card"+(String(unit.id)===selectedMilitaryUnitId?" is-selected":"")),head=node("div","unit-card-head");
+      const identity=node("div","unit-card-identity");identity.append(node("b","",unit.unit_type||"Воинское подразделение"),node("span","unit-branch",branch.label));
+      const choose=node("button","unit-select-button",String(unit.id)===selectedMilitaryUnitId?"Выбрано":"Выбрать");choose.type="button";choose.dataset.selectMilitaryUnit=unit.id;choose.setAttribute("aria-pressed",String(String(unit.id)===selectedMilitaryUnitId));
+      head.append(identity,choose);
       const stats=node("div","unit-card-stats");
-      [["Личный состав",amount],["Готовность",number(unit.readiness||0,0)+"%"],["Снабжение",number(unit.supply||0,0)+"%"],["Техника",number(unit.equipment_level||0,0)+"%"]].forEach(([label,value])=>{
+      [["Численность",amount],["Готовность",number(unit.readiness||0,0)+"%"],["Снабжение",number(unit.supply||0,0)+"%"],["Оснащение",number(unit.equipment_level||0,0)+"%"]].forEach(([label,value])=>{
         const item=node("div","unit-stat");item.append(node("small","",label),node("b","",value));stats.append(item);
       });
       card.append(head,stats);
-      if(unit.location_lat!=null&&unit.location_lon!=null)card.append(node("small","unit-location","Координаты: "+Number(unit.location_lat).toFixed(2)+", "+Number(unit.location_lon).toFixed(2)));
+      const location=unit.location_lat!=null&&unit.location_lon!=null
+        ?"Координаты: "+Number(unit.location_lat).toFixed(3)+", "+Number(unit.location_lon).toFixed(3)
+        :"Место базирования не задано — на карте не отмечается";
+      card.append(node("small","unit-location",location));
       root.append(card);
     });
+    selectMilitaryUnit(selectedMilitaryUnitId);
   }
-  function renderTechnologies(payload){
+    function renderTechnologies(payload){
     const technologies=Array.isArray(payload.technologies)?payload.technologies:[];
     const select=$("militaryResearchSelect"),previous=select.value;select.replaceChildren();
     technologies.forEach(tech=>{
@@ -492,6 +439,7 @@
     renderPatrols(Array.isArray(payload.patrols)?payload.patrols:[]);
     const units=Array.isArray(payload.units)?payload.units:[];
     setOptions($("militaryMapUnit"),units,"id","unit_type","Подразделения пока не созданы");
+    if(!units.some(unit=>String(unit.id)===selectedMilitaryUnitId))selectedMilitaryUnitId=units.length?String(units[0].id):"";
     renderMilitaryUnits(units);renderWar(payload);renderMilitaryMap(payload);
   }
   function renderPage(payload){
@@ -510,27 +458,48 @@
       try{await window.PRESIDENTIAL_AUTH.api("/api/presidential/game/clock",{method:"POST",body:JSON.stringify({speed})});await refreshGame(true);}
       catch(error){toast("Не удалось изменить скорость времени: "+error.message);}
     }));
-    $("militaryZoomIn").addEventListener("click",()=>changeMilitaryMapZoom(1.2));
-    $("militaryZoomOut").addEventListener("click",()=>changeMilitaryMapZoom(1/1.2));
+    $("militaryZoomIn").addEventListener("click",()=>{if(militaryMapInstance)militaryMapInstance.zoomIn();});
+    $("militaryZoomOut").addEventListener("click",()=>{if(militaryMapInstance)militaryMapInstance.zoomOut();});
     $("militaryZoomReset").addEventListener("click",resetMilitaryMapView);
+    $("militaryMapUnit").addEventListener("change",()=>selectMilitaryUnit($("militaryMapUnit").value));
     $("militaryMapMode").addEventListener("change",()=>{
       militaryMapState.mode=$("militaryMapMode").value;
-      if(militaryMapState.mode==="patrol"){
-        militaryMapState.draft=[];setText("militaryMapDraftStatus","Отметьте на карте от двух до восьми точек патрульного маршрута.");
-        $("saveMilitaryPatrol").disabled=true;
-      }else if(militaryMapState.mode==="order")setText("militaryMapDraftStatus","Выберите подразделение и отметьте целевую точку приказа.");
-      else setText("militaryMapDraftStatus","Режим обзора: карта не принимает приказы.");
+      militaryMapState.draft=[];pendingMilitaryTarget=null;
+      $("saveMilitaryPatrol").disabled=true;$("confirmMilitaryMapOrder").disabled=true;
+      if(militaryMapState.mode==="patrol")setText("militaryMapDraftStatus","Патруль: последовательно отметьте на карте от двух до восьми точек.");
+      else if(militaryMapState.mode==="order")setText("militaryMapDraftStatus","Приказ: выберите соединение и отметьте цель на спутниковой карте.");
+      else setText("militaryMapDraftStatus","Обзор: перемещайте карту, приближайте районы и выбирайте соединения.");
+      setText("militaryTargetPreview","Цель ещё не выбрана.");drawMilitaryDraft();
+    });
+    $("confirmMilitaryMapOrder").addEventListener("click",()=>{
+      const war=activeWar(),unit=selectedUnit(),target=pendingMilitaryTarget,orderType=$("militaryMapOrder").value;
+      if(!war)return toast("Нет активного конфликта.");
+      if(!unit)return toast("Выберите подразделение.");
+      if(!target)return toast("Сначала отметьте цель на карте.");
+      const labels={advance:"движение к указанному району",defend:"оборона указанного района",hold:"удержание позиции",recon:"разведка района",withdraw:"отход на указанный рубеж",support:"поддержка соседних частей"};
+      if(!confirm("Передать приказ: "+(labels[orderType]||orderType)+"?\\nПодразделение: "+(unit.unit_type||"часть")+"\\nКоординаты: "+target.lat.toFixed(4)+", "+target.lon.toFixed(4)))return;
+      const objective=labels[orderType]||"Выполнить приказ в отмеченной точке";
+      void runMilitaryAction({action:"issue_order",warId:war.id,unitId:unit.id,orderType,targetLat:target.lat,targetLon:target.lon,objective},$("confirmMilitaryMapOrder"),"Приказ передан в систему командования.");
     });
     $("saveMilitaryPatrol").addEventListener("click",()=>{
-      if(militaryMapState.draft.length<2)return toast("Для маршрута нужно отметить минимум две точки.");
-      const unitId=$("militaryMapUnit").value;if(!unitId)return toast("Выберите подразделение для патруля.");
+      if(militaryMapState.draft.length<2)return toast("Для патруля нужно отметить минимум две точки.");
+      const unit=selectedUnit();if(!unit)return toast("Выберите подразделение для патруля.");
       const route=militaryMapState.draft.slice();
-      void runMilitaryAction({action:"create_patrol",unitId,name:$("militaryPatrolName").value.trim(),patrolType:$("militaryPatrolType").value,route},$("saveMilitaryPatrol"),"Патрульный маршрут сохранён.");
-      militaryMapState.draft=[];militaryMapState.mode="view";$("militaryMapMode").value="view";$("saveMilitaryPatrol").disabled=true;
+      if(!confirm("Сохранить маршрут «"+$("militaryPatrolName").value.trim()+"» для "+(unit.unit_type||"подразделения")+"?"))return;
+      void runMilitaryAction({action:"create_patrol",unitId:unit.id,name:$("militaryPatrolName").value.trim(),patrolType:$("militaryPatrolType").value,route},$("saveMilitaryPatrol"),"Патрульный маршрут сохранён.");
+      militaryMapState.draft=[];militaryMapState.mode="view";$("militaryMapMode").value="view";$("saveMilitaryPatrol").disabled=true;drawMilitaryDraft();
     });
     $("clearMilitaryMapDraft").addEventListener("click",()=>{
-      militaryMapState.draft=[];setText("militaryMapDraftStatus","Точки карты очищены.");$("saveMilitaryPatrol").disabled=true;
-      if(currentPayload)renderMilitaryMap(currentPayload);
+      militaryMapState.draft=[];pendingMilitaryTarget=null;
+      setText("militaryMapDraftStatus","Черновик очищен. Ни один приказ не отправлен.");
+      setText("militaryTargetPreview","Цель ещё не выбрана.");
+      $("saveMilitaryPatrol").disabled=true;$("confirmMilitaryMapOrder").disabled=true;drawMilitaryDraft();
+    });
+    $("militaryUnits").addEventListener("click",event=>{
+      const button=event.target.closest("[data-select-military-unit]");
+      if(!button)return;
+      selectMilitaryUnit(button.dataset.selectMilitaryUnit);
+      setText("militaryMapDraftStatus","Выбрано соединение: "+(selectedUnit()?.unit_type||"подразделение")+". Перейдите в режим приказа, чтобы указать цель.");
     });
     $("startMilitaryWar").addEventListener("click",()=>{
       const opponentCountryId=Number($("warOpponentSelect").value),warGoal=$("warGoalInput").value.trim();
