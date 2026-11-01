@@ -626,11 +626,22 @@
       const mode=$("militaryCommandMode");if(mode)mode.value=activeWar.command_mode||"ai";
       const posture=$("militaryPosture");if(posture)posture.value=activeWar.strategic_posture||"balanced";
       const directive=$("militaryAiDirective");if(directive&&document.activeElement!==directive)directive.value=activeWar.commander_directive||"";
-      const report=activeWar.last_report||{};
-      setText("militaryWarReport",report.result
-        ?"Последний ход: "+report.result+". Потери сторон: "+number(report.friendlyLosses||0,0)+" / "+number(report.enemyLosses||0,0)+"."
-        :(activeWar.command_mode==="ai"?"Операциями руководит штаб ИИ. Его действия будут разрешаться по ходу игры.":"Вы управляете войсками вручную. Выберите подразделение и поставьте приказ на карте."));
-      const advance=$("advanceMilitaryWar");if(advance)advance.textContent=activeWar.command_mode==="ai"?"Запросить ход штаба ИИ":"Выполнить оперативный ход";
+      const report=activeWar.last_report||{},domains=report.domainControl||front.domainControl||{};
+      const lastAuto=report.autoTickAt?new Date(report.autoTickAt).toLocaleString("ru-RU",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}):"ожидается первый цикл";
+      setText("militaryWarReport",activeWar.command_mode==="ai"
+        ?"АВТОНОМНЫЙ ШТАБ · последний цикл: "+lastAuto+". "+(report.aiReason||front.lastAiReason||"Штаб оценивает силы и снабжение.")+" Потери за цикл: "+number(report.friendlyLosses||0,0)+" / "+number(report.enemyLosses||0,0)+". Воздушный контроль: "+number(domains.air||50,1)+"%; морской: "+number(domains.sea||50,1)+"%."
+        :"Ручное командование включено. Автоматические операции приостановлены; задавайте приказы на карте.");
+      const advance=$("advanceMilitaryWar");if(advance){advance.textContent="Выполнить оперативный ход";advance.style.display=activeWar.command_mode==="ai"?"none":"";}
+      const domainMetrics=$("militaryDomainMetrics");
+      if(domainMetrics){
+        const own=report.friendlyDomains||front.friendlyDomains||{},rival=report.enemyDomains||front.estimatedEnemyDomains||{};
+        domainMetrics.replaceChildren();
+        [["СУХОПУТНЫЕ",own.ground,rival.ground],["АВИАЦИЯ",own.air,rival.air],["ФЛОТ",own.naval,rival.naval]].forEach(([name,ours,theirs])=>{
+          const item=node("div","military-domain-metric");
+          item.append(node("small","",name),node("b","",number(ours||0,0)+" / "+number(theirs||0,0)));
+          domainMetrics.append(item);
+        });
+      }
     }
     const patrolRoot=$("militaryPatrolList");
     if(patrolRoot){
@@ -1417,6 +1428,17 @@
     if(advance)advance.disabled=busy||hasPendingBackgroundJobs()||["election_campaign","election"].includes(currentGame.state&&currentGame.state.phase);
     if(newGame)newGame.disabled=busy||hasPendingBackgroundJobs();
   }
+
+  let autonomousRefreshInFlight=false;
+  window.setInterval(async()=>{
+    if(!currentGame||busy||document.hidden||autonomousRefreshInFlight)return;
+    const hasAutonomousWar=(currentPayload&&Array.isArray(currentPayload.wars)||[]).some(w=>w.status==="active"&&w.command_mode==="ai");
+    if(!hasAutonomousWar)return;
+    autonomousRefreshInFlight=true;
+    try{const fresh=await api()("/api/presidential/game/current");if(fresh&&fresh.game)renderGame(fresh);}
+    catch(error){console.warn("Autonomous war refresh failed:",error);}
+    finally{autonomousRefreshInFlight=false;}
+  },60000);
 
   async function refreshGame(){
     if(!api()||!window.PRESIDENTIAL_AUTH||!window.PRESIDENTIAL_AUTH.user)return;
