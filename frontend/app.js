@@ -843,7 +843,6 @@
         patrolRoot.append(row);
       });
     }
-    renderMilitaryMap(payload);
   }
   function mollweidePoint(point,width,height){
     const longitude=Number(point&&point[0]);
