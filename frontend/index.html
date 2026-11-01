@@ -30,7 +30,7 @@
       <a class="nav-link" href="#laws"><span class="nav-icon">▤</span>Указы и законы</a>
     </nav>
     <div class="sidebar-bottom">
-      <div class="turn-box"><small>ТЕКУЩИЙ ХОД</small><b id="sidebarTurn">Месяц 001</b><span id="sidebarDate">—</span></div>
+      <div class="turn-box calendar-sidebar-box"><small>ИГРОВОЕ ВРЕМЯ</small><b id="sidebarTurn">—</b><span id="sidebarDate">08:00:00</span></div>
       <div class="save-indicator"><i></i><span id="saveStatus">Сохранение подключено</span></div>
       <button id="newGame" class="sidebar-new">＋ Новая кампания</button>
     </div>
@@ -40,8 +40,20 @@
     <header class="topbar">
       <div class="topbar-title"><span class="eyebrow">ГОСУДАРСТВЕННОЕ УПРАВЛЕНИЕ</span><h1>Президентский штаб</h1></div>
       <div class="topbar-actions">
-        <div class="turn-chip"><span class="status-dot"></span><span id="topbarTurn">Ход 001</span></div>
-        <button id="advanceTurn" class="advance-button"><span>▶</span> Завершить месяц</button>
+        <div class="game-clock-panel">
+          <div class="game-clock-readout">
+            <span class="status-dot"></span>
+            <div><small>ИГРОВОЙ КАЛЕНДАРЬ</small><b id="gameClockDate">—</b><strong id="gameClockTime">08:00:00</strong></div>
+          </div>
+          <div class="game-clock-speeds" role="group" aria-label="Скорость игрового времени">
+            <button type="button" data-clock-speed="1" aria-pressed="true" class="is-active">x1</button>
+            <button type="button" data-clock-speed="2" aria-pressed="false">x2</button>
+            <button type="button" data-clock-speed="4" aria-pressed="false">x4</button>
+            <button type="button" data-clock-speed="6" aria-pressed="false">x6</button>
+            <button type="button" data-clock-speed="12" aria-pressed="false">x12</button>
+            <button type="button" data-clock-speed="16" aria-pressed="false">x16</button>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -86,7 +98,7 @@
           <p id="bio">Президентская кампания загружается…</p>
           <div class="banner-meta">
             <div><small>ИГРОВАЯ ДАТА</small><b id="date">—</b></div>
-            <div><small>ПРЕЗИДЕНТСКИЙ СРОК</small><b id="term">Месяц 001</b></div>
+            <div><small>РЕЖИМ СИМУЛЯЦИИ</small><b id="term">НЕПРЕРЫВНО</b></div>
             <div><small>НАСЕЛЕНИЕ</small><b id="population">—</b></div>
           </div>
         </div>
@@ -123,12 +135,12 @@
           <div class="progress-row"><div><span>Образование</span><b id="educationValue">—</b></div><div class="wide-bar"><i id="educationBar"></i></div></div>
           <div class="progress-row"><div><span>Здравоохранение</span><b id="healthValue">—</b></div><div class="wide-bar"><i id="healthBar"></i></div></div>
           <div class="progress-row"><div><span>Инфраструктура</span><b id="infrastructureValue">—</b></div><div class="wide-bar"><i id="infrastructureBar"></i></div></div>
-          <div class="situation-footer"><span>Очки действий на этот месяц</span><b id="actionPoints">2 / 2</b></div>
+           
         </section>
       </div>
 
 <section class="section-block" id="programs">
-<div class="section-title"><div><span class="eyebrow">ДОЛГОСРОЧНАЯ ГОСУДАРСТВЕННАЯ ПОЛИТИКА</span><h2>Государственные программы</h2><p>Готовые направления можно запустить из каталога. Собственную программу можно разработать через проект президентского указа.</p></div><div class="program-section-actions"><button type="button" id="createStateProgram" class="secondary-button">＋ Собственная программа</button><div class="ap-badge"><b id="actionPointsLarge">2</b><span>ОЧКА ДЕЙСТВИЙ</span></div></div></div>
+<div class="section-title"><div><span class="eyebrow">ДОЛГОСРОЧНАЯ ГОСУДАРСТВЕННАЯ ПОЛИТИКА</span><h2>Государственные программы</h2><p>Готовые направления можно запустить из каталога. Собственную программу можно разработать через проект президентского указа.</p></div><div class="program-section-actions"><button type="button" id="createStateProgram" class="secondary-button">＋ Собственная программа</button></div></div>
 <div id="activePrograms" class="active-programs"><div class="loading-row">Активных программ пока нет.</div></div>
 <div id="programCatalog" class="program-catalog">
 <article class="program-card"><div class="program-card-top"><span>СОЦИАЛЬНАЯ СФЕРА</span><span>18 МЕС.</span></div><h3>Модернизация здравоохранения</h3><p>Ремонт больниц, оборудование клиник и региональные кадровые программы.</p><div class="program-foot"><span>Первоначальный платёж и ежемесячное финансирование</span><button type="button" data-program-start="health_modernization">Запустить</button></div></article>
