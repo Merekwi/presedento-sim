@@ -1281,3 +1281,89 @@ button:disabled{opacity:.48;cursor:not-allowed}
   .military-leaflet-unit{transform:scale(.88) translateY(-3px)}
   .military-map .leaflet-control-attribution{font-size:8px}
 }
+
+
+/* Continuous simulation calendar and real-time speed control. */
+.game-clock-panel{
+  display:flex;
+  align-items:center;
+  gap:13px;
+  padding:7px 9px 7px 12px;
+  border:1px solid #dce4e8;
+  border-radius:10px;
+  background:#f8fafb;
+  box-shadow:0 2px 7px rgba(22,42,59,.04);
+}
+.game-clock-readout{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  min-width:158px;
+}
+.game-clock-readout .status-dot{flex:0 0 7px}
+.game-clock-readout div{display:grid;gap:2px}
+.game-clock-readout small{
+  color:#82919e;
+  font-size:7px;
+  font-weight:900;
+  letter-spacing:.1em;
+}
+.game-clock-readout b{
+  color:#203347;
+  font:800 11px Manrope,Arial,sans-serif;
+  white-space:nowrap;
+}
+.game-clock-readout strong{
+  color:#147967;
+  font:800 16px Manrope,Arial,sans-serif;
+  font-variant-numeric:tabular-nums;
+  letter-spacing:.03em;
+}
+.game-clock-speeds{
+  display:flex;
+  align-items:center;
+  gap:3px;
+  padding:3px;
+  border:1px solid #e1e8eb;
+  border-radius:8px;
+  background:#edf2f4;
+}
+.game-clock-speeds button{
+  min-width:31px;
+  padding:7px 6px;
+  border:0;
+  border-radius:6px;
+  color:#627383;
+  background:transparent;
+  font:800 10px Manrope,Arial,sans-serif;
+  cursor:pointer;
+  transition:background .15s ease,color .15s ease,box-shadow .15s ease;
+}
+.game-clock-speeds button:hover{background:#fff;color:#28445a}
+.game-clock-speeds button.is-active{
+  background:#1c806f;
+  color:#fff;
+  box-shadow:0 2px 5px rgba(28,128,111,.22);
+}
+.game-clock-speeds button:disabled{opacity:.45;cursor:wait}
+.calendar-sidebar-box b{font-size:14px;letter-spacing:0}
+.calendar-sidebar-box span{font-variant-numeric:tabular-nums;color:#9fcebF}
+.situation-footer,.ap-badge{display:none!important}
+@media(max-width:1050px){
+  .game-clock-panel{gap:7px;padding:6px}
+  .game-clock-readout{min-width:142px;gap:7px}
+  .game-clock-readout b{font-size:10px}
+  .game-clock-speeds button{min-width:28px;padding:7px 4px}
+}
+@media(max-width:650px){
+  .topbar{align-items:center}
+  .topbar-actions{display:flex;flex-direction:column;align-items:stretch;gap:0;max-width:min(60vw,270px)}
+  .game-clock-panel{display:grid;gap:5px;padding:6px 7px}
+  .game-clock-readout{min-width:0;gap:6px}
+  .game-clock-readout small{font-size:6px}
+  .game-clock-readout b{font-size:9px}
+  .game-clock-readout strong{font-size:14px}
+  .game-clock-speeds{width:100%;justify-content:space-between;gap:1px;padding:2px}
+  .game-clock-speeds button{flex:1;min-width:0;padding:6px 2px;font-size:9px}
+  .calendar-sidebar-box{display:none}
+}
