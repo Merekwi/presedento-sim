@@ -661,18 +661,54 @@
     return element;
   }
   function mapFeatureCenter(feature,width,height){
+    const props=feature&&feature.properties||{},lon=Number(props.LABEL_X),lat=Number(props.LABEL_Y);
+    if(Number.isFinite(lon)&&Number.isFinite(lat)&&lon>=-180&&lon<=180&&lat>=-90&&lat<=90){
+      const p=mollweidePoint([lon,lat],width,height);return {x:p[0],y:p[1],lon,lat};
+    }
     const geometry=feature&&feature.geometry;if(!geometry)return null;
     const polygons=geometry.type==="Polygon"?[geometry.coordinates]:geometry.type==="MultiPolygon"?geometry.coordinates:[];
-    let sx=0,sy=0,count=0;
-    polygons.forEach(polygon=>(polygon||[]).forEach((ring,ringIndex)=>{
-      if(ringIndex!==0)return;
-      const stride=Math.max(1,Math.floor(ring.length/90));
-      for(let i=0;i<ring.length;i+=stride){
-        const point=ring[i];if(!Array.isArray(point)||point.length<2)continue;
-        const p=mollweidePoint(point,width,height);sx+=p[0];sy+=p[1];count++;
-      }
+    let sx=0,sy=0,n=0;
+    polygons.forEach(poly=>(poly||[]).forEach((ring,index)=>{
+      if(index!==0)return;
+      for(const point of ring){if(!Array.isArray(point)||point.length<2)continue;const p=mollweidePoint(point,width,height);sx+=p[0];sy+=p[1];n++;}
     }));
-    return count?{x:sx/count,y:sy/count}:null;
+    return n?{x:sx/n,y:sy/n}:null;
+  }
+  function sharedCountryBorder(a,b,width,height){
+    const segments=feature=>{
+      const geometry=feature&&feature.geometry;if(!geometry)return [];
+      const polygons=geometry.type==="Polygon"?[geometry.coordinates]:geometry.type==="MultiPolygon"?geometry.coordinates:[];
+      const out=[];
+      for(const poly of polygons)for(const ring of (poly||[]).slice(0,1))for(let i=0;i<ring.length-1;i++){
+        const p=ring[i],q=ring[i+1];const x=Number(p[0]).toFixed(3)+","+Number(p[1]).toFixed(3),y=Number(q[0]).toFixed(3)+","+Number(q[1]).toFixed(3);
+        if(x!==y)out.push({key:x<y?x+"|"+y:y+"|"+x,p,q});
+      }
+      return out;
+    };
+    const own=new Map(segments(a).map(item=>[item.key,item])),shared=[];
+    for(const item of segments(b)){const match=own.get(item.key);if(!match)continue;
+      const p=mollweidePoint(match.p,width,height),q=mollweidePoint(match.q,width,height);
+      const length=Math.hypot(q[0]-p[0],q[1]-p[1]);if(length>.25)shared.push({p,q,length,mid:[(p[0]+q[0])/2,(p[1]+q[1])/2]});
+    }
+    return shared;
+  }
+  function appendMilitaryModel(layer,x,y,branch,side,title,detail,dx=0,dy=0){
+    const g=svgNode("g",{class:"military-model "+side+" branch-"+branch,transform:"translate("+(x+dx)+" "+(y+dy)+")"});
+    const titleNode=svgNode("title",{});titleNode.textContent=title+(detail?" · "+detail:"");g.append(titleNode);
+    g.append(svgNode("circle",{class:"military-model-shadow",cx:0,cy:2,r:15}),svgNode("circle",{class:"military-model-base",cx:0,cy:0,r:13}));
+    const art=svgNode("g",{class:"military-model-art"});
+    if(branch==="air"){
+      art.append(svgNode("path",{d:"M0 -12 L2 -4 L10 1 L10 4 L2 2 L2 8 L5 11 L5 13 L0 12 L-5 13 L-5 11 L-2 8 L-2 2 L-10 4 L-10 1 L-2 -4 Z"}));
+    }else if(branch==="naval"){
+      art.append(svgNode("path",{d:"M-3 -11 L3 -11 L4 -4 L8 -2 L7 6 L3 10 L-3 10 L-7 6 L-8 -2 L-4 -4 Z"}),svgNode("path",{d:"M-3 -4 L3 -4 L3 3 L-3 3 Z"}),svgNode("path",{d:"M-10 12 Q-6 9 -2 12 T6 12 T12 12"}));
+    }else if(branch==="hq"){
+      art.append(svgNode("path",{d:"M-8 -8 L8 -8 L8 8 L-8 8 Z M-5 -5 L-1 -5 L-1 -1 L-5 -1 Z M1 -5 L5 -5 L5 -1 L1 -1 Z M-5 2 L5 2 L5 7 L-5 7 Z"}),svgNode("path",{d:"M0 -12 L0 -8 M0 -12 L7 -10 L0 -8 Z"}));
+    }else{
+      art.append(svgNode("circle",{cx:0,cy:-6,r:3.2}),svgNode("path",{d:"M-4 -2 Q0 -5 4 -2 L5 5 L2 6 L2 11 L-2 11 L-2 6 L-5 5 Z"}),svgNode("path",{d:"M-3 1 L-9 5 M3 1 L9 4 M-2 10 L-5 13 M2 10 L5 13 M-1 -9 L5 -11 L10 -7"}));
+    }
+    g.append(art);layer.append(g);
+    const label=svgNode("text",{x:x+dx,y:y+dy+24,class:"military-model-label","text-anchor":"middle"});label.textContent=detail||title;layer.append(label);
+    return g;
   }
   function applyMilitaryMapTransform(){
     if(!militaryMapLayer)return;
