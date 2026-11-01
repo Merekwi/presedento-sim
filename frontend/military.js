@@ -110,7 +110,9 @@
     document.querySelectorAll("[data-select-military-unit]").forEach(button=>{
       const active=String(button.dataset.selectMilitaryUnit)===selectedMilitaryUnitId;
       button.classList.toggle("is-selected",active);
+      button.textContent=active?"Выбрано":"Выбрать";
       button.setAttribute("aria-pressed",String(active));
+      const card=button.closest(".military-unit-card");if(card)card.classList.toggle("is-selected",active);
     });
     if(focusMap&&militaryMapInstance&&unit&&unit.location_lat!=null&&unit.location_lon!=null){
       militaryMapInstance.panTo([Number(unit.location_lat),Number(unit.location_lon)],{animate:true});
