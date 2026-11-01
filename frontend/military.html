@@ -7,7 +7,7 @@
   <title>Военная система · Presidential Simulator</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
   <link rel="stylesheet" href="./styles.css?v=decree-review-1">
-  <link rel="stylesheet" href="./military-page.css?v=military-page-3">
+  <link rel="stylesheet" href="./military-page.css?v=military-page-4">
 </head>
 <body class="military-page">
   <header class="military-topbar">
@@ -100,7 +100,7 @@
               <div class="military-war-stats">
                 <div><small>Свои потери</small><b id="militaryFriendlyLosses">0</b></div>
                 <div><small>Потери противника</small><b id="militaryEnemyLosses">0</b></div>
-                <div><small>Оперативный цикл</small><b id="militaryBattleTurn">0</b></div>
+                <div><small>Номер операции</small><b id="militaryBattleTurn">0</b></div>
               </div>
               <div id="militaryDomainMetrics" class="military-domain-metrics"></div>
               <label for="militaryCommandMode">Управление войсками</label>
@@ -111,7 +111,7 @@
               <textarea id="militaryAiDirective" rows="4" maxlength="1200" placeholder="Например: обеспечить защиту гражданского населения, сохранить резервы и поддерживать снабжение."></textarea>
               <div class="military-war-buttons">
                 <button type="button" id="saveMilitaryDirective" class="secondary-button">Передать директиву</button>
-                <button type="button" id="advanceMilitaryWar" class="primary-button hidden">Выполнить оперативный ход</button>
+                <button type="button" id="advanceMilitaryWar" class="primary-button hidden">Исполнить подготовленные приказы</button>
                 <button type="button" id="ceaseMilitaryWar" class="secondary-button">Запросить прекращение огня</button>
               </div>
               <p id="militaryWarReport" class="military-war-report">Штаб ожидает распоряжений.</p>
@@ -126,7 +126,7 @@
               <div><small>Готовность</small><b id="militarySelectedUnitReadiness">—</b></div>
             </div>
             <small id="militarySelectedUnitLocation" class="military-selected-location">—</small>
-            <p>1. Выберите соединение в этом блоке или в списке ниже. 2. Включите режим «Подготовить приказ». 3. Щёлкните по району на карте. 4. Проверьте цель и подтвердите передачу.</p>
+            <p>1. Выберите соединение в этом блоке или в списке ниже. 2. Включите режим «Подготовить приказ». 3. Щёлкните по району на карте. 4. Подтвердите передачу приказа. 5. В ручном режиме исполните очередь отдельной кнопкой; в автономном режиме действует штаб ИИ.</p>
           </section>
         </aside>
       </div>
@@ -192,6 +192,6 @@
   <script src="./config.js"></script>
   <script src="./auth.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-  <script src="./military.js?v=military-page-3"></script>
+  <script src="./military.js?v=military-page-4"></script>
 </body>
 </html>
