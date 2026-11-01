@@ -4,6 +4,7 @@
   let currentPayload=null,currentGame=null,busy=false,refreshInFlight=false;
   let worldMapPromise=null;
   let militaryMapInstance=null,militaryBoundaryLayer=null,militaryFrontLayer=null,militaryUnitLayer=null,militaryPatrolLayer=null,militaryDraftLayer=null;
+  let militaryUnitMarkers=new Map();
   let militaryMapState={mode:"view",draft:[],saveKey:"",fitKey:""};
   let selectedMilitaryUnitId="",pendingMilitaryTarget=null,leafletErrorShown=false;
   let clockBaseMs=Date.now(),clockSyncedAt=Date.now(),clockSpeed=1;
@@ -147,7 +148,7 @@
     const homeLayer=homeFeature&&L.geoJSON(homeFeature),enemyLayer=enemyFeature&&L.geoJSON(enemyFeature);
     const homeBounds=homeLayer&&homeLayer.getBounds(),enemyBounds=enemyLayer&&enemyLayer.getBounds();
     if(homeBounds&&homeBounds.isValid()&&enemyBounds&&enemyBounds.isValid()){
-      const bounds=L.latLngBounds(homeBounds,enemyBounds);
+      const bounds=L.latLngBounds(homeBounds);bounds.extend(enemyBounds);
       militaryMapInstance.fitBounds(bounds.pad(.14),{padding:[42,42],maxZoom:7});
     }else if(homeBounds&&homeBounds.isValid()){
       militaryMapInstance.fitBounds(homeBounds.pad(.12),{padding:[35,35],maxZoom:7});
@@ -163,7 +164,7 @@
         const homeIso=String(game.iso2||"").toUpperCase();
         const enemyIso=String(war&&(war.opponent_iso2||war.front_state&&war.front_state.enemyCountryIso2)||"").toUpperCase();
         const homeFeature=countryFeature(data,homeIso),enemyFeature=countryFeature(data,enemyIso);
-        militaryBoundaryLayer.clearLayers();militaryFrontLayer.clearLayers();militaryUnitLayer.clearLayers();militaryPatrolLayer.clearLayers();militaryDraftLayer.clearLayers();
+        militaryBoundaryLayer.clearLayers();militaryFrontLayer.clearLayers();militaryUnitLayer.clearLayers();militaryPatrolLayer.clearLayers();militaryDraftLayer.clearLayers();militaryUnitMarkers.clear();
         const boundaries=L.geoJSON(data,{style:feature=>{
           const code=isoCode(feature),isHome=code===homeIso,isEnemy=Boolean(enemyIso)&&code===enemyIso;
           return {color:isHome?"#70f0c0":isEnemy?"#ff8c79":"#dce7eb",weight:isHome?2.8:isEnemy?2.4:.7,opacity:isHome||isEnemy?1:.48,fillColor:isHome?"#16b99a":isEnemy?"#e35e54":"#ffffff",fillOpacity:isHome?.19:isEnemy?.13:0,lineJoin:"round"};
@@ -213,13 +214,6 @@
         if(pendingMilitaryTarget){
           L.circleMarker([pendingMilitaryTarget.lat,pendingMilitaryTarget.lon],{radius:9,color:"#fff",weight:2,fillColor:"#ff6c59",fillOpacity:1}).bindTooltip("Цель приказа · "+pendingMilitaryTarget.lat.toFixed(3)+", "+pendingMilitaryTarget.lon.toFixed(3)).addTo(militaryDraftLayer);
         }
-        militaryUnitMarkers.clear();
-        militaryUnitLayer.eachLayer(layer=>{
-          if(layer instanceof L.Marker&&layer.options.title){
-            const unit=units.find(item=>item.unit_type===layer.options.title);
-            if(unit)militaryUnitMarkers.set(String(unit.id),layer);
-          }
-        });
         fitMilitaryTheatre(homeFeature,enemyFeature,String(game.id||"")+":"+(war&&war.id||"peace"));
         setText("militaryMapLayerStatus","Спутниковая подложка · "+(war?"активный театр конфликта":"территория государства"));
         const mode=$("militaryMapMode");if(mode)mode.value=militaryMapState.mode;
