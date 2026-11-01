@@ -6,7 +6,8 @@
   <meta name="theme-color" content="#111d30">
   <title>Военная система · Presidential Simulator</title>
   <link rel="stylesheet" href="./styles.css?v=decree-review-1">
-  <link rel="stylesheet" href="./military-page.css?v=military-page-1">
+  <link rel="stylesheet" href="./military-page.css?v=military-page-2">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
 </head>
 <body class="military-page">
   <header class="military-topbar">
@@ -46,39 +47,40 @@
 
     <section class="military-theatre panel">
       <div class="panel-heading">
-        <div><span class="eyebrow">ОПЕРАТИВНАЯ ОБСТАНОВКА</span><h3>Военная карта</h3><p>Самостоятельная векторная карта с границами, фронтом, армиями и патрульными маршрутами.</p></div>
+        <div><span class="eyebrow">ОПЕРАТИВНАЯ ОБСТАНОВКА</span><h3>Военная карта</h3><p>Спутниковая карта с переключением подложек, государственными границами, соединениями и районами операций.</p></div>
         <span id="militaryWarStatus" class="military-state-chip">МИР</span>
       </div>
       <div class="military-map-layout">
         <div class="military-map-column">
           <div class="military-map-toolbar">
-            <div><b>Театр военных действий</b><small>Локальные географические данные · без картографических тайлов и библиотек</small></div>
+            <div><b>Театр военных действий</b><small>Esri World Imagery · подписи и границы · масштаб до уровня района</small></div>
             <div class="military-map-zoom">
               <button type="button" id="militaryZoomOut" aria-label="Уменьшить масштаб">−</button>
               <button type="button" id="militaryZoomReset">100%</button>
               <button type="button" id="militaryZoomIn" aria-label="Увеличить масштаб">＋</button>
             </div>
           </div>
-          <div id="militaryMap" class="military-map" role="application" aria-label="Интерактивная векторная военная карта">
-            <div class="map-loading">Загружаем оперативную карту…</div>
+          <div id="militaryMap" class="military-map" role="application" aria-label="Интерактивная спутниковая военная карта">
+            <div class="map-loading">Подключаем спутниковые снимки…</div>
           </div>
+          <div class="military-map-statusbar"><span id="militaryMapLayerStatus">Подложка: спутник</span><span id="militaryMapMissingCoordinates">Проверяем размещение соединений…</span></div>
           <div class="military-map-legend">
-            <span><i class="military-legend-home"></i>Свои силы</span><span><i class="military-legend-enemy"></i>Противник</span>
-            <span><i class="military-legend-front"></i>Линия фронта</span><span><i class="military-legend-infantry"></i>Наземные части</span>
+            <span><i class="military-legend-home"></i>Ваша территория</span><span><i class="military-legend-enemy"></i>Государство-противник</span>
+            <span><i class="military-legend-front"></i>Граница / направление ТВД</span><span><i class="military-legend-infantry"></i>Сухопутные части</span>
             <span><i class="military-legend-air"></i>Авиация</span><span><i class="military-legend-naval"></i>Флот</span>
-            <span><i class="military-legend-patrol"></i>Патруль</span>
+            <span><i class="military-legend-patrol"></i>Маршрут патруля</span>
           </div>
           <div class="military-map-actions">
-            <label>Режим карты<select id="militaryMapMode"><option value="view">Обзор</option><option value="patrol">Проложить патруль</option><option value="order">Отдать приказ</option></select></label>
-            <label>Подразделение<select id="militaryMapUnit"></select></label>
-            <label>Приказ<select id="militaryMapOrder">
+            <label>Действие на карте<select id="militaryMapMode"><option value="view">Обзор и выбор соединений</option><option value="order">Подготовить приказ</option><option value="patrol">Проложить патруль</option></select></label>
+            <label>Выбранное соединение<select id="militaryMapUnit"></select></label>
+            <label>Тип приказа<select id="militaryMapOrder">
               <option value="advance">Наступать к точке</option><option value="defend">Защищать район</option><option value="hold">Удерживать позицию</option>
               <option value="recon">Провести разведку</option><option value="withdraw">Отойти на рубеж</option><option value="support">Поддержать соседние части</option>
             </select></label>
           </div>
           <div class="military-route-draft">
             <span id="militaryMapDraftStatus">Обзор: подразделения показаны в местах базирования.</span>
-            <div><button type="button" id="saveMilitaryPatrol" class="secondary-button" disabled>Сохранить маршрут</button><button type="button" id="clearMilitaryMapDraft" class="secondary-button">Очистить точки</button></div>
+            <div><span id="militaryTargetPreview" class="military-target-preview">Цель ещё не выбрана.</span><button type="button" id="confirmMilitaryMapOrder" class="primary-button" disabled>Передать приказ</button><button type="button" id="saveMilitaryPatrol" class="secondary-button" disabled>Сохранить маршрут</button><button type="button" id="clearMilitaryMapDraft" class="secondary-button">Очистить</button></div>
           </div>
         </div>
 
@@ -114,6 +116,17 @@
               </div>
               <p id="militaryWarReport" class="military-war-report">Штаб ожидает распоряжений.</p>
             </div>
+          </section>
+          <section class="military-selected-unit-card">
+            <span class="eyebrow">ВЫБРАННОЕ СОЕДИНЕНИЕ</span>
+            <h4 id="militarySelectedUnitName">Выберите подразделение</h4>
+            <div class="military-selected-unit-grid">
+              <div><small>Род войск</small><b id="militarySelectedUnitBranch">—</b></div>
+              <div><small>Личный состав</small><b id="militarySelectedUnitPersonnel">—</b></div>
+              <div><small>Готовность</small><b id="militarySelectedUnitReadiness">—</b></div>
+            </div>
+            <small id="militarySelectedUnitLocation" class="military-selected-location">—</small>
+            <p>1. Выберите соединение в этом блоке или в списке ниже. 2. Включите режим «Подготовить приказ». 3. Щёлкните по району на карте. 4. Проверьте цель и подтвердите передачу.</p>
           </section>
         </aside>
       </div>
@@ -178,6 +191,7 @@
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
   <script src="./config.js"></script>
   <script src="./auth.js"></script>
-  <script src="./military.js?v=military-page-1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="./military.js?v=military-page-2"></script>
 </body>
 </html>
