@@ -1109,6 +1109,21 @@
         const estimate="Оценка: "+number(front.enemyPersonnel||0,0)+" военнослужащих";
         L.marker(enemyAnchor,{icon:militaryLeafletUnitIcon("hq","enemy","ШТАБ ПРОТИВНИКА"),title:"Штаб противника"})
           .bindPopup(militaryLeafletPopup(activeWar.opponent_country_name,estimate,null)).addTo(militaryLeafletOverlay);
+        const enemyDomains=front.estimatedEnemyDomains||activeWar.last_report&&activeWar.last_report.enemyDomains||{};
+        const enemyModels=[
+          {branch:"land",label:"ОЦЕНКА · НАЗЕМНЫЕ СИЛЫ",detail:number(front.enemyPersonnel||0,0)+" чел.",lat:.72,lon:-.78},
+          {branch:"air",label:"ОЦЕНКА · АВИАЦИЯ",detail:"Мощность "+number(enemyDomains.air||0,0),lat:.78,lon:.72},
+          {branch:"naval",label:"ОЦЕНКА · ФЛОТ",detail:"Мощность "+number(enemyDomains.naval||0,0),lat:-.68,lon:-.72}
+        ];
+        enemyModels.forEach(model=>{
+          if(!(Number(enemyDomains[model.branch==="land"?"ground":model.branch]||0)>0))return;
+          let modelLon=enemyAnchor[1]+model.lon/Math.max(.3,Math.cos(enemyAnchor[0]*Math.PI/180));
+          if(modelLon>180)modelLon-=360;if(modelLon< -180)modelLon+=360;
+          const modelPosition=[clamp(enemyAnchor[0]+model.lat,-84,84),modelLon];
+          L.marker(modelPosition,{icon:militaryLeafletUnitIcon(model.branch,"enemy",model.label),title:model.label})
+            .bindPopup(militaryLeafletPopup(model.label,model.detail+" · оценка разведки, точное размещение неизвестно",null))
+            .addTo(militaryLeafletOverlay);
+        });
       }
       (payload.patrols||[]).filter(item=>item.status==="active").forEach(patrol=>{
         const route=Array.isArray(patrol.route)?patrol.route:[];if(route.length<2)return;
