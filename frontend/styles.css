@@ -1367,3 +1367,37 @@ button:disabled{opacity:.48;cursor:not-allowed}
   .game-clock-speeds button{flex:1;min-width:0;padding:6px 2px;font-size:9px}
   .calendar-sidebar-box{display:none}
 }
+
+
+/* Satellite imagery maps powered by Leaflet + Esri World Imagery. */
+.world-map.leaflet-container{
+  display:block;
+  width:100%;
+  height:320px;
+  min-height:320px;
+  background:#0a1a24;
+  overflow:hidden;
+  cursor:grab;
+  touch-action:pan-x pan-y;
+}
+.world-map.leaflet-container:active{cursor:grabbing}
+.world-map .leaflet-tile-pane{filter:none}
+.world-map .leaflet-control-attribution,
+.military-map .leaflet-control-attribution{
+  color:#e6edf0;
+  background:rgba(5,17,27,.82);
+  font-size:8px;
+  line-height:1.45;
+}
+.world-map .leaflet-control-attribution a,
+.military-map .leaflet-control-attribution a{color:#c6dcea}
+.world-map .leaflet-control-zoom a{
+  color:#22394d;
+  background:rgba(255,255,255,.94);
+}
+.military-map .leaflet-tile-pane{filter:saturate(1.02) brightness(.96) contrast(1.04)}
+@media(max-width:680px){
+  .world-map.leaflet-container{height:280px;min-height:280px}
+  .world-map .leaflet-control-attribution,
+  .military-map .leaflet-control-attribution{font-size:7px}
+}
