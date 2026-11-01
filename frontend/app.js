@@ -805,7 +805,9 @@
             }
             return best?mollweidePoint(best,width,height):null;
           };
-          const c1=coast(homeFeature)||home&&[home.x,home.y],c2=coast(enemyFeature)||enemy&&[enemy.x,enemy.y];
+          const front=war.front_state||{};
+          const c1=front.homeCoastAnchor?mollweidePoint([front.homeCoastAnchor.lon,front.homeCoastAnchor.lat],width,height):coast(homeFeature)||home&&[home.x,home.y];
+          const c2=front.enemyCoastAnchor?mollweidePoint([front.enemyCoastAnchor.lon,front.enemyCoastAnchor.lat],width,height):coast(enemyFeature)||enemy&&[enemy.x,enemy.y];
           if(c1&&c2){
             const bend=(c1[0]+c2[0])/2,arcY=Math.min(c1[1],c2[1])-Math.min(95,Math.abs(c2[0]-c1[0])*.12);
             layer.append(svgNode("path",{d:"M"+c1[0]+","+c1[1]+" Q"+bend+","+arcY+" "+c2[0]+","+c2[1],class:"military-maritime-route"}));
