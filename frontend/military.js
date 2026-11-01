@@ -64,7 +64,6 @@
       maxZoom:19,opacity:.95,attribution:"Place names and boundaries © Esri"
     });
     satellite.addTo(map);labels.addTo(map);
-    L.control.layers({"Спутник":satellite,"Улицы":streets,"Топографическая":topo},{"Подписи и названия":labels},{collapsed:false,position:"topright"}).addTo(map);
     map.attributionControl.setPrefix('<a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a>');
     militaryBoundaryLayer=L.layerGroup().addTo(map);
     militaryFrontLayer=L.layerGroup().addTo(map);
@@ -74,6 +73,14 @@
     map.on("click",handleMilitaryMapClick);
     map.on("baselayerchange",event=>setText("militaryMapLayerStatus","Подложка: "+event.name));
     militaryMapInstance=map;
+    const overlays={
+      "Подписи и названия":labels,
+      "Границы государств":militaryBoundaryLayer,
+      "Линия / направление ТВД":militaryFrontLayer,
+      "Воинские подразделения":militaryUnitLayer,
+      "Патрульные маршруты":militaryPatrolLayer
+    };
+    L.control.layers({"Спутник":satellite,"Улицы":streets,"Топографическая":topo},overlays,{collapsed:false,position:"topright"}).addTo(map);
     return map;
   }
   function branchInfo(branch){
@@ -87,7 +94,7 @@
     const units=currentPayload&&Array.isArray(currentPayload.units)?currentPayload.units:[];
     return unitById(selectedMilitaryUnitId)||units[0]||null;
   }
-  function selectMilitaryUnit(id){
+  function selectMilitaryUnit(id,focusMap=false){
     selectedMilitaryUnitId=String(id||"");
     const select=$("militaryMapUnit");
     if(select)select.value=selectedMilitaryUnitId;
@@ -105,7 +112,7 @@
       button.classList.toggle("is-selected",active);
       button.setAttribute("aria-pressed",String(active));
     });
-    if(militaryMapInstance&&unit&&unit.location_lat!=null&&unit.location_lon!=null){
+    if(focusMap&&militaryMapInstance&&unit&&unit.location_lat!=null&&unit.location_lon!=null){
       militaryMapInstance.panTo([Number(unit.location_lat),Number(unit.location_lon)],{animate:true});
       const marker=militaryUnitMarkers.get(String(unit.id));if(marker)marker.openPopup();
     }
@@ -196,7 +203,7 @@
           popup.append(node("span","",branch.label+" · "+number(unit.active_personnel||0,0)+" чел."));
           popup.append(node("span","","Готовность: "+number(unit.readiness||0,0)+"% · Снабжение: "+number(unit.supply||0,0)+"%"));
           const choose=node("button","military-marker-select","Выбрать соединение");choose.type="button";choose.addEventListener("click",()=>selectMilitaryUnit(unit.id));popup.append(choose);
-          marker.bindPopup(popup);marker.on("click",()=>selectMilitaryUnit(unit.id));marker.addTo(militaryUnitLayer);militaryUnitMarkers.set(String(unit.id),marker);
+          marker.bindPopup(popup);marker.on("click",()=>selectMilitaryUnit(unit.id,false));marker.addTo(militaryUnitLayer);militaryUnitMarkers.set(String(unit.id),marker);
         });
         setText("militaryMapMissingCoordinates",noCoordinates.length?"Без координат базирования: "+noCoordinates.length+" подразделений":"Координаты всех соединений указаны");
         (payload.patrols||[]).filter(item=>item.status==="active").forEach(patrol=>{
@@ -455,7 +462,7 @@
     $("militaryZoomIn").addEventListener("click",()=>{if(militaryMapInstance)militaryMapInstance.zoomIn();});
     $("militaryZoomOut").addEventListener("click",()=>{if(militaryMapInstance)militaryMapInstance.zoomOut();});
     $("militaryZoomReset").addEventListener("click",resetMilitaryMapView);
-    $("militaryMapUnit").addEventListener("change",()=>selectMilitaryUnit($("militaryMapUnit").value));
+    $("militaryMapUnit").addEventListener("change",()=>selectMilitaryUnit($("militaryMapUnit").value,true));
     $("militaryMapMode").addEventListener("change",()=>{
       militaryMapState.mode=$("militaryMapMode").value;
       militaryMapState.draft=[];pendingMilitaryTarget=null;
@@ -492,7 +499,7 @@
     $("militaryUnits").addEventListener("click",event=>{
       const button=event.target.closest("[data-select-military-unit]");
       if(!button)return;
-      selectMilitaryUnit(button.dataset.selectMilitaryUnit);
+      selectMilitaryUnit(button.dataset.selectMilitaryUnit,true);
       setText("militaryMapDraftStatus","Выбрано соединение: "+(selectedUnit()?.unit_type||"подразделение")+". Перейдите в режим приказа, чтобы указать цель.");
     });
     $("startMilitaryWar").addEventListener("click",()=>{
