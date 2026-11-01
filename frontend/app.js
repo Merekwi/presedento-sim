@@ -374,10 +374,14 @@
     const normalized=stamp&&/(Z|[+-]\d{2}:\d{2})$/.test(stamp)?stamp:(stamp?stamp+"Z":"");
     let parsed=normalized?Date.parse(normalized):NaN;
     if(!Number.isFinite(parsed))parsed=Date.parse(String(game&&game.game_date||"")+"T08:00:00Z");
-    clockBaseMs=Number.isFinite(parsed)?parsed:Date.now();
-    clockSyncedAt=Date.now();
     const speed=Number(game&&game.time_speed||1);
     clockSpeed=[1,2,4,6,12,16].includes(speed)?speed:1;
+    const wallRaw=game&&game.last_simulated_at;
+    const wallStamp=wallRaw instanceof Date?wallRaw.toISOString():String(wallRaw||"");
+    const wallParsed=wallStamp?Date.parse(wallStamp):NaN;
+    const elapsedMs=Number.isFinite(wallParsed)?Math.max(0,Math.min(86400000,Date.now()-wallParsed)):0;
+    clockBaseMs=(Number.isFinite(parsed)?parsed:Date.now())+elapsedMs*clockSpeed*60;
+    clockSyncedAt=Date.now();
     renderGameClock();
   }
   function renderGameClock(){
