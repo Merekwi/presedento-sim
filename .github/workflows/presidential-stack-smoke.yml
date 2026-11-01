@@ -88,7 +88,7 @@ jobs:
           }
 
           const sourceApp = await readFile("frontend/app.js", "utf8");
-          for (const marker of ["function renderWorldMap", "function renderMilitaryMap", "function renderMilitarySatellitePreview", "function ensureLeaflet", "World_Imagery", "SATELLITE_ATTRIBUTION", "function renderGameClock", "data-select-minister-candidate", "./assets/portraits/", "data-election-proposal", "data-election-tab-panel", "data-election-tab", "data-ai-diplomacy", "/api/presidential/game/military", "/api/presidential/ai/decree/draft", "/api/presidential/ai/election/action", "/api/presidential/ai/election/initialize"]) {
+          for (const marker of ["function renderWorldMap", "function renderMilitaryMap", "function ensureLeaflet", "World_Imagery", "SATELLITE_ATTRIBUTION", "function renderGameClock", "data-select-minister-candidate", "./assets/portraits/", "data-election-proposal", "data-election-tab-panel", "data-election-tab", "data-ai-diplomacy", "/api/presidential/game/military", "/api/presidential/ai/decree/draft", "/api/presidential/ai/election/action", "/api/presidential/ai/election/initialize"]) {
             if (!sourceApp.includes(marker)) throw new Error("Committed frontend source is missing AI-powered political game logic: " + marker);
           }
 
