@@ -1078,14 +1078,30 @@
       }
       const branchNames={land:"ПЕХОТА",guard:"ГВ",air:"АВИАЦИЯ",naval:"ФЛОТ"};
       const units=Array.isArray(payload.units)?payload.units:[];
+      const positionGroups=new Map();
+      units.forEach(unit=>{
+        const lat=unit.location_lat==null?NaN:Number(unit.location_lat),lon=unit.location_lon==null?NaN:Number(unit.location_lon);
+        if(!Number.isFinite(lat)||!Number.isFinite(lon))return;
+        const key=lat.toFixed(4)+","+lon.toFixed(4);
+        if(!positionGroups.has(key))positionGroups.set(key,[]);
+        positionGroups.get(key).push(unit);
+      });
       units.forEach(unit=>{
         const branch=String(unit.unit_branch||"land").toLowerCase();
         const lat=unit.location_lat==null?NaN:Number(unit.location_lat),lon=unit.location_lon==null?NaN:Number(unit.location_lon);
         const position=Number.isFinite(lat)&&Number.isFinite(lon)?[lat,lon]:homeAnchor;
         if(!position)return;
+        const group=positionGroups.get(Number.isFinite(lat)&&Number.isFinite(lon)?lat.toFixed(4)+","+lon.toFixed(4):"")||[unit];
+        const index=group.indexOf(unit),angle=(Math.PI*2*index/Math.max(1,group.length))-(Math.PI/2);
+        const radius=group.length>1?0.12+Math.floor(index/8)*0.05:0;
+        const mapPosition=radius?[
+          clamp(position[0]+Math.sin(angle)*radius,-85,85),
+          position[1]+Math.cos(angle)*radius/Math.max(.25,Math.cos(position[0]*Math.PI/180))
+        ]:position;
+        if(mapPosition[1]>180)mapPosition[1]-=360;if(mapPosition[1]< -180)mapPosition[1]+=360;
         const amount=branch==="air"?number(unit.quantity||0,0)+" борт.":branch==="naval"?number(unit.quantity||0,0)+" ед.":number(unit.active_personnel||0,0)+" чел.";
         const caption=(branchNames[branch]||"ЧАСТЬ")+" · "+amount;
-        L.marker(position,{icon:militaryLeafletUnitIcon(branch,"friendly",caption),keyboard:true,title:unit.unit_type||"Подразделение"})
+        L.marker(mapPosition,{icon:militaryLeafletUnitIcon(branch,"friendly",caption),keyboard:true,title:unit.unit_type||"Подразделение",alt:unit.unit_type||"Подразделение"})
           .bindPopup(militaryLeafletPopup(unit.unit_type,caption+" · готовность "+number(unit.readiness||0,0)+"% · снабжение "+number(unit.supply||0,0)+"%",unit))
           .addTo(militaryLeafletOverlay);
       });
