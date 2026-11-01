@@ -295,7 +295,7 @@
     try{
       await window.PRESIDENTIAL_AUTH.api("/api/presidential/game/military",{method:"POST",body:JSON.stringify(payload)});
       if(payload&&payload.action==="issue_order"){pendingMilitaryTarget=null;setText("militaryTargetPreview","Приказ передан. Ожидается подтверждение штаба.");}
-      await refreshGame(true);if(message)toast(message);
+      await refreshGame(true);if(message)toast(payload&&payload.action==="issue_order"?"Приказ поставлен в очередь. Для его исполнения нажмите «Исполнить подготовленные приказы».":message);
     }catch(error){toast("Действие не выполнено: "+(error.message||"ошибка сервера"));}
     finally{
       busy=false;document.querySelectorAll(".military-page button").forEach(item=>{item.disabled=false;});
@@ -416,7 +416,7 @@
     const lastAuto=report.autoTickAt?new Date(report.autoTickAt).toLocaleString("ru-RU",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}):"ожидается первый цикл";
     setText("militaryWarReport",war.command_mode==="ai"
       ?"АВТОНОМНЫЙ ШТАБ · последний цикл: "+lastAuto+". "+(report.aiReason||front.lastAiReason||"Штаб оценивает силы и снабжение.")+" Потери за цикл: "+number(report.friendlyLosses||0,0)+" / "+number(report.enemyLosses||0,0)+". Воздушный контроль: "+number(domains.air||50,1)+"%; морской: "+number(domains.sea||50,1)+"%."
-      :"РУЧНОЕ КОМАНДОВАНИЕ · автоматические операции приостановлены. Отдавайте приказы на карте.");
+      :"РУЧНОЕ КОМАНДОВАНИЕ · автоматический штаб остановлен. После передачи приказа нажмите «Исполнить подготовленные приказы».");
     $("advanceMilitaryWar").classList.toggle("hidden",war.command_mode==="ai");
     const own=report.friendlyDomains||front.friendlyDomains||{},rival=report.enemyDomains||front.estimatedEnemyDomains||{};
     const domain=$("militaryDomainMetrics");domain.replaceChildren();
@@ -516,8 +516,8 @@
     });
     $("advanceMilitaryWar").addEventListener("click",()=>{
       const war=activeWar();if(!war)return;
-      if(!confirm("Выполнить следующий оперативный ход по вашим приказам?"))return;
-      void runMilitaryAction({action:"advance_war_turn",warId:war.id},$("advanceMilitaryWar"),"Оперативный ход завершён. Сводка обновлена.");
+      if(!confirm("Передать все подготовленные приказы в исполнение? Результат операции изменит положение войск, состояние фронта и потери."))return;
+      void runMilitaryAction({action:"advance_war_turn",warId:war.id},$("advanceMilitaryWar"),"Приказы исполнены. Оперативная сводка обновлена.");
     });
     $("ceaseMilitaryWar").addEventListener("click",()=>{
       const war=activeWar();if(!war)return;
