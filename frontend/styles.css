@@ -1318,3 +1318,25 @@ button:disabled{opacity:.48;cursor:not-allowed}
   .military-theatre-panel>.panel-heading h3{font-size:19px}
   .military-theatre-panel .military-map{min-height:350px}
 }
+
+
+/* Explicit rejection action for unpublished presidential decree drafts. */
+.decree-preview-actions{align-items:center;flex-wrap:wrap}
+.decree-discard-button{
+  border:1px solid #e2c9c5;
+  background:#fff8f7;
+  color:#a14e48;
+  border-radius:8px;
+  padding:10px 13px;
+  font-size:10px;
+  font-weight:800;
+  cursor:pointer;
+}
+.decree-discard-button:hover{background:#fcecea;border-color:#d9a9a3}
+.decree-discard-button:disabled{opacity:.5;cursor:not-allowed}
+#order[readonly]{background:#f5f7f8;color:#526375;border-color:#dce4e9}
+@media(max-width:650px){
+  .decree-preview-actions{display:grid;grid-template-columns:1fr 1fr}
+  .decree-preview-actions button{min-width:0}
+  #discardDecree,#publishDecree{grid-column:1/-1}
+}
