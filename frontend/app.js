@@ -171,6 +171,9 @@
         toast(coup?(coup.success?"Попытка переворота удалась. Последствия отражены в истории действий.":"Попытка переворота провалилась. Последствия отражены в истории действий."):"Президентское действие обработано и внесено в историю.");
         return;
       }
+      if(item.kind==="decree-discard"){
+        toast("Черновик отклонён и удалён. Указ не опубликован.");return;
+      }
       if(item.kind==="decree-publish"){
         draftId=null;try{localStorage.removeItem(savedDecreeDraftKey());}catch(_){}
         if($("decreeDialog")&&$("decreeDialog").open)$("decreeDialog").close();
@@ -1179,13 +1182,24 @@
     $("decreePreview").dataset.archived=archived?"true":"false";
     const form=$("decreeForm");
     const orderLabel=form.querySelector('label[for="order"]');
-    if(orderLabel)orderLabel.classList.toggle("hidden",!!archived);
-    $("order").classList.toggle("hidden",!!archived);
+    const orderInput=$("order");
+    if(orderInput){
+      orderInput.value=String(decree.original_order||"");
+      orderInput.readOnly=!archived;
+      orderInput.classList.toggle("hidden",!!archived);
+    }
+    if(orderLabel){
+      orderLabel.classList.toggle("hidden",!!archived);
+      orderLabel.textContent=archived?"Исходная инициатива президента":"Исходная инициатива президента · основание проекта";
+    }
     const title=form.querySelector("h3");
-    if(title)title.textContent=archived?"Архив опубликованных нормативных актов":"Подготовить президентский указ";
+    if(title)title.textContent=archived?"Архив опубликованных нормативных актов":"Проверка проекта президентского указа";
     const intro=form.querySelector("p");
-    if(intro)intro.textContent=archived?"Официальная копия ранее опубликованного и зарегистрированного указа.":"Опишите инициативу. Сервер подготовит проект указа с финансовыми условиями и сроком исполнения.";
+    if(intro)intro.textContent=archived
+      ?"Официальная копия ранее опубликованного и зарегистрированного указа."
+      :"Сверьте документ с исходной инициативой. Проект не вступит в силу, пока вы отдельно не нажмёте «Опубликовать указ».";
     $("publishDecree").classList.toggle("hidden",!!archived);
+    $("discardDecree").classList.toggle("hidden",!!archived);
   }
   function renderDecrees(items){
     const root=$("decreeHistory");if(!root)return;root.replaceChildren();decreeCache.clear();
@@ -2017,23 +2031,62 @@
   });
   $("openDecree").addEventListener("click",()=>{
     const savedDraft=getSavedDecreeDraft();
-    if(savedDraft&&!forceNewDecreeForProgram){draftId=savedDraft.id;fillOfficialDocument(savedDraft,false);$("decreeDialog").showModal();return;}
+    if(savedDraft&&!forceNewDecreeForProgram){
+      draftId=savedDraft.id;
+      fillOfficialDocument(savedDraft,false);
+      $("decreeDialog").showModal();return;
+    }
     forceNewDecreeForProgram=false;
+    const storedInput=(()=>{try{return localStorage.getItem(localDraftKey("order"))||"";}catch(_){return "";}})();
     $("decreePreview").classList.add("hidden");$("generate").classList.remove("hidden");
     $("decreePreview").dataset.archived="false";
     $("decreeForm").reset();bindLocalDraft($("order"),"order");
+    $("order").value=storedInput;
+    $("order").readOnly=false;
     const label=$("decreeForm").querySelector('label[for="order"]');
-    if(label)label.classList.remove("hidden");
+    if(label){label.classList.remove("hidden");label.textContent="Содержание инициативы президента";}
     $("order").classList.remove("hidden");
     const title=$("decreeForm").querySelector("h3");
     if(title)title.textContent="Подготовить президентский указ";
     const intro=$("decreeForm").querySelector("p");
-    if(intro)intro.textContent="Опишите инициативу. Сервер подготовит проект указа с финансовыми условиями и сроком исполнения.";
-    $("publishDecree").classList.remove("hidden");
+    if(intro)intro.textContent="Опишите инициативу. Проект будет подготовлен строго по указанной теме и не опубликуется без вашего подтверждения.";
+    $("publishDecree").classList.add("hidden");
+    $("discardDecree").classList.add("hidden");
     $("decreeDialog").showModal();
   });
   $("closeDecree").addEventListener("click",()=>$("decreeDialog").close());
   $("closeDecreeTop").addEventListener("click",()=>$("decreeDialog").close());
+  $("discardDecree").addEventListener("click",()=>{
+    if(!draftId||busy)return;
+    if(!confirm("Отклонить этот проект? Он будет удалён из черновиков и никогда не станет действующим указом."))return;
+    const rejectedId=draftId;
+    const originalOrder=$("order").value||"";
+    try{
+      enqueueBackgroundTask({
+        kind:"decree-discard",route:"/api/presidential/ai/decree/discard",
+        payload:{decreeId:rejectedId}
+      });
+    }catch(error){toast(error.message);return;}
+    draftId=null;
+    try{localStorage.removeItem(savedDecreeDraftKey());}catch(_){}
+    $("decreePreview").classList.add("hidden");
+    $("generate").classList.remove("hidden");
+    $("decreePreview").dataset.archived="false";
+    const form=$("decreeForm");
+    const label=form.querySelector('label[for="order"]');
+    if(label){label.classList.remove("hidden");label.textContent="Содержание инициативы президента";}
+    $("order").classList.remove("hidden");
+    $("order").readOnly=false;
+    $("order").value=originalOrder;
+    const title=form.querySelector("h3");
+    if(title)title.textContent="Подготовить президентский указ";
+    const intro=form.querySelector("p");
+    if(intro)intro.textContent="Предыдущий проект отклонён. Измените исходную инициативу или сформулируйте новую тему.";
+    $("publishDecree").classList.add("hidden");
+    $("discardDecree").classList.add("hidden");
+    try{if(originalOrder)localStorage.setItem(localDraftKey("order"),originalOrder);}catch(_){}
+    toast("Проект отклонён и не опубликован. Исходная инициатива сохранена для новой попытки.");
+  });
   bindLocalDraft($("order"),"order");
   $("decreeForm").addEventListener("submit",event=>{
     event.preventDefault();const order=$("order").value.trim();
